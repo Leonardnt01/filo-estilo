@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Filo Estilo
 
-## Getting Started
+Plataforma web de reservas para barberias.  
+Permite mostrar servicios, horarios disponibles y facilitar la reserva de citas de forma rapida.
 
-First, run the development server:
+![Next.js](https://img.shields.io/badge/Next.js-16.2.4-000000?logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19.2.4-61DAFB?logo=react&logoColor=000)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-06B6D4?logo=tailwindcss&logoColor=white)
+![Status](https://img.shields.io/badge/Status-En%20desarrollo-F59E0B)
+
+## Demo local
+
+```bash
+http://localhost:3000
+```
+
+## Tecnologias
+
+- Next.js 16 (App Router)
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- ESLint 9
+
+## Estructura del proyecto
+
+```text
+filo-estilo/
+├─ public/                 # Recursos estaticos (imagenes, iconos, etc.)
+├─ src/
+│  └─ app/
+│     ├─ globals.css       # Estilos globales
+│     ├─ layout.tsx        # Layout raiz y metadata
+│     └─ page.tsx          # Landing principal
+├─ package.json
+└─ README.md
+```
+
+## Instalacion y ejecucion
+
+1. Clona el repositorio:
+
+```bash
+git clone <TU_URL_DEL_REPO>
+cd filo-estilo
+```
+
+2. Instala dependencias:
+
+```bash
+npm install
+```
+
+3. Ejecuta en desarrollo:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Build de produccion:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+npm run start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts disponibles
 
-## Learn More
+- `npm run dev`: Levanta el servidor en modo desarrollo
+- `npm run build`: Genera build optimizado de produccion
+- `npm run start`: Sirve la build de produccion
+- `npm run lint`: Ejecuta validaciones con ESLint
 
-To learn more about Next.js, take a look at the following resources:
+## Roadmap funcional
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [ ] Landing comercial de barberia
+- [ ] Catalogo de servicios (corte, barba, premium, etc.)
+- [ ] Agenda por barbero con franjas horarias
+- [ ] Reserva en linea con confirmacion
+- [ ] Panel para administracion de citas
+- [ ] Recordatorios por WhatsApp o correo
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Objetivo del proyecto
 
-## Deploy on Vercel
+Reducir la friccion al reservar citas en barberias, mejorando la experiencia del cliente y el control operativo del negocio.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Autor
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Desarrollado por **Filo Estilo**.
+
+---
+
+Si este proyecto te resulta util, deja una estrella en GitHub.
