@@ -42,7 +42,7 @@ filo-estilo/
 1. Clona el repositorio:
 
 ```bash
-git clone <TU_URL_DEL_REPO>
+git clone <https://github.com/Leonardnt01/Filo-Estilo.git>
 cd filo-estilo
 ```
 
