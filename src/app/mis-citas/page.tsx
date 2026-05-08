@@ -2,8 +2,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { useToast } from "@/components/toast";
 
 type MyAppointment = {
   id: string;
@@ -24,6 +26,8 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
 };
 
 export default function MyAppointmentsPage() {
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<MyAppointment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [creatingDemo, setCreatingDemo] = useState(false);
@@ -36,6 +40,12 @@ export default function MyAppointmentsPage() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  useEffect(() => {
+    if (searchParams.get("created") === "1") {
+      toast("Tu cita fue registrada y ya aparece en tu historial.");
+    }
+  }, [searchParams, toast]);
 
   async function createDemoAppointments() {
     setCreatingDemo(true);

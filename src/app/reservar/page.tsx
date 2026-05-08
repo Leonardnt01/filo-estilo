@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { useToast } from "@/components/toast";
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number };
 type Barber = { id: string; full_name: string; specialty: string | null };
@@ -17,6 +20,8 @@ const STEPS = [
 ];
 
 export default function ReservarPage() {
+  const router = useRouter();
+  const { toast } = useToast();
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -28,9 +33,12 @@ export default function ReservarPage() {
   const [notes, setNotes] = useState("");
 
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
+
+  /* Auth state */
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   /* Current step indicator */
   const currentStep = useMemo(() => {
@@ -62,12 +70,20 @@ export default function ReservarPage() {
       if (json.services?.[0]?.id) setServiceId(json.services[0].id);
       if (json.barbers?.[0]?.id) setBarberId(json.barbers[0].id);
     }
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/auth/me");
+        const json = await res.json().catch(() => ({}));
+        setIsAuthenticated(!!json.authenticated);
+        if (!json.authenticated) setShowAuthModal(true);
+      } catch { setIsAuthenticated(false); setShowAuthModal(true); }
+    }
     void loadCatalog();
+    void checkAuth();
   }, []);
 
   async function loadSlots() {
     setError(null);
-    setSuccess(null);
     setSlotStart("");
     if (!serviceId || !barberId || !date) { setSlots([]); return; }
     setLoadingSlots(true);
@@ -87,10 +103,11 @@ export default function ReservarPage() {
 
   async function book(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!slotStart) { setError("Debes seleccionar un horario"); return; }
+    /* If not authenticated, show modal */
+    if (!isAuthenticated) { setShowAuthModal(true); return; }
+    if (!slotStart) { toast("Debes seleccionar un horario", "error"); return; }
     setLoading(true);
     setError(null);
-    setSuccess(null);
     const res = await fetch("/api/my/appointments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -104,10 +121,9 @@ export default function ReservarPage() {
     });
     const json = await res.json().catch(() => ({}));
     setLoading(false);
-    if (!res.ok) { setError(json.error ?? "No se pudo crear la cita"); return; }
-    setSuccess("¡Cita reservada correctamente!");
-    setNotes("");
-    await loadSlots();
+    if (!res.ok) { toast(json.error ?? "No se pudo crear la cita", "error"); return; }
+    toast("¡Cita reservada correctamente!");
+    router.push("/mis-citas?created=1");
   }
 
   return (
@@ -345,14 +361,7 @@ export default function ReservarPage() {
                   {error}
                 </div>
               )}
-              {success && (
-                <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-500/10 border border-green-500/20 p-3 text-sm text-green-400">
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {success}
-                </div>
-              )}
+
 
               <button
                 type="submit"
@@ -376,6 +385,47 @@ export default function ReservarPage() {
         </div>
       </main>
       <Footer />
+
+      {/* Auth modal */}
+      {showAuthModal && !isAuthenticated && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAuthModal(false)} />
+          <div className="relative w-full max-w-md rounded-2xl p-8 animate-fade-in shadow-2xl text-center"
+            style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)" }}>
+
+            {/* Icon */}
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl mb-5"
+              style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+              <svg className="h-8 w-8" style={{ color: "var(--accent)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+
+            <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-playfair), serif", color: "var(--text-primary)" }}>
+              Inicia sesión para <span style={{ color: "var(--accent)" }}>reservar</span>
+            </h3>
+            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Necesitas una cuenta para agendar tu cita. Es rápido y fácil.
+            </p>
+
+            <div className="mt-6 space-y-3">
+              <Link href="/login" className="btn-gold w-full !py-3">
+                Iniciar Sesión
+              </Link>
+              <Link href="/register" className="btn-outline w-full !py-3">
+                Crear Cuenta
+              </Link>
+            </div>
+
+            <button onClick={() => setShowAuthModal(false)} className="mt-4 text-sm transition-colors"
+              style={{ color: "var(--text-muted)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}>
+              Seguir explorando
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

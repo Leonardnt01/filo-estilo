@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/toast";
 
 type Appointment = {
   id: string; customer_name: string | null; customer_phone: string | null;
@@ -19,6 +20,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function AdminAppointmentsPage() {
+  const { toast } = useToast();
   const [items, setItems] = useState<Appointment[]>([]);
   const [barbers, setBarbers] = useState<OptionItem[]>([]);
   const [services, setServices] = useState<OptionItem[]>([]);
@@ -28,8 +30,6 @@ export default function AdminAppointmentsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [limit, setLimit] = useState("20");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -51,17 +51,16 @@ export default function AdminAppointmentsPage() {
     if (limit) params.set("limit", limit);
     const res = await fetch(`/api/admin/appointments?${params.toString()}`);
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) { setError(json.error ?? "No se pudo cargar citas"); return; }
+    if (!res.ok) { toast(json.error ?? "No se pudo cargar citas", "error"); return; }
     setItems(json.items ?? []);
   }
 
   useEffect(() => { void loadOptions(); void load(); }, []);
 
-  async function applyFilters() { setError(null); setSuccess(null); await load(); }
+  async function applyFilters() { await load(); }
   async function clearFilters() {
     setStatusFilter(""); setBarberFilter(""); setServiceFilter("");
     setDateFrom(""); setDateTo(""); setLimit("20");
-    setError(null); setSuccess(null);
     setTimeout(() => { void load(); }, 0);
   }
 
@@ -69,13 +68,12 @@ export default function AdminAppointmentsPage() {
     setSavingId(id);
     const res = await fetch(`/api/admin/appointments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     setSavingId(null);
-    if (!res.ok) { const json = await res.json().catch(() => ({})); setError(json.error ?? "No se pudo cambiar estado"); return; }
-    setSuccess("Estado actualizado"); await load();
+    if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo cambiar estado", "error"); return; }
+    toast("Estado actualizado"); await load();
   }
 
   return (
     <section className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-2xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
@@ -89,7 +87,6 @@ export default function AdminAppointmentsPage() {
         </button>
       </div>
 
-      {/* Filters */}
       {showFilters && (
         <div className="admin-card space-y-4 animate-fade-in">
           <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Filtros de búsqueda</h3>
@@ -122,21 +119,6 @@ export default function AdminAppointmentsPage() {
         </div>
       )}
 
-      {/* Alerts */}
-      {error && (
-        <div className="flex items-center justify-between rounded-lg p-3 text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-2 opacity-60 hover:opacity-100">✕</button>
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center justify-between rounded-lg p-3 text-sm" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", color: "#22c55e" }}>
-          <span>{success}</span>
-          <button onClick={() => setSuccess(null)} className="ml-2 opacity-60 hover:opacity-100">✕</button>
-        </div>
-      )}
-
-      {/* Appointments as cards on mobile, table on desktop */}
       {items.length === 0 ? (
         <div className="admin-card p-12 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl mb-4" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>

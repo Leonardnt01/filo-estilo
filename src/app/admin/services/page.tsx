@@ -2,24 +2,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/toast";
+import { useConfirm } from "@/components/confirm-modal";
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number; is_active: boolean };
 
 export default function AdminServicesPage() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [items, setItems] = useState<Service[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", price: "", duration_minutes: "" });
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState("");
-  const [success, setSuccess] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   async function load() {
-    setLoading(true); setError(null);
+    setLoading(true);
     const res = await fetch("/api/admin/services");
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) { setError(json.error ?? "No se pudo cargar servicios"); setLoading(false); return; }
+    if (!res.ok) { toast(json.error ?? "No se pudo cargar servicios", "error"); setLoading(false); return; }
     setItems(json.items ?? []); setLoading(false);
   }
 
@@ -31,37 +33,38 @@ export default function AdminServicesPage() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: form.name, description: form.description || null, price: Number(form.price), duration_minutes: Number(form.duration_minutes) }),
     });
-    if (!res.ok) { const json = await res.json().catch(() => ({})); setError(json.error ?? "No se pudo crear servicio"); return; }
-    setForm({ name: "", description: "", price: "", duration_minutes: "" }); setSuccess("Servicio creado correctamente"); setShowForm(false); await load();
+    if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo crear servicio", "error"); return; }
+    setForm({ name: "", description: "", price: "", duration_minutes: "" }); toast("Servicio creado correctamente"); setShowForm(false); await load();
   }
 
   async function updatePrice(id: string, nextPrice: number) {
     const res = await fetch(`/api/admin/services/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ price: Number(nextPrice) }) });
-    if (!res.ok) { const json = await res.json().catch(() => ({})); setError(json.error ?? "No se pudo actualizar precio"); return; }
-    setEditingPriceId(null); setEditingPriceValue(""); setSuccess("Precio actualizado"); await load();
+    if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo actualizar precio", "error"); return; }
+    setEditingPriceId(null); setEditingPriceValue(""); toast("Precio actualizado"); await load();
   }
 
   async function toggleActive(item: Service) {
-    const next = !item.is_active;
-    const action = next ? "activar" : "desactivar";
-    if (!window.confirm(`¿Seguro que deseas ${action} este servicio?`)) return;
+    const nextState = !item.is_active;
+    const ok = await confirm({
+      title: nextState ? "Activar servicio" : "Desactivar servicio",
+      message: nextState
+        ? "¿Deseas volver a activar este servicio para que se pueda reservar?"
+        : "¿Seguro que deseas desactivar este servicio? Los clientes no podrán reservarlo.",
+      confirmText: nextState ? "Activar" : "Desactivar",
+      variant: nextState ? "default" : "danger",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin/services/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_active: next }),
+      body: JSON.stringify({ is_active: nextState }),
     });
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}));
-      setError(json.error ?? `No se pudo ${action} servicio`);
-      return;
-    }
-    setSuccess(`Servicio ${next ? "activado" : "desactivado"}`);
-    await load();
+    if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo actualizar estado", "error"); return; }
+    toast(nextState ? "Servicio activado" : "Servicio desactivado"); await load();
   }
 
   return (
     <section className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
@@ -75,7 +78,6 @@ export default function AdminServicesPage() {
         </button>
       </div>
 
-      {/* Create form */}
       {showForm && (
         <form onSubmit={createService} className="admin-card space-y-4 animate-fade-in">
           <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Crear nuevo servicio</h3>
@@ -92,10 +94,8 @@ export default function AdminServicesPage() {
         </form>
       )}
 
-      <Alerts error={error} success={success} onClear={() => { setError(null); setSuccess(null); }} />
       {loading && <p className="text-sm" style={{ color: "var(--text-muted)" }}>Cargando...</p>}
 
-      {/* Table */}
       <div className="admin-card !p-0 overflow-auto">
         <table className="admin-table">
           <thead>
@@ -156,25 +156,5 @@ export default function AdminServicesPage() {
         </table>
       </div>
     </section>
-  );
-}
-
-function Alerts({ error, success, onClear }: { error: string | null; success: string | null; onClear: () => void }) {
-  if (!error && !success) return null;
-  return (
-    <div className="space-y-2">
-      {error && (
-        <div className="flex items-center justify-between rounded-lg p-3 text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
-          <span>{error}</span>
-          <button onClick={onClear} className="ml-2 opacity-60 hover:opacity-100">✕</button>
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center justify-between rounded-lg p-3 text-sm" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", color: "#22c55e" }}>
-          <span>{success}</span>
-          <button onClick={onClear} className="ml-2 opacity-60 hover:opacity-100">✕</button>
-        </div>
-      )}
-    </div>
   );
 }

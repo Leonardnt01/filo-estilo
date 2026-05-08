@@ -2,6 +2,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/toast";
+import { useConfirm } from "@/components/confirm-modal";
 
 type Barber = { id: string; full_name: string };
 type BusinessHour = { id: string; barber_id: string; day_of_week: number; start_time: string; end_time: string; is_active: boolean };
@@ -10,10 +12,10 @@ const DAY_LABELS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viern
 const DAY_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 export default function AdminBusinessHoursPage() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [items, setItems] = useState<BusinessHour[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState({ barber_id: "", day_of_week: "1", start_time: "09:00", end_time: "18:00" });
   const [showForm, setShowForm] = useState(false);
 
@@ -21,8 +23,8 @@ export default function AdminBusinessHoursPage() {
     const [bRes, hRes] = await Promise.all([fetch("/api/admin/barbers?only_active=true"), fetch("/api/admin/business-hours")]);
     const bJson = await bRes.json().catch(() => ({}));
     const hJson = await hRes.json().catch(() => ({}));
-    if (!bRes.ok) { setError(bJson.error ?? "Error barberos"); return; }
-    if (!hRes.ok) { setError(hJson.error ?? "Error horarios"); return; }
+    if (!bRes.ok) { toast(bJson.error ?? "Error barberos", "error"); return; }
+    if (!hRes.ok) { toast(hJson.error ?? "Error horarios", "error"); return; }
     const nextBarbers = bJson.items ?? [];
     setBarbers(nextBarbers); setItems(hJson.items ?? []);
     if (!form.barber_id && nextBarbers[0]?.id) setForm((s) => ({ ...s, barber_id: nextBarbers[0].id }));
@@ -36,26 +38,28 @@ export default function AdminBusinessHoursPage() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ barber_id: form.barber_id, day_of_week: Number(form.day_of_week), start_time: form.start_time, end_time: form.end_time }),
     });
-    if (!res.ok) { const json = await res.json().catch(() => ({})); setError(json.error ?? "No se pudo crear horario"); return; }
-    setSuccess("Horario creado correctamente"); setShowForm(false); await load();
+    if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo crear horario", "error"); return; }
+    toast("Horario creado correctamente"); setShowForm(false); await load();
   }
 
   async function removeHour(id: string) {
-    if (!window.confirm("¿Eliminar este horario?")) return;
+    const ok = await confirm({
+      title: "Eliminar horario",
+      message: "¿Seguro que deseas eliminar este horario de atención?",
+      confirmText: "Eliminar",
+      variant: "danger",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin/business-hours/${id}`, { method: "DELETE" });
-    if (!res.ok) { const json = await res.json().catch(() => ({})); setError(json.error ?? "No se pudo eliminar"); return; }
-    setSuccess("Horario eliminado"); await load();
+    if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo eliminar", "error"); return; }
+    toast("Horario eliminado"); await load();
   }
-
-  function barberName(id: string) { return barbers.find((b) => b.id === id)?.full_name ?? id; }
 
   /* Group items by barber */
   const grouped = barbers.map((b) => ({
     barber: b,
     hours: items.filter((h) => h.barber_id === b.id).sort((a, c) => a.day_of_week - c.day_of_week),
   })).filter((g) => g.hours.length > 0);
-
-  const ungrouped = items.filter((h) => !barbers.find((b) => b.id === h.barber_id));
 
   return (
     <section className="space-y-6">
@@ -92,18 +96,6 @@ export default function AdminBusinessHoursPage() {
         </form>
       )}
 
-      {/* Alerts */}
-      {error && (
-        <div className="flex items-center justify-between rounded-lg p-3 text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
-          <span>{error}</span><button onClick={() => setError(null)} className="ml-2 opacity-60 hover:opacity-100">✕</button>
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center justify-between rounded-lg p-3 text-sm" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", color: "#22c55e" }}>
-          <span>{success}</span><button onClick={() => setSuccess(null)} className="ml-2 opacity-60 hover:opacity-100">✕</button>
-        </div>
-      )}
-
       {/* Grouped by barber */}
       {grouped.map((g) => (
         <div key={g.barber.id} className="admin-card">
@@ -136,23 +128,13 @@ export default function AdminBusinessHoursPage() {
         </div>
       ))}
 
-      {/* Ungrouped hours (fallback) */}
-      {ungrouped.length > 0 && (
-        <div className="admin-card">
-          <h3 className="font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Otros horarios</h3>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {ungrouped.map((h) => (
-              <div key={h.id} className="flex items-center justify-between rounded-lg p-3" style={{ background: "var(--bg-surface-hover)", border: "1px solid var(--border)" }}>
-                <div>
-                  <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{barberName(h.barber_id)} – {DAY_SHORT[h.day_of_week]}</span>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{h.start_time} – {h.end_time}</p>
-                </div>
-                <button className="admin-btn admin-btn-danger !px-2 !py-1" onClick={() => removeHour(h.id)}>
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-              </div>
-            ))}
+      {items.length === 0 && (
+        <div className="admin-card p-12 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl mb-4" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+            <svg className="h-8 w-8" style={{ color: "var(--accent)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
+          <h3 className="text-lg font-semibold">No hay horarios configurados</h3>
+          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>Crea un horario para comenzar a recibir citas</p>
         </div>
       )}
     </section>

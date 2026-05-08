@@ -2,13 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useTheme } from "./theme-provider";
 
 export function Navbar() {
   const { toggle } = useTheme();
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<{ email: string; role: string } | null>(null);
+  const [hasAppointments, setHasAppointments] = useState(false);
+  const overHero = pathname === "/" && !scrolled;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -19,9 +23,26 @@ export function Navbar() {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
-      .then((d) => { if (d.authenticated) setUser(d.user); })
+      .then((d) => {
+        if (d.authenticated) {
+          setUser(d.user);
+        } else {
+          setUser(null);
+          setHasAppointments(false);
+        }
+      })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/my/appointments?limit=1")
+      .then((r) => r.json())
+      .then((d) => {
+        setHasAppointments(Array.isArray(d.items) && d.items.length > 0);
+      })
+      .catch(() => setHasAppointments(false));
+  }, [user]);
 
   return (
     <header
@@ -45,31 +66,40 @@ export function Navbar() {
             <line x1="14.47" y1="14.48" x2="20" y2="20" />
             <line x1="8.12" y1="8.12" x2="12" y2="12" />
           </svg>
-          <span className="text-xl font-bold tracking-wide" style={{ fontFamily: "var(--font-playfair), serif" }}>
+          <span
+            className="text-xl font-bold tracking-wide"
+            style={{ fontFamily: "var(--font-playfair), serif", color: overHero ? "#f3f4f6" : "var(--text-primary)" }}
+          >
             Filo <span className="text-[var(--accent)]">Estilo</span>
           </span>
         </Link>
 
         {/* Desktop links */}
         <div className="hidden md:flex items-center gap-6">
-          <NavLink href="/">Inicio</NavLink>
-          <NavLink href="/#servicios">Servicios</NavLink>
-          <NavLink href="/#equipo">Equipo</NavLink>
-          <NavLink href="/#contacto">Contacto</NavLink>
+          <NavLink href="/" light={overHero}>Inicio</NavLink>
+          <NavLink href="/#servicios" light={overHero}>Servicios</NavLink>
+          <NavLink href="/#equipo" light={overHero}>Equipo</NavLink>
+          <NavLink href="/#contacto" light={overHero}>Contacto</NavLink>
 
           {user ? (
             <>
-              {user.role === "admin" && <NavLink href="/admin/services">Panel Admin</NavLink>}
-              <NavLink href="/mis-citas">Mis Citas</NavLink>
+              {user.role === "admin" && <NavLink href="/admin/services" light={overHero}>Panel Admin</NavLink>}
+              <NavLink href="/perfil" light={overHero}>Mi Perfil</NavLink>
+              <NavLink href="/mis-citas" light={overHero} showDot={hasAppointments}>Mis Citas</NavLink>
             </>
           ) : (
-            <NavLink href="/login">Iniciar Sesión</NavLink>
+            <NavLink href="/login" light={overHero}>Iniciar Sesión</NavLink>
           )}
 
           {/* Theme toggle */}
           <button
             onClick={toggle}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-all hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
+            className="flex h-9 w-9 items-center justify-center rounded-full border transition-all hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
+            style={
+              overHero
+                ? { borderColor: "rgba(255,255,255,0.3)", background: "rgba(15,23,42,0.45)", color: "#e5e7eb" }
+                : { borderColor: "var(--border-strong)", background: "var(--bg-surface)", color: "var(--text-secondary)" }
+            }
             aria-label="Cambiar tema"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -117,7 +147,8 @@ export function Navbar() {
           <MobileLink href="/#contacto" onClick={() => setMenuOpen(false)}>Contacto</MobileLink>
           {user ? (
             <>
-              <MobileLink href="/mis-citas" onClick={() => setMenuOpen(false)}>Mis Citas</MobileLink>
+              <MobileLink href="/perfil" onClick={() => setMenuOpen(false)}>Mi Perfil</MobileLink>
+              <MobileLink href="/mis-citas" onClick={() => setMenuOpen(false)} showDot={hasAppointments}>Mis Citas</MobileLink>
               {user.role === "admin" && (
                 <MobileLink href="/admin/services" onClick={() => setMenuOpen(false)}>Panel Admin</MobileLink>
               )}
@@ -136,18 +167,46 @@ export function Navbar() {
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  children,
+  light = false,
+  showDot = false,
+}: {
+  href: string;
+  children: React.ReactNode;
+  light?: boolean;
+  showDot?: boolean;
+}) {
   return (
-    <Link href={href} className="text-sm text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors duration-200">
+    <Link
+      href={href}
+      className="relative text-sm hover:text-[var(--accent)] transition-colors duration-200"
+      style={{ color: light ? "#e5e7eb" : "var(--text-secondary)" }}
+    >
       {children}
+      {showDot && (
+        <span className="absolute -top-1.5 -right-2.5 inline-block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[var(--bg-secondary)]" />
+      )}
     </Link>
   );
 }
 
-function MobileLink({ href, onClick, children }: { href: string; onClick: () => void; children: React.ReactNode }) {
+function MobileLink({
+  href,
+  onClick,
+  children,
+  showDot = false,
+}: {
+  href: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  showDot?: boolean;
+}) {
   return (
-    <Link href={href} onClick={onClick} className="block py-2.5 text-sm text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors">
-      {children}
+    <Link href={href} onClick={onClick} className="flex items-center gap-2 py-2.5 text-sm text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors">
+      <span>{children}</span>
+      {showDot && <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />}
     </Link>
   );
 }

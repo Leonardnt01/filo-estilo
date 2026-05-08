@@ -42,24 +42,19 @@ export default function Home() {
 
       {/* ─── HERO ─── */}
       <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
-        {/* Decorative background */}
+        {/* Background image + overlay */}
         <div className="absolute inset-0">
-          {/* Gradient base */}
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, var(--bg-primary), var(--bg-secondary), var(--bg-primary))` }} />
-          {/* Radial glow */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[var(--accent)] opacity-[0.04] blur-[120px]" />
-          {/* Grid pattern */}
-          <div
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage:
-                "linear-gradient(var(--text-muted) 1px, transparent 1px), linear-gradient(90deg, var(--text-muted) 1px, transparent 1px)",
-              backgroundSize: "60px 60px",
-            }}
-          />
+          {/* Photo */}
+          <img src="/hero-bg.png" alt="" className="absolute inset-0 w-full h-full object-cover" />
+          {/* Dark overlay for text readability */}
+          <div className="absolute inset-0 bg-black/70" />
+          {/* Gradient fade at edges */}
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 30%, transparent 70%, var(--bg-primary) 100%)" }} />
+          {/* Radial gold glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[var(--accent)] opacity-[0.06] blur-[120px]" />
           {/* Decorative barber poles */}
-          <div className="barber-pole absolute left-[8%] top-0 bottom-0 hidden lg:block rounded-full opacity-30" />
-          <div className="barber-pole absolute right-[8%] top-0 bottom-0 hidden lg:block rounded-full opacity-30" />
+          <div className="barber-pole absolute left-[8%] top-0 bottom-0 hidden lg:block rounded-full opacity-20" />
+          <div className="barber-pole absolute right-[8%] top-0 bottom-0 hidden lg:block rounded-full opacity-20" />
         </div>
 
         <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
@@ -73,7 +68,7 @@ export default function Home() {
 
           {/* Title */}
           <h1
-            className="mt-6 text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight animate-fade-in-up delay-100"
+            className="mt-6 text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight animate-fade-in-up delay-100 text-white"
             style={{ fontFamily: "var(--font-playfair), serif" }}
           >
             Donde el estilo{" "}
@@ -82,7 +77,7 @@ export default function Home() {
             tu personalidad
           </h1>
 
-          <p className="mt-6 text-lg text-[var(--text-secondary)] max-w-2xl mx-auto animate-fade-in-up delay-200">
+          <p className="mt-6 text-lg text-white/85 max-w-2xl mx-auto animate-fade-in-up delay-200">
             Cortes profesionales, atención personalizada y un ambiente exclusivo.
             Reserva tu cita online y vive la experiencia Filo Estilo.
           </p>
@@ -109,7 +104,7 @@ export default function Home() {
             ].map((s) => (
               <div key={s.label} className="text-center">
                 <p className="text-2xl sm:text-3xl font-bold text-[var(--accent)]">{s.value}</p>
-                <p className="mt-1 text-xs sm:text-sm text-[var(--text-muted)]">{s.label}</p>
+                <p className="mt-1 text-xs sm:text-sm text-white/70">{s.label}</p>
               </div>
             ))}
           </div>
@@ -117,7 +112,7 @@ export default function Home() {
 
         {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-float">
-          <svg className="h-6 w-6 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <svg className="h-6 w-6 text-white/65" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path d="M19 14l-7 7m0 0l-7-7m7 7V3" />
           </svg>
         </div>

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const registerSchema = z.object({
   email: z.email(),
@@ -58,14 +59,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "User could not be created" }, { status: 500 });
   }
 
-  const { error: profileError } = await supabase.from("profiles").upsert(
-    {
-      id: data.user.id,
-      full_name: bodyResult.data.full_name,
-      role: "client",
-    },
-    { onConflict: "id" },
-  );
+  // Supabase can return success with an existing user when confirmation flow is enabled.
+  if ((data.user.identities?.length ?? 0) === 0) {
+    return NextResponse.json({ error: "Email already exists" }, { status: 409 });
+  }
+
+  const profilePayload = {
+    id: data.user.id,
+    full_name: bodyResult.data.full_name,
+    role: "client",
+  };
+
+  const firstTry = await supabase.from("profiles").upsert(profilePayload, { onConflict: "id" });
+  let profileError: { message: string } | null = firstTry.error ? { message: firstTry.error.message } : null;
+
+  if (profileError) {
+    try {
+      const admin = createAdminClient();
+      const fallbackTry = await admin.from("profiles").upsert(profilePayload, { onConflict: "id" });
+      profileError = fallbackTry.error ? { message: fallbackTry.error.message } : null;
+    } catch (e) {
+      profileError = { message: e instanceof Error ? e.message : "Could not create profile" };
+    }
+  }
 
   if (profileError) {
     return NextResponse.json(

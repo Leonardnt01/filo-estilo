@@ -31,7 +31,12 @@ export default function RegisterPage() {
     setLoading(false);
 
     if (!res.ok) {
-      setError(json.error ?? "No se pudo registrar usuario");
+      const messageByStatus: Record<number, string> = {
+        400: "Datos inválidos. Revisa email, contraseña (mínimo 6) y nombre.",
+        409: "Ese correo ya está registrado. Intenta iniciar sesión.",
+        500: "No pudimos completar tu registro por un error interno. Intenta de nuevo.",
+      };
+      setError(messageByStatus[res.status] ?? json.error ?? "No se pudo registrar usuario");
       return;
     }
 
@@ -108,7 +113,7 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+              <div className="alert-error">
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
@@ -117,7 +122,7 @@ export default function RegisterPage() {
             )}
 
             {success && (
-              <div className="flex items-center gap-2 rounded-lg bg-green-500/10 border border-green-500/20 p-3 text-sm text-green-400">
+              <div className="alert-success">
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
