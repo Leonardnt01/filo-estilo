@@ -58,6 +58,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "User could not be created" }, { status: 500 });
   }
 
+  const { error: profileError } = await supabase.from("profiles").upsert(
+    {
+      id: data.user.id,
+      full_name: bodyResult.data.full_name,
+      role: "client",
+    },
+    { onConflict: "id" },
+  );
+
+  if (profileError) {
+    return NextResponse.json(
+      { error: `User created but profile could not be created: ${profileError.message}` },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json(
     {
       ok: true,
