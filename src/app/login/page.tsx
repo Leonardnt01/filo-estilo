@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,50 +42,85 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-md px-6 py-14">
-      <h1 className="text-2xl font-semibold">Iniciar sesión</h1>
-      <p className="mt-2 text-sm text-[#5f6b7a]">Usa tu cuenta registrada en Supabase Auth.</p>
+    <>
+      <Navbar />
+      <main className="flex-1 flex items-center justify-center px-6 py-32">
+        <div className="w-full max-w-md animate-fade-in-up">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent-soft)] border border-[var(--accent-border)] mb-4">
+              <svg className="h-8 w-8 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <h1
+              className="text-3xl font-bold"
+              style={{ fontFamily: "var(--font-playfair), serif" }}
+            >
+              Bienvenido de <span className="text-[var(--accent)]">vuelta</span>
+            </h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              Inicia sesión para gestionar tus citas
+            </p>
+          </div>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-lg border bg-white p-5">
-        <div>
-          <label className="block text-sm font-medium">Email</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-md border px-3 py-2"
-          />
+          {/* Form */}
+          <form onSubmit={onSubmit} className="glass-card p-8 space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+                Correo electrónico
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-dark"
+                placeholder="tu@email.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+                Contraseña
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-dark"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-gold w-full !rounded-xl !py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Ingresando..." : "Iniciar Sesión"}
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-[var(--text-muted)]">
+            ¿No tienes cuenta?{" "}
+            <Link href="/register" className="font-semibold text-[var(--accent)] hover:underline">
+              Regístrate aquí
+            </Link>
+          </p>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium">Password</label>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-md border px-3 py-2"
-          />
-        </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md bg-[#0d1b3d] px-4 py-2 text-white disabled:opacity-50"
-        >
-          {loading ? "Ingresando..." : "Ingresar"}
-        </button>
-      </form>
-
-      <p className="mt-4 text-sm text-[#5f6b7a]">
-        ¿No tienes cuenta?{" "}
-        <Link href="/register" className="font-medium text-[#0d1b3d] underline">
-          Regístrate
-        </Link>
-      </p>
-    </main>
+      </main>
+      <Footer />
+    </>
   );
 }
