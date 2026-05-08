@@ -19,6 +19,7 @@ export default function AdminServicesPage() {
   const [form, setForm] = useState({ name: "", description: "", price: "", duration_minutes: "" });
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState("");
+  const [success, setSuccess] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -58,23 +59,40 @@ export default function AdminServicesPage() {
     }
 
     setForm({ name: "", description: "", price: "", duration_minutes: "" });
+    setSuccess("Servicio creado correctamente");
     await load();
   }
 
   async function updatePrice(id: string, nextPrice: number) {
-    await fetch(`/api/admin/services/${id}`, {
+    const res = await fetch(`/api/admin/services/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ price: Number(nextPrice) }),
     });
 
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? "No se pudo actualizar precio");
+      return;
+    }
+
     setEditingPriceId(null);
     setEditingPriceValue("");
+    setSuccess("Precio actualizado");
     await load();
   }
 
   async function deactivate(id: string) {
-    await fetch(`/api/admin/services/${id}`, { method: "DELETE" });
+    const ok = window.confirm("¿Seguro que deseas desactivar este servicio?");
+    if (!ok) return;
+
+    const res = await fetch(`/api/admin/services/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? "No se pudo desactivar servicio");
+      return;
+    }
+    setSuccess("Servicio desactivado");
     await load();
   }
 
@@ -118,6 +136,7 @@ export default function AdminServicesPage() {
       </form>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {success ? <p className="text-sm text-green-700">{success}</p> : null}
       {loading ? <p className="text-sm">Cargando...</p> : null}
 
       <div className="overflow-auto rounded-lg border">

@@ -19,6 +19,7 @@ export default function AdminBusinessHoursPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [items, setItems] = useState<BusinessHour[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState({ barber_id: "", day_of_week: "1", start_time: "09:00", end_time: "18:00" });
 
   async function load() {
@@ -71,11 +72,21 @@ export default function AdminBusinessHoursPage() {
       return;
     }
 
+    setSuccess("Horario creado correctamente");
     await load();
   }
 
   async function removeHour(id: string) {
-    await fetch(`/api/admin/business-hours/${id}`, { method: "DELETE" });
+    const ok = window.confirm("¿Seguro que deseas eliminar este horario?");
+    if (!ok) return;
+
+    const res = await fetch(`/api/admin/business-hours/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? "No se pudo eliminar horario");
+      return;
+    }
+    setSuccess("Horario eliminado");
     await load();
   }
 
@@ -129,6 +140,7 @@ export default function AdminBusinessHoursPage() {
       </form>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {success ? <p className="text-sm text-green-700">{success}</p> : null}
 
       <div className="overflow-auto rounded-lg border">
         <table className="w-full text-sm">

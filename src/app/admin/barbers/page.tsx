@@ -17,6 +17,7 @@ export default function AdminBarbersPage() {
   const [form, setForm] = useState({ full_name: "", specialty: "", image_url: "" });
   const [editingSpecialtyId, setEditingSpecialtyId] = useState<string | null>(null);
   const [editingSpecialtyValue, setEditingSpecialtyValue] = useState("");
+  const [success, setSuccess] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/admin/barbers");
@@ -51,23 +52,40 @@ export default function AdminBarbersPage() {
     }
 
     setForm({ full_name: "", specialty: "", image_url: "" });
+    setSuccess("Barbero creado correctamente");
     await load();
   }
 
   async function updateSpecialty(id: string, specialty: string) {
-    await fetch(`/api/admin/barbers/${id}`, {
+    const res = await fetch(`/api/admin/barbers/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ specialty }),
     });
 
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? "No se pudo actualizar especialidad");
+      return;
+    }
+
     setEditingSpecialtyId(null);
     setEditingSpecialtyValue("");
+    setSuccess("Especialidad actualizada");
     await load();
   }
 
   async function deactivate(id: string) {
-    await fetch(`/api/admin/barbers/${id}`, { method: "DELETE" });
+    const ok = window.confirm("¿Seguro que deseas desactivar este barbero?");
+    if (!ok) return;
+
+    const res = await fetch(`/api/admin/barbers/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? "No se pudo desactivar barbero");
+      return;
+    }
+    setSuccess("Barbero desactivado");
     await load();
   }
 
@@ -99,6 +117,7 @@ export default function AdminBarbersPage() {
       </form>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {success ? <p className="text-sm text-green-700">{success}</p> : null}
 
       <div className="overflow-auto rounded-lg border">
         <table className="w-full text-sm">

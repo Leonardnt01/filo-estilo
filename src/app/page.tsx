@@ -19,12 +19,13 @@ export default function Home() {
           <p className="mt-1 text-sm text-[#5f6b7a]">Servicios, barberos, horarios y citas.</p>
         </Link>
 
-        <Link href="/mis-citas" className="rounded-lg border p-4 hover:bg-[#eef3fb]">
-          <h2 className="font-medium">Mis citas</h2>
-          <p className="mt-1 text-sm text-[#5f6b7a]">Revisa tus reservas como cliente.</p>
+        <Link href="/reservar" className="rounded-lg border p-4 hover:bg-[#eef3fb]">
+          <h2 className="font-medium">Reservar cita</h2>
+          <p className="mt-1 text-sm text-[#5f6b7a]">Elige servicio, barbero y horario disponible.</p>
         </Link>
-      </div>
-    </main>
+      </div>\n\n      <p className="mt-6 text-sm text-[#5f6b7a]">\n        ¿No tienes cuenta? <a href="/register" className="font-medium text-[#0d1b3d] underline">Regístrate aquí</a>\n      </p>\n    </main>
   );
 }
+
+
 
