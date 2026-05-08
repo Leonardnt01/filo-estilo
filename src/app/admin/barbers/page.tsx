@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 type Barber = { id: string; full_name: string; specialty: string | null; image_url: string | null; is_active: boolean };
@@ -13,6 +14,7 @@ export default function AdminBarbersPage() {
   const [editingSpecialtyValue, setEditingSpecialtyValue] = useState("");
   const [success, setSuccess] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   async function load() {
     const res = await fetch("/api/admin/barbers");
@@ -39,11 +41,43 @@ export default function AdminBarbersPage() {
     setEditingSpecialtyId(null); setEditingSpecialtyValue(""); setSuccess("Especialidad actualizada"); await load();
   }
 
-  async function deactivate(id: string) {
-    if (!window.confirm("¿Seguro que deseas desactivar este barbero?")) return;
-    const res = await fetch(`/api/admin/barbers/${id}`, { method: "DELETE" });
-    if (!res.ok) { const json = await res.json().catch(() => ({})); setError(json.error ?? "No se pudo desactivar"); return; }
-    setSuccess("Barbero desactivado"); await load();
+  async function toggleActive(item: Barber) {
+    const next = !item.is_active;
+    const action = next ? "activar" : "desactivar";
+    if (!window.confirm(`¿Seguro que deseas ${action} este barbero?`)) return;
+    const res = await fetch(`/api/admin/barbers/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: next }),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? `No se pudo ${action}`);
+      return;
+    }
+    setSuccess(`Barbero ${next ? "activado" : "desactivado"}`);
+    await load();
+  }
+
+  async function onImageSelected(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Solo se permiten archivos de imagen");
+      return;
+    }
+    setUploadingImage(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      setForm((s) => ({ ...s, image_url: result }));
+      setUploadingImage(false);
+      setSuccess("Imagen cargada");
+    };
+    reader.onerror = () => {
+      setUploadingImage(false);
+      setError("No se pudo leer la imagen");
+    };
+    reader.readAsDataURL(file);
   }
 
   const hues = [32, 45, 20, 55, 38, 28];
@@ -69,8 +103,23 @@ export default function AdminBarbersPage() {
           <div className="grid gap-3 md:grid-cols-3">
             <input placeholder="Nombre completo" value={form.full_name} onChange={(e) => setForm((s) => ({ ...s, full_name: e.target.value }))} className="admin-input w-full" required />
             <input placeholder="Especialidad" value={form.specialty} onChange={(e) => setForm((s) => ({ ...s, specialty: e.target.value }))} className="admin-input w-full" />
-            <input placeholder="URL Imagen" value={form.image_url} onChange={(e) => setForm((s) => ({ ...s, image_url: e.target.value }))} className="admin-input w-full" />
+            <input placeholder="URL Imagen o data URI" value={form.image_url} onChange={(e) => setForm((s) => ({ ...s, image_url: e.target.value }))} className="admin-input w-full" />
           </div>
+          <div className="flex items-center gap-3">
+            <label className="admin-btn cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => void onImageSelected(e.target.files?.[0] ?? null)}
+              />
+              {uploadingImage ? "Procesando imagen..." : "Subir imagen"}
+            </label>
+            {form.image_url ? <span className="text-xs" style={{ color: "var(--text-muted)" }}>Imagen lista</span> : null}
+          </div>
+          {form.image_url ? (
+            <Image src={form.image_url} alt="Preview" width={64} height={64} unoptimized className="h-16 w-16 rounded-full border object-cover" style={{ borderColor: "var(--accent-border)" }} />
+          ) : null}
           <div className="flex gap-2">
             <button type="submit" className="admin-btn admin-btn-primary">Crear Barbero</button>
             <button type="button" onClick={() => setShowForm(false)} className="admin-btn">Cancelar</button>
@@ -97,16 +146,20 @@ export default function AdminBarbersPage() {
           const hue = hues[i % hues.length];
           return (
             <div key={item.id} className="admin-card flex flex-col items-center text-center">
-              <div
-                className="h-20 w-20 rounded-full flex items-center justify-center text-2xl font-bold border-2"
-                style={{
-                  background: `linear-gradient(135deg, hsl(${hue},40%,18%), hsl(${hue},30%,12%))`,
-                  color: `hsl(${hue},60%,65%)`,
-                  borderColor: "var(--accent-border)",
-                }}
-              >
-                {initials}
-              </div>
+              {item.image_url ? (
+                <Image src={item.image_url} alt={item.full_name} width={80} height={80} unoptimized className="h-20 w-20 rounded-full border-2 object-cover" style={{ borderColor: "var(--accent-border)" }} />
+              ) : (
+                <div
+                  className="h-20 w-20 rounded-full flex items-center justify-center text-2xl font-bold border-2"
+                  style={{
+                    background: `linear-gradient(135deg, hsl(${hue},40%,18%), hsl(${hue},30%,12%))`,
+                    color: `hsl(${hue},60%,65%)`,
+                    borderColor: "var(--accent-border)",
+                  }}
+                >
+                  {initials}
+                </div>
+              )}
               <h3 className="mt-3 font-semibold" style={{ color: "var(--text-primary)" }}>{item.full_name}</h3>
               <p className="text-sm" style={{ color: "var(--accent)" }}>{item.specialty ?? "Sin especialidad"}</p>
               <span className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${item.is_active ? "status-completed" : "status-cancelled"}`}>
@@ -127,10 +180,13 @@ export default function AdminBarbersPage() {
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                       Editar
                     </button>
-                    <button className="admin-btn admin-btn-danger flex-1" onClick={() => deactivate(item.id)}>
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                      Desactivar
-                    </button>
+                      <button
+                        className={`admin-btn flex-1 ${item.is_active ? "admin-btn-danger" : "admin-btn-primary"}`}
+                        onClick={() => toggleActive(item)}
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                        {item.is_active ? "Desactivar" : "Activar"}
+                      </button>
                   </>
                 )}
               </div>
@@ -141,3 +197,6 @@ export default function AdminBarbersPage() {
     </section>
   );
 }
+
+
+

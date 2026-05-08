@@ -12,22 +12,23 @@ export function useTheme() {
   return useContext(ThemeCtx);
 }
 
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  const saved = localStorage.getItem("fe-theme");
+  if (saved === "light" || saved === "dark") return saved;
+  return "dark";
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
-    const saved = localStorage.getItem("fe-theme") as Theme | null;
-    if (saved === "light" || saved === "dark") {
-      setTheme(saved);
-      document.documentElement.setAttribute("data-theme", saved);
-    }
-  }, []);
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("fe-theme", theme);
+  }, [theme]);
 
   function toggle() {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("fe-theme", next);
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   }
 
   return <ThemeCtx.Provider value={{ theme, toggle }}>{children}</ThemeCtx.Provider>;

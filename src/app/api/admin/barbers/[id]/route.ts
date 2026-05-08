@@ -4,11 +4,18 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createClient } from "@/lib/supabase/server";
 
+const imageUrlSchema = z
+  .string()
+  .trim()
+  .refine((value) => value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:image/"), {
+    message: "image_url must be a valid URL or data image",
+  });
+
 const updateBarberSchema = z
   .object({
     full_name: z.string().trim().min(1).optional(),
     specialty: z.string().trim().optional().nullable(),
-    image_url: z.string().url().optional().nullable(),
+    image_url: imageUrlSchema.optional().nullable(),
     is_active: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, "At least one field is required");

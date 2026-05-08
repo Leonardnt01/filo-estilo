@@ -26,6 +26,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
 export default function MyAppointmentsPage() {
   const [items, setItems] = useState<MyAppointment[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [creatingDemo, setCreatingDemo] = useState(false);
 
   async function load() {
     const res = await fetch("/api/my/appointments");
@@ -35,6 +36,19 @@ export default function MyAppointmentsPage() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  async function createDemoAppointments() {
+    setCreatingDemo(true);
+    setError(null);
+    const res = await fetch("/api/my/appointments/demo", { method: "POST" });
+    const json = await res.json().catch(() => ({}));
+    setCreatingDemo(false);
+    if (!res.ok) {
+      setError(json.error ?? "No se pudieron crear citas demo");
+      return;
+    }
+    await load();
+  }
 
   return (
     <>
@@ -80,7 +94,17 @@ export default function MyAppointmentsPage() {
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
                 Reserva tu primera cita y aparecerá aquí.
               </p>
-              <a href="/reservar" className="btn-gold mt-6 inline-flex">Reservar ahora</a>
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                <a href="/reservar" className="btn-gold inline-flex">Reservar ahora</a>
+                <button
+                  onClick={() => void createDemoAppointments()}
+                  disabled={creatingDemo}
+                  className="admin-btn"
+                  type="button"
+                >
+                  {creatingDemo ? "Creando demo..." : "Generar citas demo"}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
