@@ -1,0 +1,20 @@
+import { NextResponse } from "next/server";
+
+import { getAuthContext } from "@/lib/auth/session";
+
+export async function GET() {
+  const { user, role } = await getAuthContext();
+
+  if (!user) {
+    return NextResponse.json({ authenticated: false, user: null }, { status: 401 });
+  }
+
+  return NextResponse.json({
+    authenticated: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      role,
+    },
+  });
+}
