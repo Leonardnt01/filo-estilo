@@ -50,18 +50,32 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: profile } = await supabase
+  const userId = data.user.id;
+
+  const {
+    data: profile,
+    error: profileError,
+  } = await supabase
     .from("profiles")
     .select("role, full_name")
-    .eq("id", data.user.id)
-    .single();
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError) {
+    return NextResponse.json(
+      { error: `Could not load user profile: ${profileError.message}` },
+      { status: 500 },
+    );
+  }
+
+  const role = profile?.role === "admin" || profile?.role === "client" ? profile.role : null;
 
   return NextResponse.json({
     ok: true,
     user: {
-      id: data.user.id,
+      id: userId,
       email: data.user.email,
-      role: profile?.role ?? null,
+      role,
       full_name: profile?.full_name ?? null,
     },
   });
