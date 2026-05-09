@@ -81,7 +81,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 onClick={() => handle(false)}
                 className="admin-btn flex-1 justify-center !py-2.5"
               >
-                {state.opts.cancelText ?? "Cancelar"}
+                {state.opts.cancelText ?? "Cancelar"} 
               </button>
               <button
                 onClick={() => handle(true)}
