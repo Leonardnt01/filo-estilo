@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "./theme-provider";
 
 export function Navbar() {
+  const router = useRouter();
   const { toggle } = useTheme();
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [user, setUser] = useState<{ email: string; role: string } | null>(null);
   const [hasAppointments, setHasAppointments] = useState(false);
   const overHero = pathname === "/" && !scrolled;
+  const showAppointmentsDot = hasAppointments && !pathname.startsWith("/mis-citas");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -43,6 +46,14 @@ export function Navbar() {
       })
       .catch(() => setHasAppointments(false));
   }, [user]);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setProfileOpen(false);
+    setMenuOpen(false);
+    router.push("/");
+    router.refresh();
+  }
 
   return (
     <header
@@ -84,8 +95,6 @@ export function Navbar() {
           {user ? (
             <>
               {user.role === "admin" && <NavLink href="/admin/services" light={overHero}>Panel Admin</NavLink>}
-              <NavLink href="/perfil" light={overHero}>Mi Perfil</NavLink>
-              <NavLink href="/mis-citas" light={overHero} showDot={hasAppointments}>Mis Citas</NavLink>
             </>
           ) : (
             <NavLink href="/login" light={overHero}>Iniciar Sesión</NavLink>
@@ -110,6 +119,49 @@ export function Navbar() {
           <Link href="/reservar" className="btn-gold text-sm !py-2.5 !px-6">
             Reservar Cita
           </Link>
+
+          {user && (
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen((v) => !v)}
+                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-all hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
+                aria-label="Menú de usuario"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                {showAppointmentsDot && (
+                  <span className="absolute -top-1 -right-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[var(--bg-secondary)]" />
+                )}
+              </button>
+
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-2 shadow-2xl">
+                  <Link
+                    href="/perfil"
+                    onClick={() => setProfileOpen(false)}
+                    className="block rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--accent)]"
+                  >
+                    Mi Perfil
+                  </Link>
+                  <Link
+                    href="/mis-citas"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--accent)]"
+                  >
+                    <span>Mis Citas</span>
+                    {showAppointmentsDot && <span className="inline-block h-2 w-2 rounded-full bg-red-500" />}
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400"
+                  >
+                    Cerrar sesión
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Mobile controls */}
@@ -148,10 +200,16 @@ export function Navbar() {
           {user ? (
             <>
               <MobileLink href="/perfil" onClick={() => setMenuOpen(false)}>Mi Perfil</MobileLink>
-              <MobileLink href="/mis-citas" onClick={() => setMenuOpen(false)} showDot={hasAppointments}>Mis Citas</MobileLink>
+              <MobileLink href="/mis-citas" onClick={() => setMenuOpen(false)} showDot={showAppointmentsDot}>Mis Citas</MobileLink>
               {user.role === "admin" && (
                 <MobileLink href="/admin/services" onClick={() => setMenuOpen(false)}>Panel Admin</MobileLink>
               )}
+              <button
+                onClick={handleLogout}
+                className="mt-2 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-2.5 text-left text-sm text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400"
+              >
+                Cerrar sesión
+              </button>
             </>
           ) : (
             <MobileLink href="/login" onClick={() => setMenuOpen(false)}>Iniciar Sesión</MobileLink>
