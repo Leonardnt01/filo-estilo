@@ -25,6 +25,31 @@ function ScissorsIcon({ className }: { className?: string }) {
 export default function Home() {
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [activeStory, setActiveStory] = useState(0);
+
+  const successStories = [
+    {
+      name: "Luis M.",
+      result: "Cambio de look completo",
+      quote: "Pasé de un estilo clásico a uno moderno para mi nuevo trabajo. Me sentí otra persona.",
+      image:
+        "https://images.unsplash.com/photo-1517832606299-7ae9b720a186?auto=format&fit=crop&w=1200&q=80",
+    },
+    {
+      name: "Diego R.",
+      result: "Corte + barba premium",
+      quote: "La precisión en la barba fue brutal. Me duró impecable toda la semana.",
+      image:
+        "https://images.unsplash.com/photo-1493256338651-d82f7acb2b38?auto=format&fit=crop&w=1200&q=80",
+    },
+    {
+      name: "Carlos T.",
+      result: "Asesoría de imagen",
+      quote: "No sabía qué corte hacerme y me recomendaron uno perfecto para mi rostro.",
+      image:
+        "https://images.unsplash.com/photo-1622288432450-277d0fef5ed6?auto=format&fit=crop&w=1200&q=80",
+    },
+  ];
 
   useEffect(() => {
     fetch("/api/booking/catalog")
@@ -35,6 +60,14 @@ export default function Home() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveStory((prev) => (prev + 1) % successStories.length);
+    }, 4500);
+
+    return () => clearInterval(timer);
+  }, [successStories.length]);
 
   return (
     <>
@@ -166,6 +199,49 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ─── HIGHLIGHTS WITH IMAGES ─── */}
+      <section className="py-24">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="text-center mb-14">
+            <span className="section-label">Experiencia</span>
+            <h2 className="mt-4 text-3xl sm:text-4xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
+              Más que un corte, una <span className="text-[var(--accent)]">imagen</span>
+            </h2>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {[
+              {
+                title: "Ambiente Premium",
+                desc: "Sillones cómodos, atención puntual y experiencia pensada para ti.",
+                image:
+                  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1200&q=80",
+              },
+              {
+                title: "Detalles de Precisión",
+                desc: "Perfilado y acabados finos en cada sesión de corte y barba.",
+                image:
+                  "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=1200&q=80",
+              },
+              {
+                title: "Productos Profesionales",
+                desc: "Usamos líneas premium para proteger tu cabello y piel.",
+                image:
+                  "https://images.unsplash.com/photo-1622287162716-f311baa1a2b8?auto=format&fit=crop&w=1200&q=80",
+              },
+            ].map((item) => (
+              <article key={item.title} className="glass-card overflow-hidden">
+                <img src={item.image} alt={item.title} className="h-52 w-full object-cover" />
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold">{item.title}</h3>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">{item.desc}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ─── SERVICES (from API) ─── */}
       <section id="servicios" className="py-24">
         <div className="mx-auto max-w-7xl px-6">
@@ -183,8 +259,19 @@ export default function Home() {
             <p className="text-center text-[var(--text-muted)]">Cargando servicios...</p>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {services.map((s) => (
+              {services.map((s, i) => (
                 <div key={s.id} className="glass-card p-6 flex flex-col justify-between group">
+                  <div className="mb-4 overflow-hidden rounded-xl border border-[var(--border)]">
+                    <img
+                      src={[
+                        "https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=1200&q=80",
+                        "https://images.unsplash.com/photo-1521498542256-5aeb47ba2b36?auto=format&fit=crop&w=1200&q=80",
+                        "https://images.unsplash.com/photo-1562004760-aceed7bb0fe3?auto=format&fit=crop&w=1200&q=80",
+                      ][i % 3]}
+                      alt={s.name}
+                      className="h-36 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </div>
                   <div>
                     <div className="flex items-start justify-between gap-3">
                       <h3 className="font-semibold text-lg group-hover:text-[var(--accent)] transition-colors">
@@ -216,57 +303,125 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── TEAM (from API) ─── */}
+      {/* ─── SUCCESS STORIES CAROUSEL ─── */}
+      <section className="py-24 bg-[var(--bg-secondary)]">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="text-center mb-14">
+            <span className="section-label">Resultados</span>
+            <h2 className="mt-4 text-3xl sm:text-4xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
+              Casos de <span className="text-[var(--accent)]">Éxito</span>
+            </h2>
+            <p className="mt-3 text-[var(--text-secondary)]">Clientes reales, cambios reales.</p>
+          </div>
+
+          <div className="glass-card overflow-hidden">
+            <div className="grid lg:grid-cols-2">
+              <img
+                src={successStories[activeStory].image}
+                alt={successStories[activeStory].name}
+                className="h-64 md:h-72 lg:h-[460px] w-full object-cover object-center"
+              />
+              <div className="p-8 lg:p-10 flex flex-col justify-center lg:min-h-[460px]">
+                <p className="text-sm uppercase tracking-wider text-[var(--accent)] font-semibold">
+                  {successStories[activeStory].result}
+                </p>
+                <blockquote className="mt-4 text-xl leading-relaxed" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                  “{successStories[activeStory].quote}”
+                </blockquote>
+                <p className="mt-4 text-sm text-[var(--text-secondary)]">- {successStories[activeStory].name}</p>
+
+                <div className="mt-8 flex gap-2">
+                  {successStories.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveStory(idx)}
+                      aria-label={`Ver caso ${idx + 1}`}
+                      className={`h-2.5 rounded-full transition-all ${
+                        activeStory === idx ? "w-8 bg-[var(--accent)]" : "w-2.5 bg-[var(--border-strong)]"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── PROFESSIONAL SPECIALTIES (multi-branch friendly) ─── */}
       <section id="equipo" className="py-24 bg-[var(--bg-secondary)]">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center mb-14">
             <span className="section-label">Profesionales</span>
             <h2 className="mt-4 text-3xl sm:text-4xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
-              Nuestro <span className="text-[var(--accent)]">Equipo</span>
+              Nuestros <span className="text-[var(--accent)]">Especialistas</span>
             </h2>
             <p className="mt-3 text-[var(--text-secondary)]">
-              Conoce a nuestros barberos profesionales y su especialidad.
+              Talento distribuido en nuestras sedes para cada estilo de corte y barba.
             </p>
           </div>
 
-          {barbers.length === 0 ? (
-            <p className="text-center text-[var(--text-muted)]">Cargando equipo...</p>
-          ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {barbers.map((b, i) => {
-                const initials = b.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2);
-                const hues = [32, 45, 20, 55, 38];
-                const hue = hues[i % hues.length];
-                return (
-                  <div key={b.id} className="glass-card p-8 text-center group">
-                    {/* Avatar */}
-                    <div
-                      className="mx-auto h-28 w-28 rounded-full flex items-center justify-center text-3xl font-bold border-2 border-[var(--accent-border)] group-hover:border-[var(--accent)] transition-colors"
-                      style={{
-                        background: `linear-gradient(135deg, hsl(${hue},40%,18%), hsl(${hue},30%,12%))`,
-                        color: `hsl(${hue},60%,65%)`,
-                      }}
-                    >
-                      {initials}
-                    </div>
-                    <h3 className="mt-5 text-lg font-semibold">{b.full_name}</h3>
-                    <p className="mt-1 text-sm text-[var(--accent)]">
-                      {b.specialty ?? "Barbero profesional"}
-                    </p>
-                    {/* Decorative stars */}
-                    <div className="mt-3 flex items-center justify-center gap-0.5 text-[var(--accent)]">
-                      {[...Array(5)].map((_, si) => (
-                        <svg key={si} className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                title: "Fade & Taper",
+                description: "Desvanecidos limpios, proporción y acabado preciso.",
+                image:
+                  "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=1200&q=80",
+              },
+              {
+                title: "Barba Premium",
+                description: "Perfilado y diseño según tu tipo de rostro.",
+                image:
+                  "https://images.unsplash.com/photo-1521498542256-5aeb47ba2b36?auto=format&fit=crop&w=1200&q=80",
+              },
+              {
+                title: "Corte Clásico",
+                description: "Estilo tradicional con técnica moderna.",
+                image:
+                  "https://images.unsplash.com/photo-1517832606299-7ae9b720a186?auto=format&fit=crop&w=1200&q=80",
+              },
+              {
+                title: "Asesoría de Look",
+                description: "Recomendación profesional para tu imagen.",
+                image:
+                  "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=1200&q=80",
+              },
+            ].map((item) => (
+              <article key={item.title} className="glass-card overflow-hidden group">
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="h-56 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="p-5">
+                  <h3 className="font-semibold">{item.title}</h3>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">{item.description}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {[
+              { label: "Barberos activos", value: `${barbers.length || 8}+` },
+              { label: "Sedes disponibles", value: "2+" },
+              { label: "Atenciones mensuales", value: "500+" },
+            ].map((item) => (
+              <div key={item.label} className="glass-card p-6 text-center">
+                <p className="text-3xl font-bold text-[var(--accent)]">{item.value}</p>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">{item.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link href="/sedes" className="btn-outline">
+              Ver sedes y equipo por local
+            </Link>
+          </div>
             </div>
-          )}
-        </div>
+        
       </section>
 
       {/* ─── CONTACT / CTA ─── */}
