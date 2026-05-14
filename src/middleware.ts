@@ -30,9 +30,20 @@ export async function middleware(request: NextRequest) {
     .from("profiles")
     .select("role")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (error || profile?.role !== "admin") {
+  const { data: staffMembership } = await supabase
+    .from("memberships")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .in("role", ["owner", "admin"])
+    .limit(1)
+    .maybeSingle();
+
+  const canAccessAdmin = profile?.role === "admin" || !!staffMembership;
+
+  if (error || !canAccessAdmin) {
     if (isAdminApi) {
       return unauthorizedApiResponse("Forbidden: admin role required", 403);
     }

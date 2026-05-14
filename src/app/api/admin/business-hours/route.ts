@@ -7,6 +7,7 @@ import { hhmmString, isStartBeforeEnd } from "@/lib/validators";
 
 const createBusinessHoursSchema = z
   .object({
+    branch_id: z.uuid(),
     barber_id: z.uuid(),
     day_of_week: z.number().int().min(0).max(6),
     start_time: hhmmString,
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const barberId = searchParams.get("barber_id");
+  const branchId = searchParams.get("branch_id");
   const onlyActive = searchParams.get("only_active") === "true";
 
   const supabase = await createClient();
@@ -35,6 +37,9 @@ export async function GET(request: Request) {
 
   if (barberId) {
     query = query.eq("barber_id", barberId);
+  }
+  if (branchId) {
+    query = query.eq("branch_id", branchId);
   }
 
   if (onlyActive) {
@@ -69,6 +74,7 @@ export async function POST(request: Request) {
     .from("barbers")
     .select("id")
     .eq("id", parsed.data.barber_id)
+    .eq("branch_id", parsed.data.branch_id)
     .maybeSingle();
 
   if (barberError) {
@@ -83,6 +89,7 @@ export async function POST(request: Request) {
     .from("business_hours")
     .insert({
       barber_id: parsed.data.barber_id,
+      branch_id: parsed.data.branch_id,
       day_of_week: parsed.data.day_of_week,
       start_time: parsed.data.start_time,
       end_time: parsed.data.end_time,

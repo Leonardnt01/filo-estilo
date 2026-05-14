@@ -70,6 +70,18 @@ export async function POST(request: Request) {
 
   const role = profile?.role === "admin" || profile?.role === "client" ? profile.role : null;
 
+  const { data: memberships } = await supabase
+    .from("memberships")
+    .select("branch_id, role, is_active")
+    .eq("user_id", userId)
+    .eq("is_active", true);
+
+  const safeMemberships = (memberships ?? []).map((m) => ({
+    branch_id: m.branch_id,
+    role: m.role,
+  }));
+  const isStaff = safeMemberships.length > 0 || role === "admin";
+
   return NextResponse.json({
     ok: true,
     user: {
@@ -77,6 +89,8 @@ export async function POST(request: Request) {
       email: data.user.email,
       role,
       full_name: profile?.full_name ?? null,
+      is_staff: isStaff,
+      memberships: safeMemberships,
     },
   });
 }

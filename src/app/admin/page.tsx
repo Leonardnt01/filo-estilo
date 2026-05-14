@@ -10,15 +10,39 @@ type Stats = {
   pendingCount: number;
 };
 
+type Branch = {
+  id: string;
+  name: string;
+};
+
 export default function AdminDashboardPage() {
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchId, setBranchId] = useState("");
   const [stats, setStats] = useState<Stats>({ services: 0, barbers: 0, todayAppointments: 0, pendingCount: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
+    async function loadBranches() {
+      const branchesRes = await fetch("/api/admin/branches");
+      const branchesJson = await branchesRes.json().catch(() => ({}));
+      if (!branchesRes.ok) return;
+      const nextBranches = branchesJson.items ?? [];
+      setBranches(nextBranches);
+      if (!branchId && nextBranches[0]?.id) {
+        setBranchId(nextBranches[0].id);
+      }
+    }
+    void loadBranches();
+  }, []);
+
+  useEffect(() => {
+    async function loadStats() {
+      if (!branchId) return;
+      setLoading(true);
       const [sRes, bRes, aRes] = await Promise.all([
-        fetch("/api/admin/services?only_active=true"),
-        fetch("/api/admin/barbers?only_active=true"),
-        fetch("/api/admin/appointments?limit=100"),
+        fetch(`/api/admin/services?only_active=true&branch_id=${branchId}`),
+        fetch(`/api/admin/barbers?only_active=true&branch_id=${branchId}`),
+        fetch(`/api/admin/appointments?limit=100&branch_id=${branchId}`),
       ]);
       const sJson = await sRes.json().catch(() => ({}));
       const bJson = await bRes.json().catch(() => ({}));
@@ -35,9 +59,10 @@ export default function AdminDashboardPage() {
         todayAppointments: todayAppts.length,
         pendingCount: pending.length,
       });
+      setLoading(false);
     }
-    void load();
-  }, []);
+    void loadStats();
+  }, [branchId]);
 
   const cards = [
     { label: "Servicios Activos", value: stats.services, icon: "M13 10V3L4 14h7v7l9-11h-7z", color: "#3b82f6", href: "/admin/services" },
@@ -49,12 +74,27 @@ export default function AdminDashboardPage() {
   return (
     <section>
       <div className="mb-8">
-        <h2 className="text-2xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
-          Panel de <span style={{ color: "var(--accent)" }}>Control</span>
-        </h2>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Resumen general de tu barbería
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
+              Panel de <span style={{ color: "var(--accent)" }}>Control</span>
+            </h2>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Resumen general por sede
+            </p>
+          </div>
+          <select
+            value={branchId}
+            onChange={(e) => setBranchId(e.target.value)}
+            className="admin-select min-w-56"
+          >
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Stats grid */}
@@ -74,7 +114,9 @@ export default function AdminDashboardPage() {
                 </svg>
               </div>
             </div>
-            <p className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>{c.value}</p>
+            <p className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
+              {loading ? "..." : c.value}
+            </p>
           </Link>
         ))}
       </div>

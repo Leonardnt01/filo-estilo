@@ -12,7 +12,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [user, setUser] = useState<{ email: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; role: string; is_staff?: boolean } | null>(null);
   const [hasAppointments, setHasAppointments] = useState(false);
   const overHero = pathname === "/" && !scrolled;
   const showAppointmentsDot = hasAppointments && !pathname.startsWith("/mis-citas");
@@ -88,13 +88,14 @@ export function Navbar() {
         {/* Desktop links */}
         <div className="hidden md:flex items-center gap-6">
           <NavLink href="/" light={overHero}>Inicio</NavLink>
+          <NavLink href="/sedes" light={overHero}>Sedes</NavLink>
           <NavLink href="/#servicios" light={overHero}>Servicios</NavLink>
           <NavLink href="/#equipo" light={overHero}>Equipo</NavLink>
           <NavLink href="/#contacto" light={overHero}>Contacto</NavLink>
 
           {user ? (
             <>
-              {user.role === "admin" && <NavLink href="/admin/services" light={overHero}>Panel Admin</NavLink>}
+              {(user.is_staff || user.role === "admin") && <NavLink href="/admin/services" light={overHero}>Panel Admin</NavLink>}
             </>
           ) : (
             <NavLink href="/login" light={overHero}>Iniciar Sesión</NavLink>
@@ -194,6 +195,7 @@ export function Navbar() {
         <div className="md:hidden backdrop-blur-md border-t border-[var(--border)] px-6 py-4 space-y-1 animate-fade-in"
           style={{ background: "var(--nav-bg-scroll)" }}>
           <MobileLink href="/" onClick={() => setMenuOpen(false)}>Inicio</MobileLink>
+          <MobileLink href="/sedes" onClick={() => setMenuOpen(false)}>Sedes</MobileLink>
           <MobileLink href="/#servicios" onClick={() => setMenuOpen(false)}>Servicios</MobileLink>
           <MobileLink href="/#equipo" onClick={() => setMenuOpen(false)}>Equipo</MobileLink>
           <MobileLink href="/#contacto" onClick={() => setMenuOpen(false)}>Contacto</MobileLink>
@@ -201,7 +203,7 @@ export function Navbar() {
             <>
               <MobileLink href="/perfil" onClick={() => setMenuOpen(false)}>Mi Perfil</MobileLink>
               <MobileLink href="/mis-citas" onClick={() => setMenuOpen(false)} showDot={showAppointmentsDot}>Mis Citas</MobileLink>
-              {user.role === "admin" && (
+              {(user.is_staff || user.role === "admin") && (
                 <MobileLink href="/admin/services" onClick={() => setMenuOpen(false)}>Panel Admin</MobileLink>
               )}
               <button

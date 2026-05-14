@@ -24,6 +24,7 @@ export async function GET(request: Request) {
   const statusParam = searchParams.get("status");
   const barberId = searchParams.get("barber_id");
   const serviceId = searchParams.get("service_id");
+  const branchId = searchParams.get("branch_id");
   const dateFrom = searchParams.get("date_from");
   const dateTo = searchParams.get("date_to");
 
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
   if (statusParam) query = query.eq("status", statusParam);
   if (barberId) query = query.eq("barber_id", barberId);
   if (serviceId) query = query.eq("service_id", serviceId);
+  if (branchId) query = query.eq("branch_id", branchId);
   if (dateFrom) query = query.gte("appointment_date", dateFrom);
   if (dateTo) query = query.lte("appointment_date", dateTo);
 

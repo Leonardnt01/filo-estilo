@@ -29,6 +29,7 @@ export function Footer() {
             <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Navegación</h3>
             <ul className="space-y-2.5">
               <li><Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Inicio</Link></li>
+              <li><Link href="/sedes" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Sedes</Link></li>
               <li><Link href="/#servicios" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Servicios</Link></li>
               <li><Link href="/#equipo" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Nuestro Equipo</Link></li>
               <li><Link href="/reservar" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Reservar Cita</Link></li>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { useConfirm } from "@/components/confirm-modal";
 
+type Branch = { id: string; name: string };
 type Barber = { id: string; full_name: string };
 type BusinessHour = { id: string; barber_id: string; day_of_week: number; start_time: string; end_time: string; is_active: boolean };
 
@@ -14,13 +15,19 @@ const DAY_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 export default function AdminBusinessHoursPage() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchId, setBranchId] = useState("");
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [items, setItems] = useState<BusinessHour[]>([]);
   const [form, setForm] = useState({ barber_id: "", day_of_week: "1", start_time: "09:00", end_time: "18:00" });
   const [showForm, setShowForm] = useState(false);
 
   async function load() {
-    const [bRes, hRes] = await Promise.all([fetch("/api/admin/barbers?only_active=true"), fetch("/api/admin/business-hours")]);
+    if (!branchId) return;
+    const [bRes, hRes] = await Promise.all([
+      fetch(`/api/admin/barbers?only_active=true&branch_id=${branchId}`),
+      fetch(`/api/admin/business-hours?branch_id=${branchId}`),
+    ]);
     const bJson = await bRes.json().catch(() => ({}));
     const hJson = await hRes.json().catch(() => ({}));
     if (!bRes.ok) { toast(bJson.error ?? "Error barberos", "error"); return; }
@@ -30,13 +37,25 @@ export default function AdminBusinessHoursPage() {
     if (!form.barber_id && nextBarbers[0]?.id) setForm((s) => ({ ...s, barber_id: nextBarbers[0].id }));
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    async function loadBranches() {
+      const res = await fetch("/api/admin/branches");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const nextBranches = json.items ?? [];
+      setBranches(nextBranches);
+      if (!branchId && nextBranches[0]?.id) setBranchId(nextBranches[0].id);
+    }
+    void loadBranches();
+  }, []);
+
+  useEffect(() => { void load(); }, [branchId]);
 
   async function createHour(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const res = await fetch("/api/admin/business-hours", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ barber_id: form.barber_id, day_of_week: Number(form.day_of_week), start_time: form.start_time, end_time: form.end_time }),
+      body: JSON.stringify({ branch_id: branchId, barber_id: form.barber_id, day_of_week: Number(form.day_of_week), start_time: form.start_time, end_time: form.end_time }),
     });
     if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo crear horario", "error"); return; }
     toast("Horario creado correctamente"); setShowForm(false); await load();
@@ -55,7 +74,6 @@ export default function AdminBusinessHoursPage() {
     toast("Horario eliminado"); await load();
   }
 
-  /* Group items by barber */
   const grouped = barbers.map((b) => ({
     barber: b,
     hours: items.filter((h) => h.barber_id === b.id).sort((a, c) => a.day_of_week - c.day_of_week),
@@ -70,10 +88,15 @@ export default function AdminBusinessHoursPage() {
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{items.length} horarios configurados</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="admin-btn admin-btn-primary">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m8-8H4" /></svg>
-          Nuevo Horario
-        </button>
+        <div className="flex items-center gap-2">
+          <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="admin-select min-w-48">
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <button onClick={() => setShowForm(!showForm)} className="admin-btn admin-btn-primary" disabled={!branchId}>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m8-8H4" /></svg>
+            Nuevo Horario
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -96,7 +119,6 @@ export default function AdminBusinessHoursPage() {
         </form>
       )}
 
-      {/* Grouped by barber */}
       {grouped.map((g) => (
         <div key={g.barber.id} className="admin-card">
           <div className="flex items-center gap-3 mb-4">

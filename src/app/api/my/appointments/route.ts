@@ -14,6 +14,7 @@ const appointmentStatus = z.enum([
 ]);
 
 const createAppointmentSchema = z.object({
+  branch_id: z.uuid(),
   barber_id: z.uuid(),
   service_id: z.uuid(),
   appointment_date: z.iso.date(),
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { barber_id, service_id, appointment_date, start_time, notes } = parsed.data;
+  const { branch_id, barber_id, service_id, appointment_date, start_time, notes } = parsed.data;
   const today = new Date();
   const todayIso = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString().slice(0, 10);
   const maxDate = new Date(today);
@@ -105,11 +106,23 @@ export async function POST(request: Request) {
 
   const supabase = await createClient();
 
-  const [{ data: service, error: serviceError }, { data: profile, error: profileError }] = await Promise.all([
+  const [
+    { data: service, error: serviceError },
+    { data: barber, error: barberError },
+    { data: profile, error: profileError },
+  ] = await Promise.all([
     supabase
       .from("services")
-      .select("duration_minutes")
+      .select("duration_minutes, branch_id")
       .eq("id", service_id)
+      .eq("branch_id", branch_id)
+      .eq("is_active", true)
+      .maybeSingle(),
+    supabase
+      .from("barbers")
+      .select("id")
+      .eq("id", barber_id)
+      .eq("branch_id", branch_id)
       .eq("is_active", true)
       .maybeSingle(),
     supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
@@ -118,11 +131,17 @@ export async function POST(request: Request) {
   if (serviceError) {
     return NextResponse.json({ error: serviceError.message }, { status: 500 });
   }
+  if (barberError) {
+    return NextResponse.json({ error: barberError.message }, { status: 500 });
+  }
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
   if (!service) {
     return NextResponse.json({ error: "Service not found or inactive" }, { status: 400 });
+  }
+  if (!barber) {
+    return NextResponse.json({ error: "Barber not found or inactive for this branch" }, { status: 400 });
   }
 
   const endTime = addMinutes(start_time, service.duration_minutes);
@@ -131,6 +150,7 @@ export async function POST(request: Request) {
     .from("appointments")
     .insert({
       client_id: user.id,
+      branch_id,
       barber_id,
       service_id,
       customer_name: profile?.full_name ?? user.email ?? "Cliente",

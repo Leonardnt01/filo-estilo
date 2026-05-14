@@ -6,12 +6,15 @@ import { useToast } from "@/components/toast";
 import { useConfirm } from "@/components/confirm-modal";
 
 type Barber = { id: string; full_name: string; specialty: string | null; image_url: string | null; is_active: boolean };
+type Branch = { id: string; name: string };
 
 export default function AdminBarbersPage() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<Barber[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchId, setBranchId] = useState("");
   const [form, setForm] = useState({ full_name: "", specialty: "", image_url: "" });
   const [editingSpecialtyId, setEditingSpecialtyId] = useState<string | null>(null);
   const [editingSpecialtyValue, setEditingSpecialtyValue] = useState("");
@@ -19,13 +22,26 @@ export default function AdminBarbersPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   async function load() {
-    const res = await fetch("/api/admin/barbers");
+    if (!branchId) return;
+    const res = await fetch(`/api/admin/barbers?branch_id=${branchId}`);
     const json = await res.json().catch(() => ({}));
     if (!res.ok) { toast(json.error ?? "No se pudo cargar barberos", "error"); return; }
     setItems(json.items ?? []);
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    async function loadBranches() {
+      const res = await fetch("/api/admin/branches");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const nextBranches = json.items ?? [];
+      setBranches(nextBranches);
+      if (!branchId && nextBranches[0]?.id) setBranchId(nextBranches[0].id);
+    }
+    void loadBranches();
+  }, []);
+
+  useEffect(() => { void load(); }, [branchId]);
 
   function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -43,7 +59,7 @@ export default function AdminBarbersPage() {
     e.preventDefault();
     const res = await fetch("/api/admin/barbers", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ full_name: form.full_name, specialty: form.specialty || null, image_url: form.image_url || null }),
+      body: JSON.stringify({ branch_id: branchId, full_name: form.full_name, specialty: form.specialty || null, image_url: form.image_url || null }),
     });
     if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo crear barbero", "error"); return; }
     setForm({ full_name: "", specialty: "", image_url: "" }); setImagePreview(null);
@@ -87,10 +103,15 @@ export default function AdminBarbersPage() {
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{items.length} barberos registrados</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="admin-btn admin-btn-primary">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m8-8H4" /></svg>
-          Nuevo Barbero
-        </button>
+        <div className="flex items-center gap-2">
+          <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="admin-select min-w-48">
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <button onClick={() => setShowForm(!showForm)} className="admin-btn admin-btn-primary" disabled={!branchId}>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m8-8H4" /></svg>
+            Nuevo Barbero
+          </button>
+        </div>
       </div>
 
       {showForm && (

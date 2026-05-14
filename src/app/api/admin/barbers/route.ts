@@ -12,6 +12,7 @@ const imageUrlSchema = z
   });
 
 const createBarberSchema = z.object({
+  branch_id: z.uuid(),
   full_name: z.string().trim().min(1),
   specialty: z.string().trim().optional().nullable(),
   image_url: imageUrlSchema.optional().nullable(),
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const onlyActive = searchParams.get("only_active") === "true";
+  const branchId = searchParams.get("branch_id");
 
   const supabase = await createClient();
   let query = supabase
@@ -33,6 +35,9 @@ export async function GET(request: Request) {
 
   if (onlyActive) {
     query = query.eq("is_active", true);
+  }
+  if (branchId) {
+    query = query.eq("branch_id", branchId);
   }
 
   const { data, error } = await query;
@@ -63,6 +68,7 @@ export async function POST(request: Request) {
     .from("barbers")
     .insert({
       full_name: parsed.data.full_name,
+      branch_id: parsed.data.branch_id,
       specialty: parsed.data.specialty ?? null,
       image_url: parsed.data.image_url ?? null,
       is_active: parsed.data.is_active ?? true,

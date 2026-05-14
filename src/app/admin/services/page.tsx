@@ -6,11 +6,14 @@ import { useToast } from "@/components/toast";
 import { useConfirm } from "@/components/confirm-modal";
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number; is_active: boolean };
+type Branch = { id: string; name: string };
 
 export default function AdminServicesPage() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
   const [items, setItems] = useState<Service[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchId, setBranchId] = useState("");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", price: "", duration_minutes: "" });
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
@@ -18,20 +21,33 @@ export default function AdminServicesPage() {
   const [showForm, setShowForm] = useState(false);
 
   async function load() {
+    if (!branchId) return;
     setLoading(true);
-    const res = await fetch("/api/admin/services");
+    const res = await fetch(`/api/admin/services?branch_id=${branchId}`);
     const json = await res.json().catch(() => ({}));
     if (!res.ok) { toast(json.error ?? "No se pudo cargar servicios", "error"); setLoading(false); return; }
     setItems(json.items ?? []); setLoading(false);
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    async function loadBranches() {
+      const res = await fetch("/api/admin/branches");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const nextBranches = json.items ?? [];
+      setBranches(nextBranches);
+      if (!branchId && nextBranches[0]?.id) setBranchId(nextBranches[0].id);
+    }
+    void loadBranches();
+  }, []);
+
+  useEffect(() => { void load(); }, [branchId]);
 
   async function createService(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const res = await fetch("/api/admin/services", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: form.name, description: form.description || null, price: Number(form.price), duration_minutes: Number(form.duration_minutes) }),
+      body: JSON.stringify({ branch_id: branchId, name: form.name, description: form.description || null, price: Number(form.price), duration_minutes: Number(form.duration_minutes) }),
     });
     if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo crear servicio", "error"); return; }
     setForm({ name: "", description: "", price: "", duration_minutes: "" }); toast("Servicio creado correctamente"); setShowForm(false); await load();
@@ -72,10 +88,15 @@ export default function AdminServicesPage() {
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{items.length} servicios registrados</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="admin-btn admin-btn-primary">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m8-8H4" /></svg>
-          Nuevo Servicio
-        </button>
+        <div className="flex items-center gap-2">
+          <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="admin-select min-w-48">
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <button onClick={() => setShowForm(!showForm)} className="admin-btn admin-btn-primary" disabled={!branchId}>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m8-8H4" /></svg>
+            Nuevo Servicio
+          </button>
+        </div>
       </div>
 
       {showForm && (

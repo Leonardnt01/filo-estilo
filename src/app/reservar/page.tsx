@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { useToast } from "@/components/toast";
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number };
 type Barber = { id: string; full_name: string; specialty: string | null };
+type Branch = { id: string; name: string; slug: string; address: string | null; phone: string | null };
 type Slot = { start_time: string; end_time: string };
 
 const STEPS = [
@@ -19,13 +20,16 @@ const STEPS = [
   { label: "Confirmar", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
 ];
 
-export default function ReservarPage() {
+function ReservarPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
 
+  const [branchId, setBranchId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [barberId, setBarberId] = useState("");
   const [date, setDate] = useState("");
@@ -42,12 +46,13 @@ export default function ReservarPage() {
 
   /* Current step indicator */
   const currentStep = useMemo(() => {
-    if (!serviceId) return 0;
-    if (!barberId) return 1;
-    if (!date) return 2;
-    if (!slotStart) return 3;
+    if (!branchId) return 0;
+    if (!serviceId) return 1;
+    if (!barberId) return 2;
+    if (!date) return 3;
+    if (!slotStart) return 4;
     return 4;
-  }, [serviceId, barberId, date, slotStart]);
+  }, [branchId, serviceId, barberId, date, slotStart]);
 
   const minDate = useMemo(() => {
     const now = new Date();
@@ -65,10 +70,14 @@ export default function ReservarPage() {
       const res = await fetch("/api/booking/catalog");
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { setError(json.error ?? "No se pudo cargar catálogo"); return; }
-      setServices(json.services ?? []);
-      setBarbers(json.barbers ?? []);
-      if (json.services?.[0]?.id) setServiceId(json.services[0].id);
-      if (json.barbers?.[0]?.id) setBarberId(json.barbers[0].id);
+      setBranches(json.branches ?? []);
+      const requestedBranchId = searchParams.get("branch_id");
+      const requestedExists = (json.branches ?? []).some((b: Branch) => b.id === requestedBranchId);
+      if (requestedBranchId && requestedExists) {
+        setBranchId(requestedBranchId);
+      } else if (json.branches?.[0]?.id) {
+        setBranchId(json.branches[0].id);
+      }
     }
     async function checkAuth() {
       try {
@@ -80,17 +89,42 @@ export default function ReservarPage() {
     }
     void loadCatalog();
     void checkAuth();
-  }, []);
+  }, [searchParams]);
+
+  useEffect(() => {
+    async function loadBranchCatalog() {
+      if (!branchId) {
+        setServices([]);
+        setBarbers([]);
+        setServiceId("");
+        setBarberId("");
+        return;
+      }
+      const res = await fetch(`/api/booking/catalog?branch_id=${branchId}`);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json.error ?? "No se pudo cargar catálogo por sede");
+        return;
+      }
+      setServices(json.services ?? []);
+      setBarbers(json.barbers ?? []);
+      setServiceId((json.services?.[0]?.id as string) ?? "");
+      setBarberId((json.barbers?.[0]?.id as string) ?? "");
+      setSlotStart("");
+      setSlots([]);
+    }
+    void loadBranchCatalog();
+  }, [branchId]);
 
   async function loadSlots() {
     setError(null);
     setSlotStart("");
-    if (!serviceId || !barberId || !date) { setSlots([]); return; }
+    if (!branchId || !serviceId || !barberId || !date) { setSlots([]); return; }
     setLoadingSlots(true);
     const res = await fetch("/api/booking/availability", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ service_id: serviceId, barber_id: barberId, appointment_date: date }),
+      body: JSON.stringify({ branch_id: branchId, service_id: serviceId, barber_id: barberId, appointment_date: date }),
     });
     const json = await res.json().catch(() => ({}));
     setLoadingSlots(false);
@@ -112,6 +146,7 @@ export default function ReservarPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        branch_id: branchId,
         barber_id: barberId,
         service_id: serviceId,
         appointment_date: date,
@@ -128,7 +163,6 @@ export default function ReservarPage() {
 
   return (
     <>
-      <Navbar />
       <main className="flex-1 pt-28 pb-20">
         <div className="mx-auto max-w-5xl px-6">
           {/* Header */}
@@ -174,10 +208,36 @@ export default function ReservarPage() {
           </div>
 
           <form onSubmit={book} className="space-y-8">
-            {/* Service selection */}
+            {/* Branch selection */}
             <div className="glass-card p-6 sm:p-8">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">1</span>
+                Elige tu sede
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {branches.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setBranchId(b.id)}
+                    className={`text-left rounded-xl p-4 border transition-all ${
+                      branchId === b.id
+                        ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-lg shadow-[var(--accent)]/5"
+                        : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
+                    }`}
+                  >
+                    <p className="font-medium">{b.name}</p>
+                    {b.address && <p className="mt-1 text-xs text-[var(--text-muted)]">{b.address}</p>}
+                    {b.phone && <p className="mt-1 text-xs text-[var(--text-muted)]">{b.phone}</p>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Service selection */}
+            <div className="glass-card p-6 sm:p-8">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">2</span>
                 Elige tu servicio
               </h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -211,7 +271,7 @@ export default function ReservarPage() {
             {/* Barber selection */}
             <div className="glass-card p-6 sm:p-8">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">2</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">3</span>
                 Elige tu barbero
               </h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -251,7 +311,7 @@ export default function ReservarPage() {
             {/* Date + slots */}
             <div className="glass-card p-6 sm:p-8">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">3</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">4</span>
                 Fecha y horario
               </h2>
 
@@ -268,7 +328,7 @@ export default function ReservarPage() {
                 <button
                   type="button"
                   onClick={() => void loadSlots()}
-                  disabled={loadingSlots || !serviceId || !barberId || !date}
+                  disabled={loadingSlots || !branchId || !serviceId || !barberId || !date}
                   className="btn-outline !py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {loadingSlots ? (
@@ -310,7 +370,7 @@ export default function ReservarPage() {
             {/* Notes + Summary */}
             <div className="glass-card p-6 sm:p-8">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">4</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">5</span>
                 Confirmar reserva
               </h2>
 
@@ -365,7 +425,7 @@ export default function ReservarPage() {
 
               <button
                 type="submit"
-                disabled={loading || !date || !slotStart || !serviceId || !barberId}
+                disabled={loading || !branchId || !date || !slotStart || !serviceId || !barberId}
                 className="btn-gold w-full !py-3.5 mt-4 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {loading ? (
@@ -384,7 +444,6 @@ export default function ReservarPage() {
           </form>
         </div>
       </main>
-      <Footer />
 
       {/* Auth modal */}
       {showAuthModal && !isAuthenticated && (
@@ -426,6 +485,26 @@ export default function ReservarPage() {
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+export default function ReservarPage() {
+  return (
+    <>
+      <Navbar />
+      <Suspense
+        fallback={
+          <main className="flex-1 pt-28 pb-20">
+            <div className="mx-auto max-w-5xl px-6">
+              <div className="glass-card p-6">Cargando reservación...</div>
+            </div>
+          </main>
+        }
+      >
+        <ReservarPageContent />
+      </Suspense>
+      <Footer />
     </>
   );
 }

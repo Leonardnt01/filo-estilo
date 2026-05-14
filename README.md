@@ -72,6 +72,11 @@ npm run start
 - `npm run start`: Sirve la build de produccion
 - `npm run lint`: Ejecuta validaciones con ESLint
 
+## Documentacion QA y pruebas API
+
+- Checklist QA: [docs/QA_CHECKLIST.md](docs/QA_CHECKLIST.md)
+- Guia Bruno/Postman: [docs/API_TESTING_BRUNO.md](docs/API_TESTING_BRUNO.md)
+
 ## Roadmap funcional
 
 - [ ] Landing comercial de barberia

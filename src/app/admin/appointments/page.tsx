@@ -12,6 +12,7 @@ type Appointment = {
 };
 
 type OptionItem = { id: string; full_name?: string; name?: string };
+type Branch = { id: string; name: string };
 
 const STATUSES: Appointment["status"][] = ["pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"];
 const STATUS_LABELS: Record<string, string> = {
@@ -22,6 +23,8 @@ const STATUS_LABELS: Record<string, string> = {
 export default function AdminAppointmentsPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<Appointment[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchFilter, setBranchFilter] = useState("");
   const [barbers, setBarbers] = useState<OptionItem[]>([]);
   const [services, setServices] = useState<OptionItem[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
@@ -34,7 +37,11 @@ export default function AdminAppointmentsPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   async function loadOptions() {
-    const [bRes, sRes] = await Promise.all([fetch("/api/admin/barbers"), fetch("/api/admin/services")]);
+    if (!branchFilter) return;
+    const [bRes, sRes] = await Promise.all([
+      fetch(`/api/admin/barbers?branch_id=${branchFilter}`),
+      fetch(`/api/admin/services?branch_id=${branchFilter}`),
+    ]);
     const bJson = await bRes.json().catch(() => ({}));
     const sJson = await sRes.json().catch(() => ({}));
     if (bRes.ok) setBarbers(bJson.items ?? []);
@@ -42,7 +49,9 @@ export default function AdminAppointmentsPage() {
   }
 
   async function load() {
+    if (!branchFilter) return;
     const params = new URLSearchParams();
+    if (branchFilter) params.set("branch_id", branchFilter);
     if (statusFilter) params.set("status", statusFilter);
     if (barberFilter) params.set("barber_id", barberFilter);
     if (serviceFilter) params.set("service_id", serviceFilter);
@@ -55,7 +64,23 @@ export default function AdminAppointmentsPage() {
     setItems(json.items ?? []);
   }
 
-  useEffect(() => { void loadOptions(); void load(); }, []);
+  useEffect(() => {
+    async function loadBranches() {
+      const res = await fetch("/api/admin/branches");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const nextBranches = json.items ?? [];
+      setBranches(nextBranches);
+      if (!branchFilter && nextBranches[0]?.id) setBranchFilter(nextBranches[0].id);
+    }
+    void loadBranches();
+  }, []);
+
+  useEffect(() => {
+    if (!branchFilter) return;
+    void loadOptions();
+    void load();
+  }, [branchFilter]);
 
   async function applyFilters() { await load(); }
   async function clearFilters() {
@@ -91,6 +116,9 @@ export default function AdminAppointmentsPage() {
         <div className="admin-card space-y-4 animate-fade-in">
           <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Filtros de búsqueda</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="admin-select">
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="admin-select">
               <option value="">Estado: todos</option>
               {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}

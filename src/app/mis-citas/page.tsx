@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -25,7 +25,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
   no_show:     { label: "No asistió",  color: "text-gray-400",   bg: "bg-gray-500/10 border-gray-500/20" },
 };
 
-export default function MyAppointmentsPage() {
+function MyAppointmentsContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const [items, setItems] = useState<MyAppointment[]>([]);
@@ -61,10 +61,8 @@ export default function MyAppointmentsPage() {
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="flex-1 pt-28 pb-20">
-        <div className="mx-auto max-w-5xl px-6">
+    <main className="flex-1 pt-28 pb-20">
+      <div className="mx-auto max-w-5xl px-6">
           {/* Header */}
           <div className="mb-10">
             <span className="section-label">
@@ -151,8 +149,26 @@ export default function MyAppointmentsPage() {
               })}
             </div>
           )}
-        </div>
-      </main>
+      </div>
+    </main>
+  );
+}
+
+export default function MyAppointmentsPage() {
+  return (
+    <>
+      <Navbar />
+      <Suspense
+        fallback={
+          <main className="flex-1 pt-28 pb-20">
+            <div className="mx-auto max-w-5xl px-6">
+              <div className="glass-card p-6">Cargando tus citas...</div>
+            </div>
+          </main>
+        }
+      >
+        <MyAppointmentsContent />
+      </Suspense>
       <Footer />
     </>
   );

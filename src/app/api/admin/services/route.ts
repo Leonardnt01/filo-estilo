@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { createClient } from "@/lib/supabase/server";
 
 const createServiceSchema = z.object({
+  branch_id: z.uuid(),
   name: z.string().trim().min(1),
   description: z.string().trim().optional().nullable(),
   price: z.number().min(0),
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const onlyActive = searchParams.get("only_active") === "true";
+  const branchId = searchParams.get("branch_id");
 
   const supabase = await createClient();
   let query = supabase
@@ -27,6 +29,9 @@ export async function GET(request: Request) {
 
   if (onlyActive) {
     query = query.eq("is_active", true);
+  }
+  if (branchId) {
+    query = query.eq("branch_id", branchId);
   }
 
   const { data, error } = await query;
@@ -57,6 +62,7 @@ export async function POST(request: Request) {
     .from("services")
     .insert({
       name: parsed.data.name,
+      branch_id: parsed.data.branch_id,
       description: parsed.data.description ?? null,
       price: parsed.data.price,
       duration_minutes: parsed.data.duration_minutes,
