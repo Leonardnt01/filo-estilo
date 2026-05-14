@@ -428,58 +428,80 @@ export default function Home() {
       <section id="contacto" className="py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center mb-14">
-            <span className="section-label">Ubicación</span>
+            <span className="section-label">Visítanos</span>
             <h2 className="mt-4 text-3xl sm:text-4xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
-              Visítanos
+              Encuentra tu <span className="text-[var(--accent)]">Sede</span>
             </h2>
             <p className="mt-3 text-[var(--text-secondary)]">
-              Estamos esperándote en nuestro local, abierto de lunes a sábado.
+              Te atendemos en nuestras sedes con reserva online o por WhatsApp.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
-            {[
-              {
-                icon: (
+          <div className="grid gap-6 lg:grid-cols-3">
+            <article className="glass-card p-8 lg:col-span-2">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)]">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                     <path d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                ),
-                title: "Dirección",
-                line1: "Calle Principal 123",
-                line2: "Lima, Perú",
-              },
-              {
-                icon: (
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Dirección física</h3>
+                  <p className="text-sm text-[var(--text-secondary)]">Sede principal - Lima Centro</p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+                <p className="font-medium">Av. Arequipa 2450, Lince, Lima 15046</p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  Referencia: a media cuadra del C.C. Risso.
+                </p>
+                <div className="mt-4">
+                  <a
+                    href="https://maps.google.com/?q=Av.+Arequipa+2450,+Lince,+Lima"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-outline !px-5 !py-2.5 text-sm"
+                  >
+                    Ver en Google Maps
+                  </a>
+                </div>
+              </div>
+            </article>
+
+            <article className="glass-card p-8">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)]">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                     <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
-                ),
-                title: "Teléfono",
-                line1: "+51 999 999 999",
-                line2: "WhatsApp disponible",
-              },
-              {
-                icon: (
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ),
-                title: "Horario",
-                line1: "Lun – Sáb: 9:00 – 20:00",
-                line2: "Domingos: Cerrado",
-              },
-            ].map((c) => (
-              <div key={c.title} className="glass-card p-8 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)]">
-                  {c.icon}
                 </div>
-                <h3 className="mt-4 font-semibold">{c.title}</h3>
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">{c.line1}</p>
-                <p className="text-sm text-[var(--text-muted)]">{c.line2}</p>
+                <div>
+                  <h3 className="font-semibold text-lg">Contacto rápido</h3>
+                  <p className="text-sm text-[var(--text-secondary)]">Respuesta en minutos</p>
+                </div>
               </div>
-            ))}
+
+              <div className="mt-5 space-y-3">
+                <a
+                  href="tel:+51999999999"
+                  className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 hover:border-[var(--accent-border)] transition-colors"
+                >
+                  <span className="text-sm text-[var(--text-secondary)]">Llamar ahora</span>
+                  <strong className="text-[var(--accent)]">+51 999 999 999</strong>
+                </a>
+                <a
+                  href="https://wa.me/51999999999"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3 hover:border-[var(--accent-border)] transition-colors"
+                >
+                  <span className="text-sm text-[var(--text-secondary)]">WhatsApp</span>
+                  <strong className="text-[var(--accent)]">Enviar mensaje</strong>
+                </a>
+              </div>
+            </article>
           </div>
 
           {/* Final CTA */}
