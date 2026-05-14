@@ -10,8 +10,11 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const passwordScore = Math.min(100, (password.length / 8) * 100);
+  const isStrongPassword = password.length >= 8;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -75,28 +78,57 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
                 Correo electrónico
               </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-dark"
-                placeholder="tu@email.com"
-              />
+              <div className="input-icon-wrap">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-dark"
+                  placeholder="tu@email.com"
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
                 Contraseña
               </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-dark"
-                placeholder="••••••••"
-              />
+              <div className="input-icon-wrap with-right-icon">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-dark"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="input-icon-right"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                >
+                  {showPassword ? (
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 3l18 18M10.584 10.587a2 2 0 102.828 2.828M9.363 5.365A9.466 9.466 0 0112 5c5.25 0 9.272 3.438 10 7-.242 1.184-.902 2.404-1.916 3.507M6.228 6.228C4.077 7.482 2.523 9.48 2 12c.728 3.562 4.75 7 10 7 2.024 0 3.85-.512 5.365-1.365" />
+                    </svg>
+                  ) : (
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path d="M1.933 12.5C3.64 8.712 7.43 6 12 6s8.36 2.712 10.067 6.5C20.36 16.288 16.57 19 12 19S3.64 16.288 1.933 12.5z" />
+                      <circle cx="12" cy="12.5" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {password.length > 0 && (
+                <div className="password-meter mt-2">
+                  <div
+                    className={`password-meter-fill ${isStrongPassword ? "is-strong" : "is-medium"}`}
+                    style={{ width: `${passwordScore}%` }}
+                  />
+                </div>
+              )}
             </div>
 
             {error && (
