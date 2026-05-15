@@ -52,7 +52,42 @@ export default function SedeDetallePage() {
       <main className="pt-28 pb-20">
         <div className="mx-auto max-w-7xl px-6">
           {loading ? (
-            <p className="text-center text-[var(--text-muted)]">Cargando sede...</p>
+            <>
+              <div className="mb-10 glass-card overflow-hidden">
+                <div className="h-56 w-full animate-pulse bg-[var(--bg-surface-hover)]" />
+                <div className="p-6 md:p-8 space-y-3">
+                  <div className="h-6 w-1/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                  <div className="h-4 w-2/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                  <div className="h-4 w-1/2 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                  <div className="h-10 w-48 animate-pulse rounded-full bg-[var(--bg-surface-hover)] mt-4" />
+                </div>
+              </div>
+
+              <section className="mb-10">
+                <div className="h-7 w-40 animate-pulse rounded bg-[var(--bg-surface-hover)] mb-4" />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <div key={idx} className="glass-card p-5 space-y-3">
+                      <div className="h-5 w-2/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                      <div className="h-4 w-full animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                      <div className="h-3 w-1/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <div className="h-7 w-40 animate-pulse rounded bg-[var(--bg-surface-hover)] mb-4" />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <div key={idx} className="glass-card p-5 space-y-3">
+                      <div className="h-5 w-2/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                      <div className="h-4 w-1/2 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
           ) : !branch ? (
             <div className="glass-card p-8 text-center">
               <h1 className="text-2xl font-bold">Sede no encontrada</h1>
@@ -60,7 +95,13 @@ export default function SedeDetallePage() {
             </div>
           ) : (
             <>
-              <div className="mb-10">
+              <div className="mb-10 glass-card overflow-hidden">
+                <img
+                  src="/images/home/sedes/sede-detalle.jpg"
+                  alt={branch.name}
+                  className="h-56 w-full object-cover"
+                />
+                <div className="p-6 md:p-8">
                 <span className="section-label">Sede</span>
                 <h1 className="mt-4 text-3xl sm:text-4xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
                   {branch.name}
@@ -70,6 +111,7 @@ export default function SedeDetallePage() {
                 <Link href={`/reservar?branch_id=${branch.id}`} className="btn-gold mt-6 inline-flex">
                   Reservar en esta sede
                 </Link>
+                </div>
               </div>
 
               <section className="mb-10">
@@ -107,4 +149,3 @@ export default function SedeDetallePage() {
     </>
   );
 }
-

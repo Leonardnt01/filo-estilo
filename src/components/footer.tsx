@@ -31,7 +31,7 @@ export function Footer() {
               <li><Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Inicio</Link></li>
               <li><Link href="/sedes" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Sedes</Link></li>
               <li><Link href="/#servicios" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Servicios</Link></li>
-              <li><Link href="/#equipo" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Nuestro Equipo</Link></li>
+              <li><Link href="/#equipo" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Quiénes Somos</Link></li>
               <li><Link href="/reservar" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Reservar Cita</Link></li>
             </ul>
           </div>
@@ -55,7 +55,7 @@ export function Footer() {
                   <path d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Lima, Perú
+                Av. Arequipa 2450, Lince, Lima
               </li>
               <li className="flex items-start gap-2.5 text-sm text-[var(--text-muted)]">
                 <svg className="h-4 w-4 text-[var(--accent)] mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -64,10 +64,10 @@ export function Footer() {
                 +51 999 999 999
               </li>
               <li className="flex items-start gap-2.5 text-sm text-[var(--text-muted)]">
-                <svg className="h-4 w-4 text-[var(--accent)] mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg className="h-4 w-4 text-[var(--accent)] mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 32 32">
+                  <path d="M19.11 17.205c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.198-.347.223-.644.074-.297-.148-1.255-.463-2.39-1.475-.883-.788-1.48-1.762-1.653-2.06-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.148-.174.198-.298.297-.497.1-.198.05-.372-.024-.52-.075-.149-.67-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.273.297-1.04 1.016-1.04 2.479s1.064 2.875 1.213 3.074c.148.198 2.095 3.2 5.076 4.487.71.306 1.263.489 1.695.625.711.227 1.36.195 1.87.118.572-.085 1.758-.718 2.006-1.412.248-.694.248-1.29.174-1.413-.075-.124-.273-.198-.57-.347z" />
                 </svg>
-                Lun – Sáb: 9:00 – 20:00
+                WhatsApp: +51 999 999 999
               </li>
             </ul>
           </div>
@@ -90,9 +90,16 @@ export function Footer() {
 }
 
 function SocialIcon({ label, d }: { label: string; d: string }) {
+  const links: Record<string, string> = {
+    Instagram: "https://instagram.com",
+    Facebook: "https://facebook.com",
+    WhatsApp: "https://wa.me/51999999999",
+  };
   return (
     <a
-      href="#"
+      href={links[label] ?? "#"}
+      target="_blank"
+      rel="noreferrer"
       className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
       aria-label={label}
     >

@@ -4,18 +4,21 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "./theme-provider";
+import { useAuthModal } from "./auth-modal";
+
+type UserInfo = { email: string; role: string; is_staff?: boolean };
 
 export function Navbar() {
   const router = useRouter();
-  const { toggle } = useTheme();
   const pathname = usePathname();
+  const { toggle } = useTheme();
+  const { open } = useAuthModal();
+
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [user, setUser] = useState<{ email: string; role: string; is_staff?: boolean } | null>(null);
-  const [hasAppointments, setHasAppointments] = useState(false);
-  const overHero = pathname === "/" && !scrolled;
-  const showAppointmentsDot = hasAppointments && !pathname.startsWith("/mis-citas");
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [activeSection, setActiveSection] = useState("inicio");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -26,26 +29,41 @@ export function Navbar() {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
-      .then((d) => {
-        if (d.authenticated) {
-          setUser(d.user);
-        } else {
-          setUser(null);
-          setHasAppointments(false);
-        }
-      })
-      .catch(() => {});
+      .then((d) => setUser(d.authenticated ? d.user : null))
+      .catch(() => setUser(null));
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    fetch("/api/my/appointments?limit=1")
-      .then((r) => r.json())
-      .then((d) => {
-        setHasAppointments(Array.isArray(d.items) && d.items.length > 0);
-      })
-      .catch(() => setHasAppointments(false));
-  }, [user]);
+    if (pathname !== "/") return;
+
+    const sections = [
+      { id: "quienes", key: "quienes" },
+      { id: "servicios", key: "servicios" },
+      { id: "casos", key: "casos" },
+      { id: "contacto", key: "contacto" },
+    ];
+
+    const detectSection = () => {
+      if (window.scrollY < 220) {
+        setActiveSection("inicio");
+        return;
+      }
+
+      for (const section of sections) {
+        const el = document.getElementById(section.id);
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= 140 && rect.bottom >= 140) {
+          setActiveSection(section.key);
+          return;
+        }
+      }
+    };
+
+    detectSection();
+    window.addEventListener("scroll", detectSection);
+    return () => window.removeEventListener("scroll", detectSection);
+  }, [pathname]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -55,21 +73,24 @@ export function Navbar() {
     router.refresh();
   }
 
+  const overHero = pathname === "/" && !scrolled;
+
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "backdrop-blur-md shadow-lg"
-          : "bg-transparent"
-      }`}
-      style={scrolled ? { background: "var(--nav-bg-scroll)" } : undefined}
+      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-xl border-b"
+      style={{
+        borderColor: "rgba(255,255,255,0.08)",
+        background: overHero ? "rgba(5,8,17,0.62)" : "var(--nav-bg-scroll)",
+      }}
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <svg
-            className="h-8 w-8 text-[var(--accent)] transition-transform duration-500 group-hover:rotate-[30deg]"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+            className="h-8 w-8 text-[var(--accent)] transition-transform duration-500 group-hover:rotate-[28deg]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
           >
             <circle cx="6" cy="6" r="3" />
             <circle cx="6" cy="18" r="3" />
@@ -79,37 +100,27 @@ export function Navbar() {
           </svg>
           <span
             className="text-xl font-bold tracking-wide"
-            style={{ fontFamily: "var(--font-playfair), serif", color: overHero ? "#f3f4f6" : "var(--text-primary)" }}
+            style={{ fontFamily: "var(--font-playfair), serif", color: "#f3f4f6" }}
           >
             Filo <span className="text-[var(--accent)]">Estilo</span>
           </span>
         </Link>
 
-        {/* Desktop links */}
-        <div className="hidden md:flex items-center gap-6">
-          <NavLink href="/" light={overHero}>Inicio</NavLink>
-          <NavLink href="/sedes" light={overHero}>Sedes</NavLink>
-          <NavLink href="/#servicios" light={overHero}>Servicios</NavLink>
-          <NavLink href="/#equipo" light={overHero}>Equipo</NavLink>
-          <NavLink href="/#contacto" light={overHero}>Contacto</NavLink>
+        <div className="hidden md:flex items-center gap-1 rounded-full border px-2 py-1.5"
+          style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(10,14,28,0.5)" }}>
+          <NavLink href="/" active={pathname === "/" && activeSection === "inicio"}>Inicio</NavLink>
+          <NavLink href="/sedes" active={pathname.startsWith("/sedes")}>Sedes</NavLink>
+          <NavLink href="/#quienes" active={pathname === "/" && activeSection === "quienes"}>Quiénes Somos</NavLink>
+          <NavLink href="/#servicios" active={pathname === "/" && activeSection === "servicios"}>Servicios</NavLink>
+          <NavLink href="/#casos" active={pathname === "/" && activeSection === "casos"}>Casos</NavLink>
+          <NavLink href="/#contacto" active={pathname === "/" && activeSection === "contacto"}>Contacto</NavLink>
+        </div>
 
-          {user ? (
-            <>
-              {(user.is_staff || user.role === "admin") && <NavLink href="/admin/services" light={overHero}>Panel Admin</NavLink>}
-            </>
-          ) : (
-            <NavLink href="/login" light={overHero}>Iniciar Sesión</NavLink>
-          )}
-
-          {/* Theme toggle */}
+        <div className="hidden md:flex items-center gap-3">
           <button
             onClick={toggle}
             className="flex h-9 w-9 items-center justify-center rounded-full border transition-all hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
-            style={
-              overHero
-                ? { borderColor: "rgba(255,255,255,0.3)", background: "rgba(15,23,42,0.45)", color: "#e5e7eb" }
-                : { borderColor: "var(--border-strong)", background: "var(--bg-surface)", color: "var(--text-secondary)" }
-            }
+            style={{ borderColor: "rgba(255,255,255,0.28)", background: "rgba(10,14,28,0.55)", color: "#e5e7eb" }}
             aria-label="Cambiar tema"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -117,9 +128,19 @@ export function Navbar() {
             </svg>
           </button>
 
-          <Link href="/reservar" className="btn-gold text-sm !py-2.5 !px-6">
-            Reservar Cita
-          </Link>
+          {!user && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => open("login")}
+                className="rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:border-[var(--accent-border)] hover:text-[var(--accent)] transition-colors"
+              >
+                Iniciar sesión
+              </button>
+              <button onClick={() => open("register")} className="btn-gold text-sm !py-2 !px-5">
+                Registrarme
+              </button>
+            </div>
+          )}
 
           {user && (
             <div className="relative">
@@ -131,32 +152,17 @@ export function Navbar() {
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                {showAppointmentsDot && (
-                  <span className="absolute -top-1 -right-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[var(--bg-secondary)]" />
-                )}
               </button>
 
               {profileOpen && (
                 <div className="absolute right-0 mt-2 w-52 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-2 shadow-2xl">
-                  <Link
-                    href="/perfil"
-                    onClick={() => setProfileOpen(false)}
-                    className="block rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--accent)]"
-                  >
+                  <Link href="/perfil" onClick={() => setProfileOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--accent)]">
                     Mi Perfil
                   </Link>
-                  <Link
-                    href="/mis-citas"
-                    onClick={() => setProfileOpen(false)}
-                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--accent)]"
-                  >
-                    <span>Mis Citas</span>
-                    {showAppointmentsDot && <span className="inline-block h-2 w-2 rounded-full bg-red-500" />}
+                  <Link href="/mis-citas" onClick={() => setProfileOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--accent)]">
+                    Mis Citas
                   </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400"
-                  >
+                  <button onClick={handleLogout} className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400">
                     Cerrar sesión
                   </button>
                 </div>
@@ -165,7 +171,6 @@ export function Navbar() {
           )}
         </div>
 
-        {/* Mobile controls */}
         <div className="flex items-center gap-2 md:hidden">
           <button
             onClick={toggle}
@@ -176,97 +181,78 @@ export function Navbar() {
               <path d="M12 3v2m0 14v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M3 12h2m14 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41M12 8a4 4 0 100 8 4 4 0 000-8z" />
             </svg>
           </button>
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
-            aria-label="Menú"
-          >
+          <button onClick={() => setMenuOpen(!menuOpen)} className="text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors" aria-label="Menú">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              {menuOpen
-                ? <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
-                : <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />}
+              {menuOpen ? <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />}
             </svg>
           </button>
         </div>
       </nav>
 
-      {/* Mobile menu */}
       {menuOpen && (
         <div className="md:hidden backdrop-blur-md border-t border-[var(--border)] px-6 py-4 space-y-1 animate-fade-in"
           style={{ background: "var(--nav-bg-scroll)" }}>
           <MobileLink href="/" onClick={() => setMenuOpen(false)}>Inicio</MobileLink>
           <MobileLink href="/sedes" onClick={() => setMenuOpen(false)}>Sedes</MobileLink>
+          <MobileLink href="/#quienes" onClick={() => setMenuOpen(false)}>Quiénes Somos</MobileLink>
           <MobileLink href="/#servicios" onClick={() => setMenuOpen(false)}>Servicios</MobileLink>
-          <MobileLink href="/#equipo" onClick={() => setMenuOpen(false)}>Equipo</MobileLink>
+          <MobileLink href="/#casos" onClick={() => setMenuOpen(false)}>Casos</MobileLink>
           <MobileLink href="/#contacto" onClick={() => setMenuOpen(false)}>Contacto</MobileLink>
-          {user ? (
+          {!user ? (
+            <>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  open("login");
+                }}
+                className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-2.5 text-left text-sm text-[var(--text-secondary)] hover:text-[var(--accent)]"
+              >
+                Iniciar sesión
+              </button>
+              <div className="pt-2">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    open("register");
+                  }}
+                  className="btn-gold w-full text-center"
+                >
+                  Registrarme
+                </button>
+              </div>
+            </>
+          ) : (
             <>
               <MobileLink href="/perfil" onClick={() => setMenuOpen(false)}>Mi Perfil</MobileLink>
-              <MobileLink href="/mis-citas" onClick={() => setMenuOpen(false)} showDot={showAppointmentsDot}>Mis Citas</MobileLink>
-              {(user.is_staff || user.role === "admin") && (
-                <MobileLink href="/admin/services" onClick={() => setMenuOpen(false)}>Panel Admin</MobileLink>
-              )}
-              <button
-                onClick={handleLogout}
-                className="mt-2 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-2.5 text-left text-sm text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400"
-              >
+              <MobileLink href="/mis-citas" onClick={() => setMenuOpen(false)}>Mis Citas</MobileLink>
+              <button onClick={handleLogout} className="mt-2 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-2.5 text-left text-sm text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400">
                 Cerrar sesión
               </button>
             </>
-          ) : (
-            <MobileLink href="/login" onClick={() => setMenuOpen(false)}>Iniciar Sesión</MobileLink>
           )}
-          <div className="pt-2">
-            <Link href="/reservar" onClick={() => setMenuOpen(false)} className="btn-gold w-full text-center">
-              Reservar Cita
-            </Link>
-          </div>
         </div>
       )}
     </header>
   );
 }
 
-function NavLink({
-  href,
-  children,
-  light = false,
-  showDot = false,
-}: {
-  href: string;
-  children: React.ReactNode;
-  light?: boolean;
-  showDot?: boolean;
-}) {
+function NavLink({ href, active, children }: { href: string; active?: boolean; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className="relative text-sm hover:text-[var(--accent)] transition-colors duration-200"
-      style={{ color: light ? "#e5e7eb" : "var(--text-secondary)" }}
+      className={`relative rounded-full px-3 py-1.5 text-sm transition-all duration-200 ${active ? "text-[var(--accent)]" : "text-[#e5e7eb] hover:text-[var(--accent)]"}`}
+      style={active ? { background: "var(--accent-soft)" } : undefined}
     >
       {children}
-      {showDot && (
-        <span className="absolute -top-1.5 -right-2.5 inline-block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[var(--bg-secondary)]" />
-      )}
+      {active && <span className="absolute left-3 right-3 -bottom-[2px] h-px bg-[var(--accent)] opacity-80" />}
     </Link>
   );
 }
 
-function MobileLink({
-  href,
-  onClick,
-  children,
-  showDot = false,
-}: {
-  href: string;
-  onClick: () => void;
-  children: React.ReactNode;
-  showDot?: boolean;
-}) {
+function MobileLink({ href, onClick, children }: { href: string; onClick: () => void; children: React.ReactNode }) {
   return (
     <Link href={href} onClick={onClick} className="flex items-center gap-2 py-2.5 text-sm text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors">
       <span>{children}</span>
-      {showDot && <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />}
     </Link>
   );
 }

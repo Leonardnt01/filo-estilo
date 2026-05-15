@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/toast";
 import { ConfirmProvider } from "@/components/confirm-modal";
+import { AuthModalProvider } from "@/components/auth-modal";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,7 +42,9 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             <ConfirmProvider>
-              {children}
+              <AuthModalProvider>
+                {children}
+              </AuthModalProvider>
             </ConfirmProvider>
           </ToastProvider>
         </ThemeProvider>
