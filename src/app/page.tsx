@@ -6,18 +6,98 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number };
+type Branch = {
+  id: string;
+  name: string;
+  slug: string;
+  address: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  maps_url: string | null;
+  is_featured?: boolean;
+};
+type FeaturedService = { id: string; branch_id: string | null; service_id: string | null; title: string; image_url: string | null; sort_order: number };
+type Testimonial = { id: string; branch_id: string | null; name: string; title: string | null; result: string | null; quote: string; image_url: string | null; sort_order: number };
+
+const FALLBACK_SERVICE_SLIDES = [
+  "https://montalvoformen.com.pe/wp-content/uploads/2023/04/portfolio-s12-1280x1280.jpeg",
+  "https://montalvoformen.com.pe/wp-content/uploads/2023/04/portfolio-s62-1280x1280.jpeg",
+  "https://kingschair.ca/wp-content/uploads/2025/07/hot-towel-shave-kings-chair-barbershop.jpg",
+  "https://static.vecteezy.com/system/resources/thumbnails/071/785/389/small/focused-barber-s-hands-precisely-trimming-a-serious-bearded-man-s-stylish-haircut-photo.jpg",
+  "https://raorbarberstudio.com/wp-content/uploads/2024/09/Corte-de-Cabello-Raor-Barber-Studio-Barbershop-Palma-de-Mallorca-1200x800.jpg",
+];
+
+const FALLBACK_SUCCESS_STORIES = [
+  {
+    name: "Luis M.",
+    result: "Cambio de look completo",
+    quote: "Pasé de un estilo clásico a uno moderno para mi nuevo trabajo. Me sentí otra persona.",
+    image: "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-260x260.png",
+  },
+  {
+    name: "Diego R.",
+    result: "Corte + barba premium",
+    quote: "La precisión en la barba fue brutal. Me duró impecable toda la semana.",
+    image: "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-2-260x260.png",
+  },
+  {
+    name: "Carlos T.",
+    result: "Asesoría de imagen",
+    quote: "No sabía qué corte hacerme y me recomendaron uno perfecto para mi rostro.",
+    image: "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-2-2-260x260.png",
+  },
+];
+
+const FALLBACK_BRANCH_CONTACTS = [
+  {
+    id: "lince",
+    name: "Sede Lince",
+    address: "Av. Arequipa 2450, Lince, Lima",
+    phone: "+51 999 999 999",
+    whatsapp: "+51 999 999 999",
+    mapsUrl: "https://maps.google.com/?q=Av.+Arequipa+2450,+Lince,+Lima",
+    waUrl: "https://wa.me/51999999999",
+  },
+  {
+    id: "san-isidro",
+    name: "Sede San Isidro",
+    address: "Av. Javier Prado Este 410, San Isidro, Lima",
+    phone: "+51 988 777 666",
+    whatsapp: "+51 988 777 666",
+    mapsUrl: "https://maps.google.com/?q=Av.+Javier+Prado+Este+410,+San+Isidro,+Lima",
+    waUrl: "https://wa.me/51988777666",
+  },
+] as const;
 
 export default function Home() {
   const [services, setServices] = useState<Service[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [featuredServices, setFeaturedServices] = useState<FeaturedService[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [activeService, setActiveService] = useState(0);
   const [activeStory, setActiveStory] = useState(0);
-  const [contactBranch, setContactBranch] = useState("lince");
+  const [contactBranch, setContactBranch] = useState("");
 
   useEffect(() => {
-    fetch("/api/booking/catalog")
+    fetch("/api/public/home")
       .then((r) => r.json())
-      .then((d) => setServices(d.services ?? []))
-      .catch(() => setServices([]));
+      .then((d) => {
+        const nextBranches = d.branches ?? [];
+        const nextServices = d.services ?? [];
+        setBranches(nextBranches);
+        setServices(nextServices);
+        setFeaturedServices(d.featured_services ?? []);
+        setTestimonials(d.testimonials ?? []);
+        if (nextBranches.length > 0) {
+          setContactBranch(nextBranches[0].slug);
+        }
+      })
+      .catch(() => {
+        setServices([]);
+        setBranches([]);
+        setFeaturedServices([]);
+        setTestimonials([]);
+      });
   }, []);
 
   const keyServices = useMemo(() => {
@@ -32,13 +112,12 @@ export default function Home() {
       .slice(0, 5);
   }, [services]);
 
-  const serviceSlides = [
-    "https://montalvoformen.com.pe/wp-content/uploads/2023/04/portfolio-s12-1280x1280.jpeg", // reemplazar
-    "https://montalvoformen.com.pe/wp-content/uploads/2023/04/portfolio-s62-1280x1280.jpeg", // reemplazar
-    "https://kingschair.ca/wp-content/uploads/2025/07/hot-towel-shave-kings-chair-barbershop.jpg", // reemplazar
-    "https://static.vecteezy.com/system/resources/thumbnails/071/785/389/small/focused-barber-s-hands-precisely-trimming-a-serious-bearded-man-s-stylish-haircut-photo.jpg", // reemplazar
-    "https://raorbarberstudio.com/wp-content/uploads/2024/09/Corte-de-Cabello-Raor-Barber-Studio-Barbershop-Palma-de-Mallorca-1200x800.jpg", // reemplazar
-  ];
+  const serviceSlides = useMemo(() => {
+    const dbSlides = featuredServices
+      .map((item) => item.image_url)
+      .filter((url): url is string => Boolean(url));
+    return dbSlides.length > 0 ? dbSlides : FALLBACK_SERVICE_SLIDES;
+  }, [featuredServices]);
 
   useEffect(() => {
     if (keyServices.length <= 1) return;
@@ -48,47 +127,33 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [keyServices.length]);
 
-  const successStories = [
-    {
-      name: "Luis M.",
-      result: "Cambio de look completo",
-      quote: "Pasé de un estilo clásico a uno moderno para mi nuevo trabajo. Me sentí otra persona.",
-      image: "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-260x260.png",
-    },
-    {
-      name: "Diego R.",
-      result: "Corte + barba premium",
-      quote: "La precisión en la barba fue brutal. Me duró impecable toda la semana.",
-      image: "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-2-260x260.png",
-    },
-    {
-      name: "Carlos T.",
-      result: "Asesoría de imagen",
-      quote: "No sabía qué corte hacerme y me recomendaron uno perfecto para mi rostro.",
-      image: "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-2-2-260x260.png",
-    },
-  ];
+  const successStories = useMemo(() => {
+    if (testimonials.length === 0) return FALLBACK_SUCCESS_STORIES;
+    return testimonials.map((item) => ({
+      name: item.name,
+      result: item.result ?? item.title ?? "Experiencia premium",
+      quote: item.quote,
+      image: item.image_url ?? "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-260x260.png",
+    }));
+  }, [testimonials]);
 
-  const branchContacts = [
-    {
-      id: "lince",
-      name: "Sede Lince",
-      address: "Av. Arequipa 2450, Lince, Lima",
-      phone: "+51 999 999 999",
-      whatsapp: "+51 999 999 999",
-      mapsUrl: "https://maps.google.com/?q=Av.+Arequipa+2450,+Lince,+Lima",
-      waUrl: "https://wa.me/51999999999",
-    },
-    {
-      id: "san-isidro",
-      name: "Sede San Isidro",
-      address: "Av. Javier Prado Este 410, San Isidro, Lima",
-      phone: "+51 988 777 666",
-      whatsapp: "+51 988 777 666",
-      mapsUrl: "https://maps.google.com/?q=Av.+Javier+Prado+Este+410,+San+Isidro,+Lima",
-      waUrl: "https://wa.me/51988777666",
-    },
-  ] as const;
+  const branchContacts = useMemo(() => {
+    if (branches.length === 0) return FALLBACK_BRANCH_CONTACTS;
+    const mapped = branches.map((b) => {
+      const numericPhone = (b.phone ?? "").replace(/\D/g, "");
+      const waNumeric = (b.whatsapp ?? "").replace(/\D/g, "");
+      return {
+        id: b.slug,
+        name: b.name,
+        address: b.address ?? "Dirección por actualizar",
+        phone: b.phone ?? "+51 999 999 999",
+        whatsapp: b.whatsapp ?? b.phone ?? "+51 999 999 999",
+        mapsUrl: b.maps_url ?? "https://maps.google.com",
+        waUrl: `https://wa.me/${waNumeric || numericPhone || "51999999999"}`,
+      };
+    });
+    return mapped.length > 0 ? mapped : FALLBACK_BRANCH_CONTACTS;
+  }, [branches]);
 
   const selectedBranch = branchContacts.find((b) => b.id === contactBranch) ?? branchContacts[0];
 
@@ -434,7 +499,7 @@ export default function Home() {
       </section>
 
       <a
-        href="https://wa.me/51999999999"
+        href={selectedBranch?.waUrl ?? "https://wa.me/51999999999"}
         target="_blank"
         rel="noreferrer"
         aria-label="WhatsApp"

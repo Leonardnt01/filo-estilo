@@ -81,7 +81,7 @@ function AuthModal({
       toast("Sesión iniciada correctamente");
       onClose();
       if (json.user?.role === "admin" || json.user?.is_staff) {
-        router.push("/admin/services");
+        router.push("/admin");
       } else {
         router.push("/mis-citas");
       }

@@ -42,7 +42,7 @@ export default function LoginPage() {
 
     setLoading(false);
     if (json.user?.role === "admin" || json.user?.is_staff) {
-      router.push("/admin/services");
+      router.push("/admin");
       return;
     }
 

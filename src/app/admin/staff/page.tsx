@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { AdminHeaderSkeleton, AdminTableSkeleton } from "@/components/admin-skeletons";
 import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/admin-client-cache";
@@ -94,20 +94,7 @@ export default function AdminStaffPage() {
       return;
     }
     invalidateCacheByPrefix("/api/admin/memberships");
-    
-    // Simulación de nuevo ítem para actualización local instantánea
-    const newItem: Membership = {
-      id: Math.random().toString(),
-      user_id: "nuevo-usuario",
-      user_email: form.email,
-      full_name: "Nuevo Miembro",
-      branch_id: branchId,
-      role: form.role,
-      is_active: true,
-      created_at: new Date().toISOString(),
-    };
-
-    setItems((prev) => [newItem, ...prev]);
+    await loadMemberships();
     setForm({ email: "", role: "barber" });
     toast("Staff agregado correctamente");
   }
@@ -118,12 +105,14 @@ export default function AdminStaffPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_active: !item.is_active }),
     });
-    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      toast(json.error ?? "No se pudo actualizar el estado", "error");
+      return;
+    }
     invalidateCacheByPrefix("/api/admin/memberships");
-    
-    // Actualización local instantánea
+
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_active: !item.is_active } : i)));
-    
     toast(item.is_active ? "Membresía desactivada" : "Membresía activada");
   }
 

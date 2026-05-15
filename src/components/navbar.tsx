@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "./theme-provider";
 import { useAuthModal } from "./auth-modal";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -12,7 +11,6 @@ type UserInfo = { email: string; role: string; is_staff?: boolean };
 export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { toggle } = useTheme();
   const { open } = useAuthModal();
 
   const [scrolled, setScrolled] = useState(false);

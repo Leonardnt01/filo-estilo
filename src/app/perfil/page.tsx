@@ -22,28 +22,18 @@ type Stats = {
   upcoming: number;
 };
 
-const PROMOS = [
-  {
-    title: "Martes de Fade",
-    desc: "15% de descuento en cortes fade todos los martes.",
-    badge: "15% OFF",
-  },
-  {
-    title: "Combo Premium",
-    desc: "Corte + barba + lavado con precio especial.",
-    badge: "Pack",
-  },
-  {
-    title: "Cliente Frecuente",
-    desc: "Cada 5 citas completadas, la 6ta tiene 30% OFF.",
-    badge: "Fidelidad",
-  },
-];
+type Promotion = {
+  id: string;
+  title: string;
+  description: string | null;
+  discount_percent: number | null;
+};
 
 export default function PerfilPage() {
   const { toast } = useToast();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ full_name: "", phone: "" });
@@ -52,15 +42,20 @@ export default function PerfilPage() {
   async function load() {
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/my/profile");
-    const json = await res.json().catch(() => ({}));
+    const [profileRes, homeRes] = await Promise.all([
+      fetch("/api/my/profile"),
+      fetch("/api/public/home"),
+    ]);
+    const json = await profileRes.json().catch(() => ({}));
+    const home = await homeRes.json().catch(() => ({}));
     setLoading(false);
-    if (!res.ok) {
+    if (!profileRes.ok) {
       setError(json.error ?? "No se pudo cargar tu perfil");
       return;
     }
     setProfile(json.profile);
     setStats(json.stats);
+    setPromotions(home.promotions ?? []);
     setForm({
       full_name: json.profile?.full_name ?? "",
       phone: json.profile?.phone ?? "",
@@ -173,19 +168,21 @@ export default function PerfilPage() {
                     Promociones para ti
                   </h2>
                   <div className="grid gap-3">
-                    {PROMOS.map((promo) => (
+                    {(promotions.length > 0 ? promotions : [
+                      { id: "fallback-1", title: "Promociones semanales", description: "Consulta nuestras promociones activas en sedes y reserva con descuento.", discount_percent: null },
+                    ]).map((promo) => (
                       <article
-                        key={promo.title}
+                        key={promo.id}
                         className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-4"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <h3 className="font-semibold">{promo.title}</h3>
                           <span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]">
-                            {promo.badge}
+                            {promo.discount_percent ? `${promo.discount_percent}% OFF` : "Activa"}
                           </span>
                         </div>
                         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                          {promo.desc}
+                          {promo.description ?? "Promoción disponible por tiempo limitado."}
                         </p>
                       </article>
                     ))}
