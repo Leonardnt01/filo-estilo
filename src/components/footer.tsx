@@ -5,22 +5,36 @@ export function Footer() {
     <footer className="bg-[var(--bg-secondary)] border-t border-[var(--border)]">
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Brand */}
           <div>
-            <div className="flex items-center gap-2">
-              <svg className="h-7 w-7 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="6" cy="6" r="3" />
-                <circle cx="6" cy="18" r="3" />
-                <line x1="20" y1="4" x2="8.12" y2="15.88" />
-                <line x1="14.47" y1="14.48" x2="20" y2="20" />
-                <line x1="8.12" y1="8.12" x2="12" y2="12" />
-              </svg>
-              <span className="text-lg font-bold tracking-wide" style={{ fontFamily: "var(--font-playfair), serif" }}>
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="relative">
+                <div className="absolute inset-0 bg-[var(--accent)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
+                <svg
+                  className="relative h-8 w-8 text-[var(--accent)] transition-all duration-500 group-hover:rotate-[15deg]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M6 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                  <path d="M18 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                  <path d="M12 12 3 3" />
+                  <path d="M12 12l9-9" />
+                  <path d="M12 12v10" />
+                  <path d="m15 19-3 3-3-3" />
+                </svg>
+              </div>
+              <span
+                className="text-xl font-bold tracking-tight transition-colors"
+                style={{ fontFamily: "var(--font-playfair), serif", color: "var(--text-primary)" }}
+              >
                 Filo <span className="text-[var(--accent)]">Estilo</span>
               </span>
-            </div>
-            <p className="mt-4 text-sm text-[var(--text-muted)] leading-relaxed max-w-xs">
-              Tu barbería de confianza. Estilo, precisión y atención personalizada en cada visita.
+            </Link>
+            <p className="mt-6 text-sm text-[var(--text-muted)] leading-relaxed max-w-xs">
+              Redefiniendo el estándar del cuidado masculino. Maestría técnica y atención personalizada en cada visita.
             </p>
           </div>
 
@@ -29,9 +43,9 @@ export function Footer() {
             <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Navegación</h3>
             <ul className="space-y-2.5">
               <li><Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Inicio</Link></li>
-              <li><Link href="/sedes" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Sedes</Link></li>
-              <li><Link href="/#servicios" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Servicios</Link></li>
-              <li><Link href="/#equipo" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Quiénes Somos</Link></li>
+              <li><Link href="/sedes" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Nuestras Sedes</Link></li>
+              <li><Link href="/#servicios" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Servicios Premium</Link></li>
+              <li><Link href="/#quienes" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Quiénes Somos</Link></li>
               <li><Link href="/reservar" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">Reservar Cita</Link></li>
             </ul>
           </div>
@@ -46,16 +60,18 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Contact */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Contacto</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Contacto Central</h3>
             <ul className="space-y-3">
               <li className="flex items-start gap-2.5 text-sm text-[var(--text-muted)]">
                 <svg className="h-4 w-4 text-[var(--accent)] mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Av. Arequipa 2450, Lince, Lima
+                <span>
+                  Presencia en múltiples sedes<br />
+                  <Link href="/sedes" className="text-[var(--accent)] text-xs font-semibold hover:underline">Ver ubicaciones en mapa</Link>
+                </span>
               </li>
               <li className="flex items-start gap-2.5 text-sm text-[var(--text-muted)]">
                 <svg className="h-4 w-4 text-[var(--accent)] mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -67,7 +83,7 @@ export function Footer() {
                 <svg className="h-4 w-4 text-[var(--accent)] mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 32 32">
                   <path d="M19.11 17.205c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.198-.347.223-.644.074-.297-.148-1.255-.463-2.39-1.475-.883-.788-1.48-1.762-1.653-2.06-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.148-.174.198-.298.297-.497.1-.198.05-.372-.024-.52-.075-.149-.67-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.273.297-1.04 1.016-1.04 2.479s1.064 2.875 1.213 3.074c.148.198 2.095 3.2 5.076 4.487.71.306 1.263.489 1.695.625.711.227 1.36.195 1.87.118.572-.085 1.758-.718 2.006-1.412.248-.694.248-1.29.174-1.413-.075-.124-.273-.198-.57-.347z" />
                 </svg>
-                WhatsApp: +51 999 999 999
+                WhatsApp Central
               </li>
             </ul>
           </div>

@@ -95,11 +95,25 @@ export default function SedeDetallePage() {
             </div>
           ) : (
             <>
+              <div className="mb-6">
+                <Link href="/sedes" className="group inline-flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors">
+                  <svg className="h-4 w-4 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Volver a Sedes
+                </Link>
+              </div>
               <div className="mb-10 glass-card overflow-hidden">
                 <img
-                  src="/images/home/sedes/sede-detalle.jpg"
+                  src={
+                    branch.slug === "sede-principal"
+                      ? "https://www.businessempresarial.com.pe/wp-content/uploads/2025/09/Montalvo-For-Men-780x470.jpeg"
+                      : branch.slug === "sede-norte"
+                      ? "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop"
+                      : "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=1200&auto=format&fit=crop"
+                  }
                   alt={branch.name}
-                  className="h-56 w-full object-cover"
+                  className="h-64 w-full object-cover"
                 />
                 <div className="p-6 md:p-8">
                 <span className="section-label">Sede</span>

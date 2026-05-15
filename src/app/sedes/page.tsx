@@ -62,11 +62,13 @@ export default function SedesPage() {
               {branches.map((b, idx) => (
                 <Link key={b.id} href={`/sedes/${b.slug}`} className="glass-card overflow-hidden group hover:border-[var(--accent-border)] transition-colors">
                   <img
-                    src={[
-                      "/images/home/sedes/sede-1.jpg",
-                      "/images/home/sedes/sede-2.jpg",
-                      "/images/home/sedes/sede-3.jpg",
-                    ][idx % 3]}
+                    src={
+                      b.slug === "sede-principal"
+                        ? "https://www.businessempresarial.com.pe/wp-content/uploads/2025/09/Montalvo-For-Men-780x470.jpeg"
+                        : b.slug === "sede-norte"
+                        ? "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop"
+                        : "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=1200&auto=format&fit=crop"
+                    }
                     alt={b.name}
                     className="h-44 w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />

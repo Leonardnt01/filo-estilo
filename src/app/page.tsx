@@ -106,8 +106,8 @@ export default function Home() {
       <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <img src="/hero-bg.png" alt="" className="absolute inset-0 w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-black/70" />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.36) 0%, transparent 30%, transparent 70%, var(--bg-primary) 100%)" }} />
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 70%, var(--bg-primary) 100%)" }} />
         </div>
 
         <div className="relative z-10 mx-auto max-w-4xl px-6 pt-24 text-center">
@@ -122,8 +122,16 @@ export default function Home() {
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/reservar" className="btn-gold text-base !px-8 !py-3.5">Reservar Ahora</Link>
-            <Link href="/#servicios" className="btn-outline text-base !px-8 !py-3.5">Ver Servicios</Link>
+            <Link href="/#servicios" className="btn-outline text-base !px-8 !py-3.5 !text-white hover:!text-[var(--accent)]">Ver Servicios</Link>
           </div>
+        </div>
+
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 animate-bounce">
+          <Link href="/#quienes" className="group flex items-center justify-center h-14 w-14 rounded-full border-2 border-[var(--accent)] bg-[#0b0b10] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-all hover:scale-110 shadow-2xl">
+            <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+              <path d="M19 14l-7 7-7-7" />
+            </svg>
+          </Link>
         </div>
       </section>
 
@@ -137,12 +145,12 @@ export default function Home() {
             <div>
               <span className="section-label">Quiénes Somos</span>
               <h2 className="mt-4 text-4xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
-                Cadena de barberías con enfoque en calidad y estilo
+                Redefiniendo el estándar del cuidado masculino
               </h2>
               <p className="mt-4 text-[var(--text-secondary)] leading-relaxed">
-                Iniciamos con un objetivo claro: ofrecer una experiencia completa de barbería, con técnica, asesoría de imagen y atención humana en cada visita.
+                En Filo Estilo fusionamos la maestría técnica con una visión moderna de la imagen. Nuestro compromiso es ofrecerte una experiencia premium donde la precisión artesanal y la asesoría personalizada se unen para potenciar tu identidad única.
               </p>
-              <Link href="/sedes" className="btn-outline mt-6">Ver Nuestras Sedes</Link>
+              <Link href="/sedes" className="btn-outline mt-6">Explorar Nuestras Sedes</Link>
             </div>
           </div>
         </div>
@@ -225,15 +233,27 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid lg:grid-cols-2 gap-10 items-center">
             <div>
-              <span className="section-label">Por Qué Elegirnos</span>
+              <span className="section-label">Experiencia Filo Estilo</span>
               <h2 className="mt-4 text-4xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
-                Resultados consistentes en cada sede
+                Compromiso con la perfección en cada detalle
               </h2>
-              <ul className="mt-6 space-y-4 text-[var(--text-secondary)]">
-                <li className="flex gap-3"><span className="text-[var(--accent)]">✓</span> Servicio personalizado según tu estilo y tipo de rostro.</li>
-                <li className="flex gap-3"><span className="text-[var(--accent)]">✓</span> Staff capacitado en corte, barba y asesoría de imagen.</li>
-                <li className="flex gap-3"><span className="text-[var(--accent)]">✓</span> Marcas profesionales para mejor acabado y cuidado.</li>
-                <li className="flex gap-3"><span className="text-[var(--accent)]">✓</span> Reserva online fácil y atención por WhatsApp.</li>
+              <ul className="mt-6 space-y-5 text-[var(--text-secondary)]">
+                <li className="flex gap-3">
+                  <span className="text-[var(--accent)] font-bold">✓</span>
+                  <span><strong>Asesoría de Visagismo:</strong> Diseñamos tu look basándonos en tu estructura facial y estilo personal.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-[var(--accent)] font-bold">✓</span>
+                  <span><strong>Maestría Técnica:</strong> Especialistas capacitados en las tendencias más vanguardistas del mundo.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-[var(--accent)] font-bold">✓</span>
+                  <span><strong>Productos Premium:</strong> Utilizamos marcas líderes para garantizar un acabado de nivel superior.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-[var(--accent)] font-bold">✓</span>
+                  <span><strong>Gestión de Tiempo:</strong> Sistema de reserva online ágil y atención personalizada por WhatsApp.</span>
+                </li>
               </ul>
             </div>
             <img src="https://cdn.pixabay.com/photo/2019/02/25/13/38/haircut-4019676_1280.jpg" alt="Barbero en acción" className="h-[420px] w-full object-cover rounded-2xl border border-[var(--border)]" />
@@ -343,26 +363,26 @@ export default function Home() {
                 </p>
 
                 <div className="mt-6 grid gap-3">
-                  <a href={selectedBranch.mapsUrl} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 hover:border-[var(--accent-border)] transition-colors">
+                  <a href={selectedBranch.mapsUrl} target="_blank" rel="noreferrer" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4 hover:border-[var(--accent-border)] transition-colors">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Dirección principal</p>
+                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">Dirección principal</p>
                       <span className="text-sm text-[var(--text-secondary)]">{selectedBranch.address}</span>
                     </div>
-                    <span className="text-[var(--accent)] font-semibold">Ver mapa</span>
+                    <span className="text-[var(--accent)] font-semibold text-sm sm:text-base">Ver mapa</span>
                   </a>
-                  <a href={`tel:${selectedBranch.phone.replace(/\s+/g, "")}`} className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 hover:border-[var(--accent-border)] transition-colors">
+                  <a href={`tel:${selectedBranch.phone.replace(/\s+/g, "")}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4 hover:border-[var(--accent-border)] transition-colors">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Central telefónica</p>
+                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">Central telefónica</p>
                       <span className="text-sm text-[var(--text-secondary)]">Atención Lun - Sáb 9:00 a.m. - 8:00 p.m.</span>
                     </div>
-                    <span className="text-[var(--accent)] font-semibold">{selectedBranch.phone}</span>
+                    <span className="text-[var(--accent)] font-semibold text-sm sm:text-base whitespace-nowrap">{selectedBranch.phone}</span>
                   </a>
-                  <a href={selectedBranch.waUrl} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 hover:border-[var(--accent-border)] transition-colors">
+                  <a href={selectedBranch.waUrl} target="_blank" rel="noreferrer" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4 hover:border-[var(--accent-border)] transition-colors">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">WhatsApp</p>
+                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">WhatsApp</p>
                       <span className="text-sm text-[var(--text-secondary)]">Reservas y consultas inmediatas</span>
                     </div>
-                    <span className="text-[var(--accent)] font-semibold">{selectedBranch.whatsapp}</span>
+                    <span className="text-[var(--accent)] font-semibold text-sm sm:text-base whitespace-nowrap">{selectedBranch.whatsapp}</span>
                   </a>
                 </div>
               </div>
