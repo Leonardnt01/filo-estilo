@@ -4,6 +4,8 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { useConfirm } from "@/components/confirm-modal";
+import { AdminCardsSkeleton, AdminHeaderSkeleton } from "@/components/admin-skeletons";
+import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/admin-client-cache";
 
 type Branch = { id: string; name: string };
 type Barber = { id: string; full_name: string };
@@ -19,37 +21,51 @@ export default function AdminBusinessHoursPage() {
   const [branchId, setBranchId] = useState("");
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [items, setItems] = useState<BusinessHour[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [branchesLoading, setBranchesLoading] = useState(true);
   const [form, setForm] = useState({ barber_id: "", day_of_week: "1", start_time: "09:00", end_time: "18:00" });
   const [showForm, setShowForm] = useState(false);
 
   async function load() {
     if (!branchId) return;
-    const [bRes, hRes] = await Promise.all([
-      fetch(`/api/admin/barbers?only_active=true&branch_id=${branchId}`),
-      fetch(`/api/admin/business-hours?branch_id=${branchId}`),
-    ]);
-    const bJson = await bRes.json().catch(() => ({}));
-    const hJson = await hRes.json().catch(() => ({}));
-    if (!bRes.ok) { toast(bJson.error ?? "Error barberos", "error"); return; }
-    if (!hRes.ok) { toast(hJson.error ?? "Error horarios", "error"); return; }
-    const nextBarbers = bJson.items ?? [];
-    setBarbers(nextBarbers); setItems(hJson.items ?? []);
-    if (!form.barber_id && nextBarbers[0]?.id) setForm((s) => ({ ...s, barber_id: nextBarbers[0].id }));
+    setLoading(true);
+    try {
+      const [bJson, hJson] = await Promise.all([
+        fetchCachedJson<{ items?: Barber[] }>(`/api/admin/barbers?only_active=true&branch_id=${branchId}`, { ttlMs: 15_000 }),
+        fetchCachedJson<{ items?: BusinessHour[] }>(`/api/admin/business-hours?branch_id=${branchId}`, { ttlMs: 10_000 }),
+      ]);
+      const nextBarbers = bJson.items ?? [];
+      setBarbers(nextBarbers);
+      setItems(hJson.items ?? []);
+      if (!form.barber_id && nextBarbers[0]?.id) setForm((s) => ({ ...s, barber_id: nextBarbers[0].id }));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Error cargando horarios", "error");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     async function loadBranches() {
-      const res = await fetch("/api/admin/branches");
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) return;
-      const nextBranches = json.items ?? [];
-      setBranches(nextBranches);
-      if (!branchId && nextBranches[0]?.id) setBranchId(nextBranches[0].id);
+      setBranchesLoading(true);
+      try {
+        const json = await fetchCachedJson<{ items?: Branch[] }>("/api/admin/branches", { ttlMs: 60_000 });
+        const nextBranches = json.items ?? [];
+        const remembered = typeof window !== "undefined" ? localStorage.getItem("admin.branch_id") : "";
+        const selected = (remembered && nextBranches.find((b) => b.id === remembered)?.id) || nextBranches[0]?.id || "";
+        setBranches(nextBranches);
+        if (!branchId && selected) setBranchId(selected);
+      } finally {
+        setBranchesLoading(false);
+      }
     }
     void loadBranches();
   }, []);
 
   useEffect(() => { void load(); }, [branchId]);
+  useEffect(() => {
+    if (branchId) localStorage.setItem("admin.branch_id", branchId);
+  }, [branchId]);
 
   async function createHour(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,6 +74,7 @@ export default function AdminBusinessHoursPage() {
       body: JSON.stringify({ branch_id: branchId, barber_id: form.barber_id, day_of_week: Number(form.day_of_week), start_time: form.start_time, end_time: form.end_time }),
     });
     if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo crear horario", "error"); return; }
+    invalidateCacheByPrefix("/api/admin/business-hours");
     toast("Horario creado correctamente"); setShowForm(false); await load();
   }
 
@@ -71,7 +88,11 @@ export default function AdminBusinessHoursPage() {
     if (!ok) return;
     const res = await fetch(`/api/admin/business-hours/${id}`, { method: "DELETE" });
     if (!res.ok) { const json = await res.json().catch(() => ({})); toast(json.error ?? "No se pudo eliminar", "error"); return; }
-    toast("Horario eliminado"); await load();
+    
+    // Eliminación local instantánea
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    invalidateCacheByPrefix("/api/admin/business-hours");
+    toast("Horario eliminado");
   }
 
   const grouped = barbers.map((b) => ({
@@ -81,23 +102,39 @@ export default function AdminBusinessHoursPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
+      {branchesLoading ? (
+        <AdminHeaderSkeleton />
+      ) : (
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
+          <h2 className="text-3xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
             Horarios de <span style={{ color: "var(--accent)" }}>Atención</span>
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{items.length} horarios configurados</p>
+          
+          {/* Branch Tabs Selector */}
+          <div className="mt-6 flex flex-wrap gap-2">
+            {branches.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => setBranchId(b.id)}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition-all border ${
+                  branchId === b.id 
+                    ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-lg shadow-[var(--accent-soft)]" 
+                    : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
+                }`}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="admin-select min-w-48">
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          <button onClick={() => setShowForm(!showForm)} className="admin-btn admin-btn-primary" disabled={!branchId}>
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 4v16m8-8H4" /></svg>
-            Nuevo Horario
-          </button>
-        </div>
+        <button onClick={() => setShowForm(!showForm)} className="admin-btn admin-btn-primary !h-11 !px-6" disabled={!branchId}>
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M12 4v16m8-8H4" /></svg>
+          Nuevo Horario
+        </button>
       </div>
+      )}
 
       {showForm && (
         <form onSubmit={createHour} className="admin-card space-y-4 animate-fade-in">
@@ -119,7 +156,9 @@ export default function AdminBusinessHoursPage() {
         </form>
       )}
 
-      {grouped.map((g) => (
+      {loading ? (
+        <AdminCardsSkeleton count={4} />
+      ) : grouped.map((g) => (
         <div key={g.barber.id} className="admin-card">
           <div className="flex items-center gap-3 mb-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold" style={{ background: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--accent-border)" }}>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/logout-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useTheme } from "@/components/theme-provider";
 
 const navItems = [
@@ -25,13 +26,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2 group">
-              <svg className="h-6 w-6 text-[var(--accent)] transition-transform duration-500 group-hover:rotate-[30deg]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
-                <line x1="20" y1="4" x2="8.12" y2="15.88" />
-                <line x1="14.47" y1="14.48" x2="20" y2="20" />
-                <line x1="8.12" y1="8.12" x2="12" y2="12" />
-              </svg>
-              <span className="text-lg font-bold tracking-wide" style={{ fontFamily: "var(--font-playfair), serif" }}>
+              <div className="relative">
+                <div className="absolute inset-0 bg-[var(--accent)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
+                <svg
+                  className="relative h-7 w-7 text-[var(--accent)] transition-all duration-500 group-hover:rotate-[15deg] group-hover:scale-110"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M6 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                  <path d="M18 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                  <path d="M12 12 3 3" />
+                  <path d="M12 12l9-9" />
+                  <path d="M12 12v10" />
+                  <path d="m15 19-3 3-3-3" />
+                </svg>
+              </div>
+              <span className="text-lg font-bold tracking-tight transition-colors" style={{ fontFamily: "var(--font-playfair), serif", color: "var(--text-primary)" }}>
                 Filo <span className="text-[var(--accent)]">Estilo</span>
               </span>
             </Link>
@@ -39,18 +53,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Admin
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Theme toggle */}
-            <button
-              onClick={toggle}
-              className="flex h-9 w-9 items-center justify-center rounded-full border text-[var(--text-secondary)] transition-all hover:text-[var(--accent)]"
-              style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface)" }}
-              aria-label="Cambiar tema"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path d="M12 3v2m0 14v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M3 12h2m14 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41M12 8a4 4 0 100 8 4 4 0 000-8z" />
-              </svg>
-            </button>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
             <LogoutButton />
           </div>
         </div>

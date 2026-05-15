@@ -125,6 +125,10 @@ body {
   from { opacity: 1; transform: translateX(0); }
   to { opacity: 0; transform: translateX(100%); }
 }
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
 
 .animate-fade-in-up { animation: fadeInUp 0.6s ease-out both; }
 .animate-fade-in { animation: fadeIn 0.5s ease-out both; }
@@ -404,3 +408,32 @@ body {
   transition: all 0.2s ease;
 }
 .stat-card:hover { border-color: var(--accent-border); }
+
+/* ── Skeletons ── */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.1) 30%,
+    rgba(255, 255, 255, 0.04) 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+[data-theme="light"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.09) 30%,
+    rgba(0, 0, 0, 0.04) 60%
+  );
+  background-size: 200% 100%;
+}
+
+.skeleton-line { height: 0.75rem; }
+.skeleton-chip { height: 1.65rem; border-radius: 9999px; }
+.skeleton-circle { border-radius: 9999px; }

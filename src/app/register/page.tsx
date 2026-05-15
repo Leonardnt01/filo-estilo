@@ -76,7 +76,8 @@ export default function RegisterPage() {
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
                 Nombre completo
               </label>
-              <div className="input-icon-wrap">
+              <div className="input-icon-wrap with-left-icon">
+                <svg className="input-icon-left h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                 <input
                   type="text"
                   required
@@ -92,7 +93,8 @@ export default function RegisterPage() {
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
                 Correo electrónico
               </label>
-              <div className="input-icon-wrap">
+              <div className="input-icon-wrap with-left-icon">
+                <svg className="input-icon-left h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206" strokeWidth="2.5" /></svg>
                 <input
                   type="email"
                   required
@@ -108,7 +110,8 @@ export default function RegisterPage() {
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
                 Contraseña
               </label>
-              <div className="input-icon-wrap with-right-icon">
+              <div className="input-icon-wrap with-left-icon with-right-icon">
+                <svg className="input-icon-left h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                 <input
                   type={showPassword ? "text" : "password"}
                   required

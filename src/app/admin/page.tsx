@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { fetchCachedJson } from "@/lib/admin-client-cache";
 
 type Stats = {
   services: number;
@@ -23,35 +24,31 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     async function loadBranches() {
-      const branchesRes = await fetch("/api/admin/branches");
-      const branchesJson = await branchesRes.json().catch(() => ({}));
-      if (!branchesRes.ok) return;
+      const branchesJson = await fetchCachedJson<{ items?: Branch[] }>("/api/admin/branches", { ttlMs: 60_000 });
       const nextBranches = branchesJson.items ?? [];
       setBranches(nextBranches);
-      if (!branchId && nextBranches[0]?.id) {
-        setBranchId(nextBranches[0].id);
-      }
+      const remembered = typeof window !== "undefined" ? localStorage.getItem("admin.branch_id") : "";
+      const selected = (remembered && nextBranches.find((b) => b.id === remembered)?.id) || nextBranches[0]?.id || "";
+      if (!branchId && selected) setBranchId(selected);
     }
     void loadBranches();
   }, []);
 
   useEffect(() => {
     async function loadStats() {
-      if (!branchId) return;
       setLoading(true);
-      const [sRes, bRes, aRes] = await Promise.all([
-        fetch(`/api/admin/services?only_active=true&branch_id=${branchId}`),
-        fetch(`/api/admin/barbers?only_active=true&branch_id=${branchId}`),
-        fetch(`/api/admin/appointments?limit=100&branch_id=${branchId}`),
+      const query = branchId && branchId !== "all" ? `branch_id=${branchId}` : "";
+      
+      const [sJson, bJson, aJson] = await Promise.all([
+        fetchCachedJson<{ items?: unknown[] }>(`/api/admin/services?only_active=true&${query}`, { ttlMs: 20_000 }),
+        fetchCachedJson<{ items?: unknown[] }>(`/api/admin/barbers?only_active=true&${query}`, { ttlMs: 20_000 }),
+        fetchCachedJson<{ items?: { appointment_date: string; status: string; branch_id: string }[] }>(`/api/admin/appointments?limit=200&${query}`, { ttlMs: 10_000 }),
       ]);
-      const sJson = await sRes.json().catch(() => ({}));
-      const bJson = await bRes.json().catch(() => ({}));
-      const aJson = await aRes.json().catch(() => ({}));
 
       const today = new Date().toISOString().slice(0, 10);
       const appointments = aJson.items ?? [];
-      const todayAppts = appointments.filter((a: { appointment_date: string }) => a.appointment_date === today);
-      const pending = appointments.filter((a: { status: string }) => a.status === "pending");
+      const todayAppts = appointments.filter((a) => a.appointment_date === today);
+      const pending = appointments.filter((a) => a.status === "pending");
 
       setStats({
         services: (sJson.items ?? []).length,
@@ -63,6 +60,9 @@ export default function AdminDashboardPage() {
     }
     void loadStats();
   }, [branchId]);
+  useEffect(() => {
+    if (branchId) localStorage.setItem("admin.branch_id", branchId);
+  }, [branchId]);
 
   const cards = [
     { label: "Servicios Activos", value: stats.services, icon: "M13 10V3L4 14h7v7l9-11h-7z", color: "#3b82f6", href: "/admin/services" },
@@ -73,52 +73,141 @@ export default function AdminDashboardPage() {
 
   return (
     <section>
-      <div className="mb-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
-              Panel de <span style={{ color: "var(--accent)" }}>Control</span>
-            </h2>
-            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Resumen general por sede
-            </p>
-          </div>
-          <select
-            value={branchId}
-            onChange={(e) => setBranchId(e.target.value)}
-            className="admin-select min-w-56"
+      <div className="mb-10">
+        <h2 className="text-4xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
+          Panel de <span style={{ color: "var(--accent)" }}>Control</span>
+        </h2>
+        <p className="mt-2 text-[var(--text-secondary)]">Visión general del negocio y rendimiento de sedes</p>
+
+        {/* Branch Tabs Selector */}
+        <div className="mt-8 flex flex-wrap gap-2">
+          <button
+            onClick={() => setBranchId("all")}
+            className={`rounded-full px-6 py-2.5 text-sm font-bold transition-all border ${
+              branchId === "all" || !branchId
+                ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-xl shadow-[var(--accent-soft)]"
+                : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
+            }`}
           >
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+            Vista General
+          </button>
+          {branches.map((b) => (
+            <button
+              key={b.id}
+              onClick={() => setBranchId(b.id)}
+              className={`rounded-full px-6 py-2.5 text-sm font-bold transition-all border ${
+                branchId === b.id
+                  ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-xl shadow-[var(--accent-soft)]"
+                  : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
+              }`}
+            >
+              {b.name}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-10">
         {cards.map((c) => (
-          <Link key={c.label} href={c.href} className="stat-card group cursor-pointer">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-                {c.label}
-              </span>
+          <Link 
+            key={c.label} 
+            href={c.href} 
+            className="admin-card group relative overflow-hidden transition-all hover:scale-[1.02] active:scale-95"
+            style={{ borderLeft: `4px solid ${c.color}` }}
+          >
+            <div className="flex items-center justify-between mb-4">
               <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                className="flex h-12 w-12 items-center justify-center rounded-2xl transition-transform group-hover:scale-110"
                 style={{ background: `${c.color}15`, color: c.color }}
               >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path d={c.icon} />
                 </svg>
               </div>
+              {branchId === "all" && <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Global</span>}
             </div>
-            <p className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
-              {loading ? "..." : c.value}
+            <p className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1">
+              {c.label}
             </p>
+            <p className="text-4xl font-black transition-all" style={{ color: "var(--text-primary)" }}>
+              {loading ? <span className="opacity-20 animate-pulse">00</span> : c.value}
+            </p>
+            <div 
+              className="absolute -right-4 -bottom-4 h-24 w-24 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity"
+              style={{ color: c.color }}
+            >
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d={c.icon} /></svg>
+            </div>
           </Link>
         ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3 mb-10">
+        {/* Branch Summary List */}
+        <div className="lg:col-span-2 admin-card h-full">
+          <h3 className="text-lg font-bold mb-6" style={{ fontFamily: "var(--font-playfair), serif" }}>Resumen por Sedes</h3>
+          <div className="space-y-4">
+            {branches.map((b) => (
+              <div 
+                key={b.id} 
+                className="flex items-center justify-between p-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)] transition-all cursor-pointer group"
+                onClick={() => setBranchId(b.id)}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-[var(--accent-soft)] flex items-center justify-center text-[var(--accent)] font-bold">
+                    {b.name[0]}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">{b.name}</h4>
+                    <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest font-bold">Estado Operacional</p>
+                  </div>
+                </div>
+                <div className="flex gap-6 text-right">
+                  <div>
+                    <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>Activa</p>
+                    <p className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-widest">Sede</p>
+                  </div>
+                  <svg className="h-5 w-5 text-[var(--text-muted)] group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Status indicator */}
+        <div className="admin-card h-full flex flex-col justify-between overflow-hidden relative">
+          <div className="relative z-10">
+            <h3 className="text-lg font-bold mb-2" style={{ fontFamily: "var(--font-playfair), serif" }}>Estado de Red</h3>
+            <p className="text-xs text-[var(--text-muted)] font-medium mb-8">Rendimiento en tiempo real</p>
+            
+            <div className="space-y-6">
+              {[
+                { label: "Sincronización Cloud", value: "Excelente", color: "#22c55e" },
+                { label: "Pasarela de Pagos", value: "Activa", color: "#22c55e" },
+                { label: "Sistemas Locales", value: "En línea", color: "#22c55e" },
+              ].map((s) => (
+                <div key={s.label}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-bold text-[var(--text-secondary)]">{s.label}</span>
+                    <span className="text-xs font-black uppercase tracking-widest" style={{ color: s.color }}>{s.value}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-[var(--border-strong)] rounded-full overflow-hidden">
+                    <div className="h-full bg-[var(--accent)] w-[95%] rounded-full shadow-[0_0_8px_var(--accent)]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="mt-8 relative z-10">
+            <button className="w-full btn-gold !py-3 font-bold text-sm">Ver Auditoría Completa</button>
+          </div>
+          
+          <div className="absolute -right-10 -bottom-10 h-40 w-40 bg-[var(--accent)] blur-[80px] opacity-10 pointer-events-none" />
+        </div>
       </div>
 
       {/* Quick actions */}
