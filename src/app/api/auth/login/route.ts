@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
+import { checkRateLimit, getClientIdentifier } from "@/lib/security/rate-limit";
 
 const loginSchema = z.object({
   email: z.email(),
@@ -11,6 +12,24 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const clientId = getClientIdentifier(request);
+  const rateLimit = checkRateLimit(`auth:login:${clientId}`, {
+    maxAttempts: 5,
+    windowMs: 60_000,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Please try again later." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      },
+    );
+  }
+
   const bodyResult = loginSchema.safeParse(await request.json().catch(() => null));
 
   if (!bodyResult.success) {
