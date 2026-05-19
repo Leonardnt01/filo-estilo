@@ -1,13 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { logSecurityEvent } from "@/lib/security/audit-log";
 import { updateSession } from "@/lib/supabase/middleware";
 
 function unauthorizedApiResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
+function getRequestIp(request: NextRequest) {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() ?? "unknown";
+  return request.headers.get("x-real-ip") ?? "unknown";
+}
+
 export async function middleware(request: NextRequest) {
   const { response, supabase, user } = await updateSession(request);
+  const ip = getRequestIp(request);
 
   const isAdminPage = request.nextUrl.pathname.startsWith("/admin");
   const isAdminApi = request.nextUrl.pathname.startsWith("/api/admin");
@@ -18,6 +26,15 @@ export async function middleware(request: NextRequest) {
 
   if (!user) {
     if (isAdminApi) {
+      logSecurityEvent({
+        event: "admin.access.denied_unauthenticated",
+        level: "warn",
+        route: request.nextUrl.pathname,
+        method: request.method,
+        ip,
+        status: 401,
+      });
+
       return unauthorizedApiResponse("Not authenticated", 401);
     }
 
@@ -45,6 +62,16 @@ export async function middleware(request: NextRequest) {
 
   if (error || !canAccessAdmin) {
     if (isAdminApi) {
+      logSecurityEvent({
+        event: "admin.access.denied_forbidden",
+        level: "warn",
+        route: request.nextUrl.pathname,
+        method: request.method,
+        ip,
+        userId: user.id,
+        status: 403,
+      });
+
       return unauthorizedApiResponse("Forbidden: admin role required", 403);
     }
 
