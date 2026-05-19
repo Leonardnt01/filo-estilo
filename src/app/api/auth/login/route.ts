@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
+import { logSecurityEvent } from "@/lib/security/audit-log";
+import { checkRateLimit, getClientIdentifier } from "@/lib/security/rate-limit";
 
 const loginSchema = z.object({
   email: z.email(),
@@ -11,9 +13,46 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const clientId = getClientIdentifier(request);
+  const rateLimit = checkRateLimit(`auth:login:${clientId}`, {
+    maxAttempts: 5,
+    windowMs: 60_000,
+  });
+
+  if (!rateLimit.allowed) {
+    logSecurityEvent({
+      event: "auth.rate_limit_blocked",
+      level: "warn",
+      route: "/api/auth/login",
+      method: "POST",
+      ip: clientId,
+      status: 429,
+      metadata: { retry_after_seconds: rateLimit.retryAfterSeconds },
+    });
+
+    return NextResponse.json(
+      { error: "Too many login attempts. Please try again later." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      },
+    );
+  }
+
   const bodyResult = loginSchema.safeParse(await request.json().catch(() => null));
 
   if (!bodyResult.success) {
+    logSecurityEvent({
+      event: "auth.login.invalid_payload",
+      level: "warn",
+      route: "/api/auth/login",
+      method: "POST",
+      ip: clientId,
+      status: 400,
+    });
+
     return NextResponse.json(
       { error: "Invalid payload. Required: email, password" },
       { status: 400 },
@@ -44,6 +83,17 @@ export async function POST(request: Request) {
   });
 
   if (error || !data.user) {
+    logSecurityEvent({
+      event: "auth.login.failed",
+      level: "warn",
+      route: "/api/auth/login",
+      method: "POST",
+      ip: clientId,
+      email: bodyResult.data.email,
+      status: 401,
+      message: error?.message ?? "Invalid credentials",
+    });
+
     return NextResponse.json(
       { error: error?.message ?? "Invalid credentials" },
       { status: 401 },
@@ -62,6 +112,17 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (profileError) {
+    logSecurityEvent({
+      event: "auth.login.profile_lookup_failed",
+      level: "error",
+      route: "/api/auth/login",
+      method: "POST",
+      ip: clientId,
+      userId,
+      status: 500,
+      message: profileError.message,
+    });
+
     return NextResponse.json(
       { error: `Could not load user profile: ${profileError.message}` },
       { status: 500 },
@@ -81,6 +142,22 @@ export async function POST(request: Request) {
     role: m.role,
   }));
   const isStaff = safeMemberships.length > 0 || role === "admin";
+
+  logSecurityEvent({
+    event: "auth.login.success",
+    level: "info",
+    route: "/api/auth/login",
+    method: "POST",
+    ip: clientId,
+    userId,
+    email: data.user.email ?? undefined,
+    status: 200,
+    metadata: {
+      role,
+      is_staff: isStaff,
+      memberships_count: safeMemberships.length,
+    },
+  });
 
   return NextResponse.json({
     ok: true,
