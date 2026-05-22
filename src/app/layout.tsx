@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/toast";
 import { ConfirmProvider } from "@/components/confirm-modal";
 import { AuthModalProvider } from "@/components/auth-modal";
+import { SessionSyncGuard } from "@/components/session-sync-guard";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,6 +44,7 @@ export default function RootLayout({
           <ToastProvider>
             <ConfirmProvider>
               <AuthModalProvider>
+                <SessionSyncGuard />
                 {children}
               </AuthModalProvider>
             </ConfirmProvider>

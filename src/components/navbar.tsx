@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthModal } from "./auth-modal";
 import { ThemeToggle } from "./theme-toggle";
+import { broadcastLogoutEvent } from "@/lib/auth/session-sync";
 
 type UserInfo = { email: string; role: string; is_staff?: boolean };
 
@@ -77,6 +78,7 @@ export function Navbar() {
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    broadcastLogoutEvent();
     setProfileOpen(false);
     setMenuOpen(false);
     router.push("/");
