@@ -38,9 +38,12 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   let query = supabase
     .from("appointments")
-    .select(
-      "id, client_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
-    )
+    .select(`
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      barber:barbers(full_name),
+      service:services(name, price),
+      branch:branches(name)
+    `)
     .order("appointment_date", { ascending: false })
     .order("start_time", { ascending: false })
     .limit(limit);

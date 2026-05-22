@@ -88,13 +88,13 @@ export function Navbar() {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-xl border-b"
+      className="fixed top-0 left-0 right-0 z-50 border-b shadow-[0_10px_40px_rgba(0,0,0,0.28)] transition-all duration-300 backdrop-blur-xl"
       style={{
         borderColor: "var(--border)",
         background: (overHero && !menuOpen) ? "rgba(5,8,17,0.62)" : "var(--nav-bg-scroll)",
       }}
     >
-      <nav className="relative mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <nav className="relative mx-auto flex min-h-[76px] max-w-7xl items-center justify-between px-4 py-3 md:px-6">
         <Link href="/" className="flex items-center gap-3 group">
           <div className="relative">
             <div className="absolute inset-0 bg-[var(--accent)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
@@ -126,7 +126,7 @@ export function Navbar() {
           </span>
         </Link>
 
-        <div className="absolute left-1/2 hidden -translate-x-1/2 md:flex items-center gap-1 rounded-full border px-2 py-1.5 backdrop-blur-md transition-all"
+        <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 xl:flex items-center gap-1 rounded-full border px-2 py-1.5 backdrop-blur-md transition-all"
           style={{ 
             borderColor: overHero ? "rgba(255,255,255,0.15)" : "var(--border-strong)", 
             background: overHero ? "rgba(255,255,255,0.05)" : "var(--bg-surface)", 
@@ -140,19 +140,39 @@ export function Navbar() {
           <NavLink href="/#contacto" active={pathname === "/" && activeSection === "contacto"} overHero={overHero}>Contacto</NavLink>
         </div>
 
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden xl:flex items-center gap-2 xl:gap-3">
           <ThemeToggle />
 
           {!user && (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => open("login")}
-                className="rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:border-[var(--accent-border)] hover:text-[var(--accent)] transition-colors"
+                className="hidden xl:inline-flex rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:border-[var(--accent-border)] hover:text-[var(--accent)] transition-colors"
               >
                 Iniciar sesión
               </button>
-              <button onClick={() => open("register")} className="btn-gold text-sm !py-2 !px-5">
+              <button
+                onClick={() => open("login")}
+                aria-label="Iniciar sesión"
+                title="Iniciar sesión"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-border)] hover:text-[var(--accent)] xl:hidden"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </button>
+              <button onClick={() => open("register")} className="hidden xl:inline-flex btn-gold text-sm !py-2 !px-5">
                 Registrarme
+              </button>
+              <button
+                onClick={() => open("register")}
+                aria-label="Registrarme"
+                title="Registrarme"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-border)] bg-[var(--accent)] text-[var(--bg-primary)] transition-all hover:brightness-95 xl:hidden"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
               </button>
             </div>
           )}
@@ -199,7 +219,7 @@ export function Navbar() {
           )}
         </div>
 
-        <div className="flex items-center gap-3 md:hidden">
+        <div className="flex items-center gap-3 xl:hidden">
           <ThemeToggle />
           <button 
             onClick={() => setMenuOpen(!menuOpen)} 
@@ -215,7 +235,7 @@ export function Navbar() {
 
       {menuOpen && (
         <div
-          className="md:hidden absolute top-full left-0 right-0 z-[90] border-b border-[var(--border)] bg-[var(--nav-bg-scroll)] shadow-2xl"
+          className="xl:hidden absolute top-full left-0 right-0 z-[90] border-b border-[var(--border)] bg-[var(--nav-bg-scroll)] shadow-2xl"
         >
           <div className="mx-auto max-w-7xl px-4 py-4 max-h-[calc(100vh-76px)] overflow-y-auto">
             <div className="space-y-2">
@@ -270,7 +290,7 @@ function NavLink({ href, active, overHero, children }: { href: string; active?: 
   return (
     <Link
       href={href}
-      className={`relative rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200 ${overHero ? "" : textColor} hover:text-[var(--accent)]`}
+      className={`relative flex h-10 items-center whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium leading-none transition-all duration-200 ${overHero ? "" : textColor} hover:text-[var(--accent)]`}
       style={{ 
         background: active ? "var(--accent-soft)" : "transparent",
         color: overHero ? (active ? "var(--accent)" : "#e5e7eb") : undefined

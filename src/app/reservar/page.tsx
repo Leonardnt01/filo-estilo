@@ -8,16 +8,24 @@ import { Footer } from "@/components/footer";
 import { useToast } from "@/components/toast";
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number; branch_id: string | null };
-type Barber = { id: string; full_name: string; specialty: string | null; branch_id?: string | null };
-type Branch = { id: string; name: string; slug: string; address: string | null; phone: string | null };
+type Barber = { id: string; full_name: string; specialty: string | null; branch_id?: string | null; image_url?: string | null };
+type Branch = {
+  id: string;
+  name: string;
+  slug: string;
+  address: string | null;
+  phone: string | null;
+  hero_image_url?: string | null;
+  cover_image_url?: string | null;
+};
 type Slot = { start_time: string; end_time: string };
 type CalendarCell = { iso: string; day: number; inMonth: boolean; disabled: boolean; isToday: boolean };
 type Stage = "branch" | "booking" | "payment";
 type PayMethod = "qr" | "cash" | "card";
 
 const BRANCH_IMAGE_MAP: Record<string, string> = {
-  "sede-principal": "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=1400&auto=format&fit=crop",
-  "sede-norte": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?q=80&w=1400&auto=format&fit=crop",
+  "sede-principal": "https://www.businessempresarial.com.pe/wp-content/uploads/2025/09/Montalvo-For-Men-780x470.jpeg",
+  "sede-norte": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop",
 };
 
 const SERVICE_IMAGE_POOL = [
@@ -80,10 +88,12 @@ function ReservarPageContent() {
   const [serviceId, setServiceId] = useState("");
   const [barberId, setBarberId] = useState("");
   const [date, setDate] = useState("");
-  const [slotStart, setSlotStart] = useState("");
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [people, setPeople] = useState(1);
+  const [validationModalMessage, setValidationModalMessage] = useState<string | null>(null);
+  const [serviceSelectionModalIdx, setServiceSelectionModalIdx] = useState<number | null>(null);
 
   const [paymentMethod, setPaymentMethod] = useState<PayMethod>("qr");
   const [cardNumber, setCardNumber] = useState("");
@@ -220,7 +230,6 @@ function ReservarPageContent() {
       const fetchedBarbers = json.barbers ?? [];
       setBarbers(fetchedBarbers);
       setBarberId((prev) => (fetchedBarbers.some((b: Barber) => b.id === prev) ? prev : (fetchedBarbers?.[0]?.id ?? "")));
-      setSlotStart("");
       setSelectedSlots([]);
       setSlots([]);
     }
@@ -230,7 +239,6 @@ function ReservarPageContent() {
 
   const loadSlots = useCallback(async () => {
     setError(null);
-    setSlotStart("");
     setSelectedSlots([]);
     if (!branchId || !serviceId || !barberId || !date) {
       setSlots([]);
@@ -264,9 +272,20 @@ function ReservarPageContent() {
     return () => clearTimeout(timer);
   }, [stage, branchId, serviceId, barberId, date, loadSlots]);
 
-  const selectedService = useMemo(() => services.find((s) => s.id === serviceId) ?? null, [services, serviceId]);
   const selectedBarber = useMemo(() => barbers.find((b) => b.id === barberId) ?? null, [barbers, barberId]);
   const selectedBranch = useMemo(() => branches.find((b) => b.id === branchId) ?? null, [branches, branchId]);
+  const normalizedServiceIds = useMemo(
+    () => selectedServiceIds.filter((id) => services.some((s) => s.id === id)).slice(0, people),
+    [selectedServiceIds, services, people],
+  );
+  const selectedServices = useMemo(
+    () => normalizedServiceIds.map((id) => services.find((s) => s.id === id)).filter((s): s is Service => !!s),
+    [normalizedServiceIds, services],
+  );
+  const totalServicesAmount = useMemo(
+    () => selectedServices.reduce((acc, s) => acc + s.price, 0),
+    [selectedServices],
+  );
 
   const whatsappUrl = useMemo(() => {
     const whatsappPhone = selectedBranch?.phone ? selectedBranch.phone.replace(/\D/g, "") : "51999999999";
@@ -280,7 +299,76 @@ function ReservarPageContent() {
     const safe = Math.max(1, nextValue);
     setPeople(safe);
     setSelectedSlots((prev) => prev.slice(0, safe));
-    setSlotStart("");
+    setSelectedServiceIds((prev) => {
+      if (prev.length >= safe) {
+        return prev.slice(0, safe);
+      }
+      const newItems = Array(safe - prev.length).fill(serviceId || services[0]?.id || "");
+      return [...prev, ...newItems];
+    });
+  }
+
+  function addCompanion() {
+    const nextPeople = people + 1;
+    setPeople(nextPeople);
+    setSelectedServiceIds((prev) => {
+      const fallback = serviceId || services[0]?.id || "";
+      return [...prev, fallback];
+    });
+    toast(`Persona ${nextPeople} agregada al grupo. Por favor selecciona su horario y servicio.`);
+  }
+
+  function removeCompanion(idx: number) {
+    if (people <= 1) return;
+    const nextPeople = people - 1;
+    setPeople(nextPeople);
+    setSelectedServiceIds((prev) => {
+      const draft = [...prev];
+      draft.splice(idx, 1);
+      return draft;
+    });
+    setSelectedSlots((prev) => {
+      const draft = [...prev];
+      if (draft.length > nextPeople) {
+        draft.pop();
+      }
+      return draft;
+    });
+    toast("Acompañante removido del grupo.");
+  }
+
+  function updateServiceSelection(index: number, nextServiceId: string) {
+    setSelectedServiceIds((prev) => {
+      const draft = [...prev];
+      draft[index] = nextServiceId;
+      return draft;
+    });
+  }
+
+  function validateGroupSelections(): string | null {
+    const missingServices = Math.max(0, people - normalizedServiceIds.length);
+    const missingSlots = Math.max(0, people - selectedSlots.length);
+    if (missingServices === 0 && missingSlots === 0) return null;
+    const msgs: string[] = [];
+    if (missingServices > 0) {
+      msgs.push(`Te falta agregar ${missingServices} servicio${missingServices > 1 ? "s" : ""} más.`);
+    }
+    if (missingSlots > 0) {
+      msgs.push(`Te falta agregar ${missingSlots} horario${missingSlots > 1 ? "s" : ""} más.`);
+    }
+    return msgs.join(" ");
+  }
+
+  function toggleSlotSelection(slotTime: string) {
+    if (selectedSlots.includes(slotTime)) {
+      setSelectedSlots((prev) => prev.filter((value) => value !== slotTime));
+      return;
+    }
+    if (selectedSlots.length >= people) {
+      toast(`Solo puedes seleccionar ${people} horarios`, "error");
+      return;
+    }
+    setSelectedSlots((prev) => [...prev, slotTime]);
   }
 
   function validatePayment() {
@@ -311,8 +399,10 @@ function ReservarPageContent() {
       setShowAuthModal(true);
       return;
     }
-    if (selectedSlots.length !== people) {
-      toast(`Debes seleccionar exactamente ${people} horarios (uno por cada asistente)`, "error");
+    const groupValidationError = validateGroupSelections();
+    if (groupValidationError) {
+      setValidationModalMessage(groupValidationError);
+      toast(groupValidationError, "error");
       return;
     }
     if (!validatePayment()) return;
@@ -321,8 +411,7 @@ function ReservarPageContent() {
     setError(null);
 
     try {
-      // Loop over each selected slot and create a separate appointment row in Supabase
-      for (const slot of selectedSlots) {
+      for (const [index, slot] of selectedSlots.entries()) {
         const txId = `TX-${Date.now().toString(36).toUpperCase()}`;
         const paymentMeta =
           paymentMethod === "qr"
@@ -337,10 +426,10 @@ function ReservarPageContent() {
           body: JSON.stringify({
             branch_id: branchId,
             barber_id: barberId,
-            service_id: serviceId,
+            service_id: normalizedServiceIds[index] ?? serviceId,
             appointment_date: date,
             start_time: slot,
-            initial_status: "cancelled",
+            initial_status: "pending",
             notes: `${paymentMeta} | Personas:${people} | Horarios del grupo: [${selectedSlots.join(", ")}]${notes ? ` | ${notes}` : ""}`,
           }),
         });
@@ -368,6 +457,10 @@ function ReservarPageContent() {
     { key: "payment", label: "Pago y confirmación", done: false, icon: "M17 9V7a5 5 0 00-10 0v2m-2 0h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8a2 2 0 012-2z" },
   ] as const;
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [stage]);
+
   return (
     <>
       <main className="flex-1 pt-36 pb-20">
@@ -380,8 +473,8 @@ function ReservarPageContent() {
             <p className="mt-1 text-sm text-[var(--text-secondary)]">Flujo rápido: sede, barbero, horario y pago.</p>
           </div>
 
-          <div className="mb-6 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 sm:flex sm:justify-center">
-            <div className="inline-flex min-w-max items-center gap-2">
+          <div className="mb-6 flex justify-center px-1">
+            <div className="inline-flex items-center gap-2">
               {steps.map((step, idx) => {
                 const isActive = stage === step.key;
                 return (
@@ -410,7 +503,11 @@ function ReservarPageContent() {
                 {branches.map((b) => {
                   const branchServices = allServices.filter((s) => s.branch_id === b.id).slice(0, 4);
                   const isActive = b.id === branchId;
-                  const branchImage = BRANCH_IMAGE_MAP[b.slug] ?? "https://images.unsplash.com/photo-1512690459411-b0fd1b0b34fe?q=80&w=1400&auto=format&fit=crop";
+                  const branchImage =
+                    BRANCH_IMAGE_MAP[b.slug] ||
+                    b.cover_image_url ||
+                    b.hero_image_url ||
+                    "https://images.unsplash.com/photo-1512690459411-b0fd1b0b34fe?q=80&w=1400&auto=format&fit=crop";
                   return (
                     <button
                       key={b.id}
@@ -434,33 +531,80 @@ function ReservarPageContent() {
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-medium">Servicios de la sede elegida</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {services.map((s, idx) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setServiceId(s.id)}
-                      className={`text-left rounded-lg border p-2 transition-all overflow-hidden ${serviceId === s.id ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"}`}
-                    >
-                      <div className="flex gap-3">
-                        <img src={getServiceImage(s.name, idx)} alt={s.name} className="h-16 w-20 rounded-md object-cover" />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium">{s.name}</span>
-                            <span className="text-sm font-bold text-[var(--accent)]">S/ {s.price}</span>
-                          </div>
-                          <p className="mt-1 text-xs text-[var(--text-muted)]">{s.duration_minutes} min</p>
-                          {s.description && <p className="mt-0.5 text-[11px] text-[var(--text-muted)] line-clamp-1">{s.description}</p>}
+                <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Servicios de la sede elegida</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {services.map((s, idx) => {
+                    const isSelected = serviceId === s.id;
+                    const serviceImage = getServiceImage(s.name, idx);
+                    
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setServiceId(s.id)}
+                        className={`text-left rounded-xl border p-3 transition-all duration-300 overflow-hidden flex gap-4 items-center relative cursor-pointer group ${
+                          isSelected
+                            ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_0_15px_rgba(212,168,67,0.12)] ring-1 ring-[var(--accent)]"
+                            : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
+                        }`}
+                      >
+                        {/* Image Container with Hover zoom */}
+                        <div className="w-24 h-20 sm:w-28 sm:h-22 rounded-lg overflow-hidden shrink-0 border border-[var(--border-strong)] relative">
+                          <img
+                            src={serviceImage}
+                            alt={s.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-[var(--accent)]/15 backdrop-blur-[1px] flex items-center justify-center animate-fade-in">
+                              <span className="bg-[var(--accent)] text-[var(--bg-primary)] p-1 rounded-full text-[10px] font-bold">✓</span>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </button>
-                  ))}
+
+                        {/* Info details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors truncate">
+                              {s.name}
+                            </span>
+                            <span className="text-sm font-bold text-[var(--accent)] font-mono shrink-0">
+                              S/ {s.price}
+                            </span>
+                          </div>
+                          
+                          {/* Duration Badge */}
+                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-[var(--text-muted)] font-medium">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-[var(--accent)]">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                            {s.duration_minutes} min
+                          </div>
+
+                          {s.description && (
+                            <p className="text-[11px] text-[var(--text-muted)] line-clamp-1 mt-1 leading-relaxed">
+                              {s.description}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <button type="button" onClick={() => setStage("booking")} disabled={!branchId || !serviceId} className="btn-gold disabled:opacity-40 disabled:cursor-not-allowed">Continuar</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedServiceIds((prev) => (prev.length > 0 ? prev : (serviceId ? [serviceId] : prev)));
+                    setStage("booking");
+                  }}
+                  disabled={!branchId || !serviceId}
+                  className="btn-gold disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Continuar
+                </button>
               </div>
             </section>
           )}
@@ -604,9 +748,9 @@ function ReservarPageContent() {
                           <button
                             key={slot.start_time}
                             type="button"
-                            onClick={() => setSlotStart(slot.start_time)}
+                            onClick={() => toggleSlotSelection(slot.start_time)}
                             className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                              slotStart === slot.start_time
+                              selectedSlots.includes(slot.start_time)
                                 ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-primary)] shadow-md shadow-[var(--accent)]/10"
                                 : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
                             }`}
@@ -617,11 +761,140 @@ function ReservarPageContent() {
                       )
                     )}
                   </div>
+
+                  {/* Tarjeta de Grupo y Servicios Rediseñada */}
+                  <div className="rounded-xl border border-[var(--accent-border)]/40 bg-[var(--bg-surface)] p-4 sm:p-5 space-y-4 shadow-[0_4px_20px_rgba(212,168,67,0.05)] animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-[var(--text-primary)] font-display flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></span>
+                          Servicios y Asistentes del Grupo
+                        </h3>
+                        <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Cada persona seleccionará su servicio preferido</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-semibold text-[var(--accent)] bg-[var(--accent-soft)] border border-[var(--accent-border)] px-2.5 py-1 rounded-full">
+                          {people} {people === 1 ? "Persona" : "Personas"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {normalizedServiceIds.map((serviceSelectionId, idx) => {
+                        const isMainUser = idx === 0;
+                        const currentService = services.find(s => s.id === serviceSelectionId);
+                        
+                        return (
+                          <div 
+                            key={`service-selection-${idx}`} 
+                            className="group relative rounded-xl border border-[var(--border-strong)] bg-[var(--bg-secondary)]/50 p-3.5 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between transition-all duration-300 hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
+                          >
+                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                              {/* Avatar/Badge for Assistant */}
+                              <div className="w-8 h-8 rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] flex items-center justify-center font-bold text-xs shrink-0">
+                                {idx + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-[var(--text-primary)]">
+                                  {isMainUser ? "Tú (Cliente Principal)" : `Acompañante ${idx + 1}`}
+                                </p>
+                                <p className="text-[10px] text-[var(--text-muted)] truncate">
+                                  {currentService ? `${currentService.duration_minutes} min de duración` : "Servicio por elegir"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end shrink-0 min-w-0">
+                              {/* Botón de Selección con Imagen y Nombre del Servicio */}
+                              <button
+                                type="button"
+                                onClick={() => setServiceSelectionModalIdx(idx)}
+                                className="flex-1 sm:w-auto inline-flex items-center justify-between gap-3.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-2 text-xs font-semibold cursor-pointer hover:border-[var(--accent)] hover:bg-[var(--bg-secondary)] transition-all group min-w-0 sm:min-w-[200px] text-left active:scale-[0.98]"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <img 
+                                    src={getServiceImage(currentService?.name ?? "", services.findIndex(s => s.id === serviceSelectionId))} 
+                                    alt={currentService?.name} 
+                                    className="w-8 h-8 rounded-lg object-cover border border-[var(--border-strong)] group-hover:border-[var(--accent-border)] shrink-0 transition-transform group-hover:scale-105"
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="text-[11px] text-[var(--text-primary)] font-bold truncate group-hover:text-[var(--accent)] transition-colors">
+                                      {currentService?.name ?? "Elegir Servicio"}
+                                    </p>
+                                    <p className="text-[9px] text-[var(--text-muted)] font-medium">
+                                      {currentService?.duration_minutes} min
+                                    </p>
+                                  </div>
+                                </div>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors shrink-0">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                </svg>
+                              </button>
+
+                              {/* Price and Delete Action */}
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-xs font-bold text-[var(--accent)] min-w-[50px] text-right font-mono">
+                                  S/ {currentService?.price ?? 0}
+                                </span>
+                                
+                                {!isMainUser && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeCompanion(idx)}
+                                    title="Eliminar acompañante"
+                                    className="p-1.5 rounded-lg border border-transparent text-[var(--text-muted)] hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/10 active:scale-95 transition-all cursor-pointer shrink-0"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Footer add button & Subtotal inside card */}
+                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[var(--border)]">
+                      <button
+                        type="button"
+                        onClick={addCompanion}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] hover:bg-[var(--accent-soft)]/20 text-[var(--accent)] font-semibold text-xs py-2.5 px-4 transition-all duration-300 active:scale-[0.98] cursor-pointer"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Añadir Acompañante
+                      </button>
+
+                      <div className="text-right w-full sm:w-auto flex sm:flex-col justify-between sm:justify-start items-center sm:items-end">
+                        <span className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Subtotal del Grupo:</span>
+                        <span className="text-sm font-bold text-[var(--accent)] font-mono sm:mt-0.5">
+                          S/ {totalServicesAmount.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <button type="button" onClick={() => setStage("payment")} disabled={!slotStart} className="btn-gold disabled:opacity-40 disabled:cursor-not-allowed">Ir a pago</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const groupValidationError = validateGroupSelections();
+                    if (groupValidationError) {
+                      setValidationModalMessage(groupValidationError);
+                      return;
+                    }
+                    setStage("payment");
+                  }}
+                  className="btn-gold active:scale-[0.98] transition-all duration-300"
+                >
+                  Ir a pago
+                </button>
               </div>
             </section>
           )}
@@ -682,8 +955,10 @@ function ReservarPageContent() {
                     </div>
                     <div>
                       <p className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Servicio</p>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedService?.name ?? "-"}</p>
-                      <p className="text-[11px] text-[var(--text-secondary)]">{selectedService?.duration_minutes} min</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">
+                        {selectedServices.length > 0 ? `${selectedServices[0].name}${selectedServices.length > 1 ? ` +${selectedServices.length - 1}` : ""}` : "-"}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">{selectedServices.length} servicio(s) seleccionados</p>
                     </div>
                   </div>
 
@@ -710,7 +985,7 @@ function ReservarPageContent() {
                     </div>
                     <div>
                       <p className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Fecha y Hora</p>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{date || "-"} a las {slotStart || "-"}</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{date || "-"} ({selectedSlots.length} horario(s))</p>
                       <p className="text-[11px] text-[var(--text-secondary)]">Hora local confirmada</p>
                     </div>
                   </div>
@@ -745,18 +1020,12 @@ function ReservarPageContent() {
                 {/* Billing Breakdown */}
                 <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-secondary)]/30 p-4 sm:p-5 text-sm space-y-3">
                   <div className="flex justify-between items-center text-[var(--text-secondary)]">
-                    <span>Precio del Servicio ({selectedService?.name})</span>
-                    <span className="font-semibold text-[var(--text-primary)]">S/ {(selectedService?.price ?? 0).toFixed(2)}</span>
+                    <span>Servicios del Grupo</span>
+                    <span className="font-semibold text-[var(--text-primary)]">S/ {totalServicesAmount.toFixed(2)}</span>
                   </div>
-                  {people > 1 && (
-                    <div className="flex justify-between items-center text-[var(--text-secondary)]">
-                      <span>Multiplicador por Personas</span>
-                      <span className="font-semibold text-[var(--text-primary)]">x {people}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between items-center text-[var(--text-secondary)]">
                     <span>IGV (18% incluido)</span>
-                    <span className="font-mono text-xs text-[var(--text-muted)]">S/ {((selectedService?.price ?? 0) * people * 0.18 / 1.18).toFixed(2)}</span>
+                    <span className="font-mono text-xs text-[var(--text-muted)]">S/ {(totalServicesAmount * 0.18 / 1.18).toFixed(2)}</span>
                   </div>
                   
                   <div className="border-t border-[var(--border)] pt-4 flex justify-between items-baseline">
@@ -765,7 +1034,7 @@ function ReservarPageContent() {
                     </span>
                     <div className="text-right">
                       <span className="font-bold text-2xl text-[var(--accent)] tracking-tight">
-                        S/ {((selectedService?.price ?? 0) * people).toFixed(2)}
+                        S/ {totalServicesAmount.toFixed(2)}
                       </span>
                       <p className="text-[10px] text-[var(--text-muted)] font-medium">Moneda Nacional (PEN)</p>
                     </div>
@@ -862,14 +1131,13 @@ function ReservarPageContent() {
                       <div className="flex justify-center py-2">
                         <div className="relative p-3 bg-white rounded-2xl border-4 border-[var(--accent)] shadow-2xl flex items-center justify-center group overflow-hidden">
                           <img
-                            src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=FiloEstilo-QR-Test"
-                            alt="QR de Pago Filo Estilo"
+                            src="/qr-yape-jefferson.png"
+                            alt="QR Yape - Angel Jefferson Gonzalez Chaca"
                             className="h-36 w-36 rounded transition-all duration-300 group-hover:scale-105"
+                            onError={(e) => {
+                              e.currentTarget.src = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=FiloEstilo-QR-Test";
+                            }}
                           />
-                          {/* Inner glowing logo look */}
-                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black rounded-lg border border-[var(--accent-border)] p-1 text-[8px] font-bold text-[var(--accent)] tracking-tighter">
-                            FILO
-                          </div>
                         </div>
                       </div>
 
@@ -877,7 +1145,7 @@ function ReservarPageContent() {
                       <div className="space-y-2.5 border-t border-[var(--border)] pt-4 text-[11px] text-[var(--text-secondary)]">
                         <div className="flex gap-2">
                           <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">1</span>
-                          <p>Escanea el QR y transfiere el monto exacto: <strong className="text-[var(--accent)]">S/ {((selectedService?.price ?? 0) * people).toFixed(2)}</strong></p>
+                          <p>Escanea el QR y transfiere el monto exacto: <strong className="text-[var(--accent)]">S/ {totalServicesAmount.toFixed(2)}</strong></p>
                         </div>
                         <div className="flex gap-2">
                           <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">2</span>
@@ -908,7 +1176,7 @@ function ReservarPageContent() {
                       
                       <div className="space-y-3 text-xs text-[var(--text-secondary)] border-t border-[var(--border)] pt-4">
                         <p>
-                          Tu cita se guardará de inmediato. Podrás efectuar el pago completo de su monto de **S/ {((selectedService?.price ?? 0) * people).toFixed(2)}** en efectivo, tarjeta de débito/crédito o transferencia al culminar tu atención.
+                          Tu cita se guardará de inmediato. Podrás efectuar el pago completo de su monto de **S/ {totalServicesAmount.toFixed(2)}** en efectivo, tarjeta de débito/crédito o transferencia al culminar tu atención.
                         </p>
                         <p className="font-medium text-[var(--accent)]">
                           Nota: Te solicitamos llegar al menos 10 minutos antes de tu cita programada.
@@ -1086,7 +1354,7 @@ function ReservarPageContent() {
                 <div className="space-y-3 mt-6 border-t border-[var(--border)] pt-5">
                   <button
                     type="submit"
-                    disabled={loading || !slotStart}
+                    disabled={loading || selectedSlots.length !== people || normalizedServiceIds.length !== people}
                     className="btn-gold w-full !py-3.5 disabled:opacity-40 disabled:cursor-not-allowed text-sm uppercase tracking-wider font-bold shadow-lg transition-all duration-300 hover:shadow-xl active:scale-[0.99] cursor-pointer"
                   >
                     {loading ? (
@@ -1112,14 +1380,131 @@ function ReservarPageContent() {
         </div>
       </main>
 
+      {validationModalMessage && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setValidationModalMessage(null)} />
+          <div className="relative w-full max-w-md rounded-2xl border border-[var(--accent-border)] bg-[var(--bg-surface)] p-6 text-center animate-fade-in">
+            <h3 className="text-lg font-bold text-[var(--accent)]">Faltan datos para continuar</h3>
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">{validationModalMessage}</p>
+            <button type="button" onClick={() => setValidationModalMessage(null)} className="btn-gold mt-5 animate-float">
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
       {showAuthModal && !isAuthenticated && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-fade-in">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAuthModal(false)} />
-          <div className="relative w-full max-w-md rounded-2xl p-8 text-center" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)" }}>
+          <div className="relative w-full max-w-md rounded-2xl p-8 text-center animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)" }}>
             <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>Inicia sesión para reservar</h3>
             <div className="mt-6 space-y-3">
               <Link href="/login" className="btn-gold w-full !py-3">Iniciar Sesión</Link>
               <Link href="/register" className="btn-outline w-full !py-3">Crear Cuenta</Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {serviceSelectionModalIdx !== null && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 animate-fade-in">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setServiceSelectionModalIdx(null)} />
+          
+          {/* Container */}
+          <div className="relative w-full max-w-2xl rounded-2xl border border-[var(--accent-border)] bg-[var(--bg-surface)] shadow-[0_10px_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[85vh] animate-fade-in-up">
+            
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-[var(--border-strong)] flex justify-between items-center bg-[var(--bg-secondary)]/50 shrink-0">
+              <div>
+                <span className="text-[10px] uppercase tracking-wider text-[var(--accent)] font-semibold bg-[var(--accent-soft)] px-2.5 py-1 rounded-full border border-[var(--accent-border)]">
+                  Catálogo de Cortes y Servicios
+                </span>
+                <h3 className="text-base font-bold text-[var(--text-primary)] mt-2 font-display">
+                  Seleccionar Servicio para {serviceSelectionModalIdx === 0 ? "Tú (Cliente Principal)" : `Acompañante ${serviceSelectionModalIdx + 1}`}
+                </h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setServiceSelectionModalIdx(null)}
+                className="w-8 h-8 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--accent-border)] flex items-center justify-center transition-all cursor-pointer font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable grid */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-3 custom-scrollbar flex-1 bg-[var(--bg-primary)]/10">
+              <p className="text-xs text-[var(--text-secondary)]">Haz clic en el corte o servicio que deseas asignar:</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {services.map((s, idx) => {
+                  const isSelected = selectedServiceIds[serviceSelectionModalIdx] === s.id;
+                  const serviceImage = getServiceImage(s.name, idx);
+                  
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        updateServiceSelection(serviceSelectionModalIdx, s.id);
+                        setServiceSelectionModalIdx(null);
+                      }}
+                      className={`text-left rounded-xl border p-3 transition-all duration-300 overflow-hidden flex gap-4 items-center relative cursor-pointer group ${
+                        isSelected 
+                          ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_0_15px_rgba(212,168,67,0.12)] ring-1 ring-[var(--accent)]" 
+                          : "border-[var(--border-strong)] bg-[var(--bg-secondary)]/50 hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
+                      }`}
+                    >
+                      {/* Image Container with Hover zoom */}
+                      <div className="w-24 h-20 sm:w-28 sm:h-22 rounded-lg overflow-hidden shrink-0 border border-[var(--border-strong)] relative">
+                        <img 
+                          src={serviceImage} 
+                          alt={s.name} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                        />
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-[var(--accent)]/15 backdrop-blur-[1px] flex items-center justify-center animate-fade-in">
+                            <span className="bg-[var(--accent)] text-[var(--bg-primary)] p-1 rounded-full text-[10px] font-bold">✓</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Info details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors truncate">
+                            {s.name}
+                          </span>
+                          <span className="text-sm font-bold text-[var(--accent)] font-mono shrink-0">
+                            S/ {s.price}
+                          </span>
+                        </div>
+                        
+                        {/* Duration Badge */}
+                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-[var(--text-muted)] font-medium">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-[var(--accent)]">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                          </svg>
+                          {s.duration_minutes} min
+                        </div>
+
+                        {s.description && (
+                          <p className="text-[11px] text-[var(--text-muted)] line-clamp-1 mt-1 leading-relaxed">
+                            {s.description}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-[var(--border-strong)] bg-[var(--bg-secondary)]/30 text-center shrink-0">
+              <p className="text-[10px] text-[var(--text-muted)] italic">
+                Sabor premium y atención personalizada de Filo Estilo.
+              </p>
             </div>
           </div>
         </div>
