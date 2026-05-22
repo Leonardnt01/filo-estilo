@@ -12,10 +12,15 @@ type Branch = {
   slug: string;
   address: string | null;
   phone: string | null;
+  hero_image_url?: string | null;
+  cover_image_url?: string | null;
 };
 
-type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number };
-type Barber = { id: string; full_name: string; specialty: string | null };
+type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number; image_url?: string | null };
+type Barber = { id: string; full_name: string; specialty: string | null; image_url?: string | null };
+
+const SERVICE_FALLBACK_IMAGE = "/hero-bg.png";
+const BARBER_FALLBACK_IMAGE = "/hero-bg.png";
 
 export default function SedeDetallePage() {
   const params = useParams<{ slug: string }>();
@@ -105,13 +110,7 @@ export default function SedeDetallePage() {
               </div>
               <div className="mb-10 glass-card overflow-hidden">
                 <img
-                  src={
-                    branch.slug === "sede-principal"
-                      ? "https://www.businessempresarial.com.pe/wp-content/uploads/2025/09/Montalvo-For-Men-780x470.jpeg"
-                      : branch.slug === "sede-norte"
-                      ? "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop"
-                      : "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=1200&auto=format&fit=crop"
-                  }
+                  src={branch.hero_image_url || branch.cover_image_url || SERVICE_FALLBACK_IMAGE}
                   alt={branch.name}
                   className="h-64 w-full object-cover"
                 />
@@ -128,31 +127,109 @@ export default function SedeDetallePage() {
                 </div>
               </div>
 
-              <section className="mb-10">
-                <h2 className="text-2xl font-bold mb-4">Servicios</h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <section className="mb-14">
+                <h2 className="text-2xl font-bold mb-6 font-display" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                  Nuestros Servicios
+                </h2>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {services.map((s) => (
-                    <div key={s.id} className="glass-card p-5">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-semibold">{s.name}</p>
-                        <p className="text-[var(--accent)] font-bold">S/ {s.price}</p>
+                    <div key={s.id} className="glass-card overflow-hidden group flex flex-col justify-between transition-all duration-300 hover:border-[var(--accent-border)] hover:-translate-y-1">
+                      <div>
+                        <div className="h-44 w-full overflow-hidden relative">
+                          <img 
+                            src={s.image_url || SERVICE_FALLBACK_IMAGE}
+                            alt={s.name} 
+                            className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105" 
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                          <span className="absolute bottom-3 right-3 text-xs bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] px-2.5 py-1 rounded-full font-bold">
+                            {s.duration_minutes} min
+                          </span>
+                        </div>
+                        <div className="p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <h3 className="font-bold text-lg text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">{s.name}</h3>
+                            <p className="text-[var(--accent)] font-black text-lg shrink-0">S/ {s.price}</p>
+                          </div>
+                          {s.description && (
+                            <p className="mt-2.5 text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-2">
+                              {s.description}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      {s.description && <p className="mt-2 text-sm text-[var(--text-muted)]">{s.description}</p>}
-                      <p className="mt-2 text-xs text-[var(--text-muted)]">{s.duration_minutes} min</p>
+                      <div className="px-5 pb-5 pt-1">
+                        <Link href={`/reservar?branch_id=${branch.id}&service_id=${s.id}`} className="btn-outline w-full text-center text-xs py-2 block font-semibold hover:bg-[var(--accent)] hover:text-black">
+                          Reservar Servicio
+                        </Link>
+                      </div>
                     </div>
                   ))}
                 </div>
               </section>
 
-              <section>
-                <h2 className="text-2xl font-bold mb-4">Barberos</h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {barbers.map((b) => (
-                    <div key={b.id} className="glass-card p-5">
-                      <p className="font-semibold">{b.full_name}</p>
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">{b.specialty ?? "Barbero profesional"}</p>
-                    </div>
-                  ))}
+              <section className="mb-10">
+                <h2 className="text-2xl font-bold mb-6 font-display" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                  Especialistas y Maestros Barberos
+                </h2>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  {barbers.map((b) => {
+                    const initials = b.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2);
+                    const barberImage = b.image_url || BARBER_FALLBACK_IMAGE;
+                      const specialty = b.specialty ?? "Barbero profesional";
+                    
+                    // Map their specialty to a cool description of the cut they make
+                    let cutDescription = "Estilos personalizados con precisión geométrica.";
+                    if (specialty.toLowerCase().includes("fade") || specialty.toLowerCase().includes("clásico")) {
+                      cutDescription = "Especialista en degradados modernos (Fade) y cortes ejecutivos clásicos.";
+                    } else if (specialty.toLowerCase().includes("afeitado") || specialty.toLowerCase().includes("tradicional")) {
+                      cutDescription = "Maestro del afeitado clásico con navaja libre y toallas calientes.";
+                    } else if (specialty.toLowerCase().includes("barba")) {
+                      cutDescription = "Experto en esculpido de barba, perfilado y rituales de hidratación facial.";
+                    }
+
+                    return (
+                      <div key={b.id} className="glass-card overflow-hidden group transition-all duration-300 hover:border-[var(--accent-border)] hover:-translate-y-1 flex flex-col">
+                        <div className="h-60 w-full overflow-hidden relative">
+                          <img 
+                            src={barberImage} 
+                            alt={b.full_name} 
+                            className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105 filter grayscale group-hover:grayscale-0" 
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+                          
+                          {/* Top-left Initials Badge */}
+                          <div className="absolute top-3 left-3 h-8 w-8 rounded-full border border-[var(--accent-border)] bg-black/80 flex items-center justify-center text-xs font-bold text-[var(--accent)]">
+                            {initials}
+                          </div>
+                          
+                          {/* Bottom specialty overlay */}
+                          <div className="absolute bottom-3 left-3 right-3 text-left">
+                            <span className="text-[9px] uppercase tracking-wider text-[var(--accent)] font-bold bg-[var(--accent-soft)] px-2 py-0.5 rounded border border-[var(--accent-border)]">
+                              {specialty}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-4 flex-1 flex flex-col justify-between">
+                          <div>
+                            <h3 className="font-bold text-base text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                              {b.full_name}
+                            </h3>
+                            <p className="mt-2 text-xs text-[var(--text-muted)] leading-relaxed">
+                              {cutDescription}
+                            </p>
+                          </div>
+                          <div className="mt-4 pt-3 border-t border-[var(--border)] flex justify-between items-center text-[10px] text-[var(--text-secondary)] font-medium">
+                            <span className="flex items-center gap-1">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                              Disponible
+                            </span>
+                            <span>Corte: {specialty}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             </>

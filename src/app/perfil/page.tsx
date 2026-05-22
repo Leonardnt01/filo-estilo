@@ -44,7 +44,7 @@ export default function PerfilPage() {
     setError(null);
     const [profileRes, homeRes] = await Promise.all([
       fetch("/api/my/profile"),
-      fetch("/api/public/home"),
+      fetch("/api/home"),
     ]);
     const json = await profileRes.json().catch(() => ({}));
     const home = await homeRes.json().catch(() => ({}));
@@ -243,3 +243,4 @@ function StatCard({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+

@@ -437,3 +437,20 @@ body {
 .skeleton-line { height: 0.75rem; }
 .skeleton-chip { height: 1.65rem; border-radius: 9999px; }
 .skeleton-circle { border-radius: 9999px; }
+
+/* ── Interactive Credit Card shimmer effect ── */
+.shimmer-card {
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.08) 40%,
+    rgba(255, 255, 255, 0.08) 45%,
+    rgba(255, 255, 255, 0) 55%
+  );
+  background-size: 200% 100%;
+  background-position: 100% 0;
+  transition: background-position 0.8s ease-in-out;
+}
+.shimmer-card:hover {
+  background-position: -100% 0;
+}

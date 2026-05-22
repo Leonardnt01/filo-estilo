@@ -24,7 +24,7 @@ export function Footer() {
   const [branchContact, setBranchContact] = useState<BranchContact | null>(null);
 
   useEffect(() => {
-    fetch("/api/public/home")
+    fetch("/api/home")
       .then((r) => r.json())
       .then((d) => {
         setSettings(d?.site_settings?.public_footer ?? {});
@@ -129,3 +129,4 @@ function SocialIcon({ label, d, links }: { label: string; d: string; links: Reco
     </a>
   );
 }
+

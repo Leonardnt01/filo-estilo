@@ -84,6 +84,7 @@ export function Navbar() {
   }
 
   const overHero = pathname === "/" && !scrolled;
+  const isAdminUser = user?.role === "admin" || !!user?.is_staff;
 
   return (
     <header
@@ -134,7 +135,7 @@ export function Navbar() {
           <NavLink href="/" active={pathname === "/" && activeSection === "inicio"} overHero={overHero}>Inicio</NavLink>
           <NavLink href="/#quienes" active={pathname === "/" && activeSection === "quienes"} overHero={overHero}>Quiénes Somos</NavLink>
           <NavLink href="/sedes" active={pathname.startsWith("/sedes")} overHero={overHero}>Sedes</NavLink>
-          <NavLink href="/#servicios" active={pathname === "/" && activeSection === "servicios"} overHero={overHero}>Servicios</NavLink>
+          <NavLink href="/servicios" active={pathname.startsWith("/servicios")} overHero={overHero}>Servicios</NavLink>
           <NavLink href="/#casos" active={pathname === "/" && activeSection === "casos"} overHero={overHero}>Casos</NavLink>
           <NavLink href="/#contacto" active={pathname === "/" && activeSection === "contacto"} overHero={overHero}>Contacto</NavLink>
         </div>
@@ -157,7 +158,15 @@ export function Navbar() {
           )}
 
           {user && (
-            <div className="relative">
+            <div className="relative flex items-center gap-2">
+              {isAdminUser && (
+                <Link
+                  href="/admin"
+                  className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[var(--accent)]"
+                >
+                  Ver Panel Admin
+                </Link>
+              )}
               <button
                 onClick={() => setProfileOpen((v) => !v)}
                 className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-all hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
@@ -169,7 +178,12 @@ export function Navbar() {
               </button>
 
               {profileOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-2 shadow-2xl">
+                <div className="absolute right-0 top-11 mt-2 w-56 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-2 shadow-2xl">
+                  {isAdminUser && (
+                    <Link href="/admin" onClick={() => setProfileOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">
+                      Ver Panel Admin
+                    </Link>
+                  )}
                   <Link href="/perfil" onClick={() => setProfileOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--accent)]">
                     Mi Perfil
                   </Link>
@@ -208,7 +222,7 @@ export function Navbar() {
             <MobileLink href="/" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" strokeWidth="2"/></svg>}>Inicio</MobileLink>
             <MobileLink href="/sedes" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" strokeWidth="2"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" strokeWidth="2"/></svg>}>Sedes</MobileLink>
             <MobileLink href="/#quienes" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" strokeWidth="2"/></svg>}>Quiénes Somos</MobileLink>
-            <MobileLink href="/#servicios" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" strokeWidth="2"/></svg>}>Servicios</MobileLink>
+            <MobileLink href="/servicios" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" strokeWidth="2"/></svg>}>Servicios</MobileLink>
             <MobileLink href="/#casos" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" strokeWidth="2"/></svg>}>Casos</MobileLink>
             <MobileLink href="/#contacto" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" strokeWidth="2"/></svg>}>Contacto</MobileLink>
             </div>
@@ -231,6 +245,11 @@ export function Navbar() {
                 </div>
               ) : (
                 <div className="grid gap-3">
+                  {isAdminUser && (
+                    <Link href="/admin" onClick={() => setMenuOpen(false)} className="w-full rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-soft)] py-3.5 text-center text-base font-semibold text-[var(--accent)]">
+                      Ver Panel Admin
+                    </Link>
+                  )}
                   <Link href="/perfil" onClick={() => setMenuOpen(false)} className="w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] py-3.5 text-center text-base font-semibold text-[var(--text-secondary)]">Mi Perfil</Link>
                   <button onClick={handleLogout} className="w-full rounded-2xl bg-red-500/10 py-3.5 text-center text-base font-semibold text-red-400">Cerrar sesión</button>
                 </div>

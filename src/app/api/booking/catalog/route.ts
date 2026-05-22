@@ -9,7 +9,7 @@ export async function GET(request: Request) {
 
   let servicesQuery = supabase
     .from("services")
-    .select("id, name, description, price, duration_minutes, branch_id")
+    .select("id, name, description, price, duration_minutes, image_url, branch_id")
     .eq("is_active", true)
     .order("name", { ascending: true });
 
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   const [branchesRes, servicesRes, barbersRes] = await Promise.all([
     supabase
       .from("branches")
-      .select("id, name, slug, address, phone")
+      .select("id, name, slug, address, phone, hero_image_url, cover_image_url")
       .eq("is_active", true)
       .order("created_at", { ascending: true }),
     servicesQuery,
