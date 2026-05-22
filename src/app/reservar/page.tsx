@@ -22,6 +22,12 @@ type Slot = { start_time: string; end_time: string };
 type CalendarCell = { iso: string; day: number; inMonth: boolean; disabled: boolean; isToday: boolean };
 type Stage = "branch" | "booking" | "payment";
 type PayMethod = "qr" | "cash" | "card";
+const DEMO_CARD = {
+  number: "4242 4242 4242 4242",
+  holder: "CLIENTE DEMO",
+  expiry: "12/30",
+  cvv: "123",
+};
 
 const BRANCH_IMAGE_MAP: Record<string, string> = {
   "sede-principal": "https://www.businessempresarial.com.pe/wp-content/uploads/2025/09/Montalvo-For-Men-780x470.jpeg",
@@ -71,6 +77,15 @@ function formatExpiry(input: string) {
   const digits = input.replace(/\D/g, "").slice(0, 4);
   if (digits.length < 3) return digits;
   return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+function normalizeCardText(input: string) {
+  return input
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
 }
 
 function ReservarPageContent() {
@@ -244,7 +259,6 @@ function ReservarPageContent() {
 
   const loadSlots = useCallback(async () => {
     setError(null);
-    setSelectedSlots([]);
     if (!branchId || !serviceId || !barberId || !date) {
       setSlots([]);
       return;
@@ -269,7 +283,9 @@ function ReservarPageContent() {
   }, [barberId, branchId, date, serviceId]);
 
   useEffect(() => {
-    if (stage === "branch") return;
+    // Only refresh availability while user is in booking stage.
+    // Prevents clearing selected group slots when advancing to payment.
+    if (stage !== "booking") return;
     if (!branchId || !serviceId || !barberId || !date) return;
     const timer = setTimeout(() => {
       void loadSlots();
@@ -391,8 +407,21 @@ function ReservarPageContent() {
       toast("Fecha inválida. Usa MM/AA", "error");
       return false;
     }
-    if (!/^\d{3,4}$/.test(cardCvv)) {
-      toast("CVV inválido", "error");
+    if (!/^\d{3}$/.test(cardCvv)) {
+      toast("CVV inválido. Debe tener 3 dígitos", "error");
+      return false;
+    }
+
+    const isDemoValid =
+      cardNumber === DEMO_CARD.number &&
+      normalizeCardText(cardHolder) === DEMO_CARD.holder &&
+      cardExpiry === DEMO_CARD.expiry &&
+      cardCvv === DEMO_CARD.cvv;
+
+    if (!isDemoValid) {
+      const message = "Tarjeta demo inválida. Usa las credenciales ficticias mostradas abajo.";
+      setValidationModalMessage(message);
+      toast(message, "error");
       return false;
     }
     return true;
@@ -1331,12 +1360,12 @@ function ReservarPageContent() {
                           <div className="input-icon-wrap with-left-icon">
                             <input
                               value={cardCvv}
-                              onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                              onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 3))}
                               onFocus={() => setFocusedField("cvv")}
                               onBlur={() => setFocusedField(null)}
                               placeholder="CVV"
                               className="input-dark text-sm"
-                              maxLength={4}
+                              maxLength={3}
                             />
                             <div className="input-icon-left">
                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
@@ -1351,6 +1380,26 @@ function ReservarPageContent() {
                           </svg>
                           Conexión segura SSL. Encriptación de datos de extremo a extremo.
                         </p>
+                      </div>
+
+                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+                        <p className="font-semibold text-emerald-300">Credenciales de prueba (demo profesor)</p>
+                        <p className="mt-1">Número: <span className="font-mono">{DEMO_CARD.number}</span></p>
+                        <p>Titular: <span className="font-mono">{DEMO_CARD.holder}</span></p>
+                        <p>Vence: <span className="font-mono">{DEMO_CARD.expiry}</span> | CVV: <span className="font-mono">{DEMO_CARD.cvv}</span></p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCardNumber(DEMO_CARD.number);
+                            setCardHolder(DEMO_CARD.holder);
+                            setCardExpiry(DEMO_CARD.expiry);
+                            setCardCvv(DEMO_CARD.cvv);
+                            toast("Credenciales demo cargadas");
+                          }}
+                          className="mt-2 rounded-lg border border-emerald-400/40 bg-emerald-400/20 px-2.5 py-1 font-semibold text-emerald-200 hover:bg-emerald-400/30 transition-colors"
+                        >
+                          Rellenar demo
+                        </button>
                       </div>
                     </div>
                   )}
