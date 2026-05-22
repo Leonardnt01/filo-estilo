@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { SiGooglemaps, SiInstagram, SiWhatsapp } from "react-icons/si";
 
 type Branch = {
   id: string;
@@ -11,9 +12,12 @@ type Branch = {
   slug: string;
   address: string | null;
   phone: string | null;
+  maps_url?: string | null;
+  whatsapp?: string | null;
 };
 
 export default function SedesPage() {
+  const router = useRouter();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,8 +63,20 @@ export default function SedesPage() {
             <p className="text-center text-[var(--text-muted)]">No hay sedes disponibles.</p>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {branches.map((b, idx) => (
-                <Link key={b.id} href={`/sedes/${b.slug}`} className="glass-card overflow-hidden group hover:border-[var(--accent-border)] transition-colors">
+              {branches.map((b) => (
+                <article
+                  key={b.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/sedes/${b.slug}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/sedes/${b.slug}`);
+                    }
+                  }}
+                  className="glass-card overflow-hidden group hover:border-[var(--accent-border)] transition-colors cursor-pointer"
+                >
                   <img
                     src={
                       b.slug === "sede-principal"
@@ -76,12 +92,48 @@ export default function SedesPage() {
                     <h2 className="text-lg font-semibold">{b.name}</h2>
                     <p className="mt-2 text-sm text-[var(--text-muted)]">{b.address ?? "Dirección por confirmar"}</p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">{b.phone ?? "Teléfono por confirmar"}</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <a
+                        href={
+                          b.maps_url?.trim()
+                            ? b.maps_url
+                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.address || `${b.name} Lima Perú`)}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[#4285F4]/35 bg-[#4285F4]/12 px-2.5 py-1 text-[11px] text-[#A7C7FF] transition-all hover:bg-[#4285F4]/20 hover:brightness-110"
+                      >
+                        <SiGooglemaps className="h-3.5 w-3.5 text-[#4285F4]" />
+                        Maps
+                      </a>
+                      <a
+                        href={`https://wa.me/${(b.whatsapp || b.phone || "51999999999").replace(/\D/g, "").startsWith("51") ? (b.whatsapp || b.phone || "51999999999").replace(/\D/g, "") : `51${(b.whatsapp || b.phone || "999999999").replace(/\D/g, "")}`}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[#25D366]/35 bg-[#25D366]/12 px-2.5 py-1 text-[11px] text-[#6EF2A6] transition-all hover:bg-[#25D366]/20 hover:brightness-110"
+                      >
+                        <SiWhatsapp className="h-3.5 w-3.5 text-[#25D366]" />
+                        WhatsApp
+                      </a>
+                      <a
+                        href="https://www.instagram.com/explore/search/keyword/?q=barberia"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[#E1306C]/35 bg-[#E1306C]/12 px-2.5 py-1 text-[11px] text-[#FF91C4] transition-all hover:bg-[#E1306C]/20 hover:brightness-110"
+                      >
+                        <SiInstagram className="h-3.5 w-3.5 text-[#E1306C]" />
+                        Instagram
+                      </a>
+                    </div>
                     <div className="mt-4 flex items-center justify-between">
                       <span className="text-xs text-[var(--text-muted)]">Servicios y equipo disponibles</span>
                       <p className="text-sm font-semibold text-[var(--accent)]">Ver sede →</p>
                     </div>
                   </div>
-                </Link>
+                </article>
               ))}
             </div>
           )}

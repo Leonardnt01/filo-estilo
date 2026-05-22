@@ -35,6 +35,7 @@ const CARD_IMAGES = [
 export default function ServiciosPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
@@ -61,7 +62,8 @@ export default function ServiciosPage() {
       .catch(() => {
         setServices([]);
         setBranches([]);
-      });
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const globalMinPrice = useMemo(() => {
@@ -134,6 +136,24 @@ export default function ServiciosPage() {
   }
 
   function renderFiltersPanel() {
+    if (loading) {
+      return (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="h-6 w-24 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+            <div className="h-4 w-40 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+          </div>
+          <div className="h-11 w-full animate-pulse rounded-xl bg-[var(--bg-surface-hover)]" />
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={`skeleton-filter-${idx}`} className="h-12 w-full animate-pulse rounded-lg bg-[var(--bg-surface-hover)]" />
+            ))}
+          </div>
+          <div className="h-12 w-full animate-pulse rounded-xl bg-[var(--bg-surface-hover)]" />
+        </div>
+      );
+    }
+
     return (
       <div>
         <div>
@@ -365,7 +385,26 @@ export default function ServiciosPage() {
                 )}
               </div>
 
-              {filtered.length === 0 ? (
+              {loading ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {Array.from({ length: 9 }).map((_, idx) => (
+                    <div key={`service-skeleton-${idx}`} className="min-h-[290px] overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-4">
+                      <div className="h-36 w-full animate-pulse rounded-xl bg-[var(--bg-surface-hover)]" />
+                      <div className="mt-4 space-y-3">
+                        <div className="h-3 w-24 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                        <div className="h-5 w-2/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                        <div className="h-4 w-full animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                        <div className="h-4 w-5/6 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                        <div className="mt-2 flex items-center justify-between">
+                          <div className="h-5 w-16 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                          <div className="h-4 w-12 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
+                        </div>
+                        <div className="h-9 w-24 animate-pulse rounded-full bg-[var(--bg-surface-hover)]" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filtered.length === 0 ? (
                 <div className="glass-card p-10 text-center text-[var(--text-muted)]">
                   No se encontraron servicios con esos filtros.
                 </div>

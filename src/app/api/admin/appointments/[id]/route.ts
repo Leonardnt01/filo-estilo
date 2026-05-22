@@ -29,13 +29,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 
   const supabase = await createClient();
+  // Keep the update robust even if schema differs (missing customer_* fields, etc.).
   const { data, error } = await supabase
     .from("appointments")
     .update(parsed.data)
     .eq("id", id)
-    .select(
-      "id, client_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
-    )
+    .select("*")
     .single();
 
   if (error) {

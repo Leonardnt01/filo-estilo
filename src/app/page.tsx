@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { SiWhatsapp } from "react-icons/si";
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number };
 type Branch = {
@@ -719,12 +720,11 @@ export default function Home() {
         target="_blank"
         rel="noreferrer"
         aria-label="WhatsApp"
-        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-2xl hover:scale-105 transition-transform"
+        className="group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#25D366] px-3 py-2 text-white shadow-[0_14px_40px_rgba(37,211,102,0.45)] transition-all duration-300 hover:scale-105 hover:brightness-105"
       >
-        <svg className="h-7 w-7" viewBox="0 0 32 32" fill="currentColor">
-          <path d="M19.11 17.205c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.198-.347.223-.644.074-.297-.148-1.255-.463-2.39-1.475-.883-.788-1.48-1.762-1.653-2.06-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.148-.174.198-.298.297-.497.1-.198.05-.372-.024-.52-.075-.149-.67-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.273.297-1.04 1.016-1.04 2.479s1.064 2.875 1.213 3.074c.148.198 2.095 3.2 5.076 4.487.71.306 1.263.489 1.695.625.711.227 1.36.195 1.87.118.572-.085 1.758-.718 2.006-1.412.248-.694.248-1.29.174-1.413-.075-.124-.273-.198-.57-.347z" />
-          <path d="M16.001 3.2c-7.062 0-12.8 5.739-12.8 12.8 0 2.259.591 4.466 1.714 6.412L3.2 28.8l6.558-1.693A12.745 12.745 0 0016 28.8c7.061 0 12.8-5.739 12.8-12.8 0-7.061-5.739-12.8-12.8-12.8zm0 23.273a10.4 10.4 0 01-5.294-1.445l-.379-.226-3.89 1.004 1.038-3.793-.247-.389A10.398 10.398 0 015.6 16c0-5.734 4.666-10.4 10.4-10.4 5.733 0 10.4 4.666 10.4 10.4 0 5.733-4.667 10.4-10.4 10.4z" />
-        </svg>
+        <span className="absolute -inset-1 -z-10 rounded-full bg-[#25D366]/30 blur-lg opacity-70 transition-opacity group-hover:opacity-100" />
+        <SiWhatsapp className="h-7 w-7 shrink-0 text-white" />
+        <span className="hidden pr-1 text-sm font-semibold sm:inline">WhatsApp</span>
       </a>
 
       <Footer />
