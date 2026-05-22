@@ -20,6 +20,7 @@ const createAppointmentSchema = z.object({
   appointment_date: z.iso.date(),
   start_time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
   notes: z.string().trim().max(2000).optional().nullable(),
+  initial_status: z.enum(["pending", "cancelled"]).optional(),
 });
 
 function addMinutes(time: string, minutes: number) {
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { branch_id, barber_id, service_id, appointment_date, start_time, notes } = parsed.data;
+  const { branch_id, barber_id, service_id, appointment_date, start_time, notes, initial_status } = parsed.data;
   const today = new Date();
   const todayIso = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString().slice(0, 10);
   const maxDate = new Date(today);
@@ -159,7 +160,7 @@ export async function POST(request: Request) {
       appointment_date,
       start_time,
       end_time: endTime,
-      status: "pending",
+      status: initial_status ?? "pending",
       notes: notes ?? null,
     })
     .select(

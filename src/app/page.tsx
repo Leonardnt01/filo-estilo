@@ -18,56 +18,84 @@ type Branch = {
 };
 type FeaturedService = { id: string; branch_id: string | null; service_id: string | null; title: string; image_url: string | null; sort_order: number };
 type Testimonial = { id: string; branch_id: string | null; name: string; title: string | null; result: string | null; quote: string; image_url: string | null; sort_order: number };
-
-const FALLBACK_SERVICE_SLIDES = [
-  "https://montalvoformen.com.pe/wp-content/uploads/2023/04/portfolio-s12-1280x1280.jpeg",
-  "https://montalvoformen.com.pe/wp-content/uploads/2023/04/portfolio-s62-1280x1280.jpeg",
-  "https://kingschair.ca/wp-content/uploads/2025/07/hot-towel-shave-kings-chair-barbershop.jpg",
-  "https://static.vecteezy.com/system/resources/thumbnails/071/785/389/small/focused-barber-s-hands-precisely-trimming-a-serious-bearded-man-s-stylish-haircut-photo.jpg",
-  "https://raorbarberstudio.com/wp-content/uploads/2024/09/Corte-de-Cabello-Raor-Barber-Studio-Barbershop-Palma-de-Mallorca-1200x800.jpg",
-];
-
-const FALLBACK_SUCCESS_STORIES = [
-  {
-    name: "Luis M.",
-    result: "Cambio de look completo",
-    quote: "Pasé de un estilo clásico a uno moderno para mi nuevo trabajo. Me sentí otra persona.",
-    image: "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-260x260.png",
-  },
-  {
-    name: "Diego R.",
-    result: "Corte + barba premium",
-    quote: "La precisión en la barba fue brutal. Me duró impecable toda la semana.",
-    image: "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-2-260x260.png",
-  },
-  {
-    name: "Carlos T.",
-    result: "Asesoría de imagen",
-    quote: "No sabía qué corte hacerme y me recomendaron uno perfecto para mi rostro.",
-    image: "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-2-2-260x260.png",
-  },
-];
+type HomeStory = { name: string; result: string; quote: string; image: string };
+type HomeValueCard = { title: string; desc: string };
+type HomeExperiencePoint = { title: string; text: string };
+type PublicHomeSettings = {
+  hero_badge?: string;
+  hero_title_line_1?: string;
+  hero_title_highlight?: string;
+  hero_title_line_2?: string;
+  hero_subtitle?: string;
+  who_we_are_text?: string;
+  contact_title?: string;
+  contact_subtitle?: string;
+  central_phone_label?: string;
+  central_phone_schedule?: string;
+  whatsapp_label?: string;
+  whatsapp_help_text?: string;
+  floating_whatsapp?: string;
+  who_image_1?: string;
+  who_image_2?: string;
+  experience_image?: string;
+  service_slide_images?: string[];
+  fallback_testimonials?: HomeStory[];
+  value_cards?: HomeValueCard[];
+  experience_points?: HomeExperiencePoint[];
+};
 
 const FALLBACK_BRANCH_CONTACTS = [
   {
-    id: "lince",
-    name: "Sede Lince",
-    address: "Av. Arequipa 2450, Lince, Lima",
-    phone: "+51 999 999 999",
-    whatsapp: "+51 999 999 999",
-    mapsUrl: "https://maps.google.com/?q=Av.+Arequipa+2450,+Lince,+Lima",
+    id: "principal",
+    name: "Sede Principal",
+    address: "Dirección por actualizar",
+    phone: "+51 000 000 000",
+    whatsapp: "+51 000 000 000",
+    mapsUrl: "https://maps.google.com",
     waUrl: "https://wa.me/51999999999",
   },
-  {
-    id: "san-isidro",
-    name: "Sede San Isidro",
-    address: "Av. Javier Prado Este 410, San Isidro, Lima",
-    phone: "+51 988 777 666",
-    whatsapp: "+51 988 777 666",
-    mapsUrl: "https://maps.google.com/?q=Av.+Javier+Prado+Este+410,+San+Isidro,+Lima",
-    waUrl: "https://wa.me/51988777666",
-  },
 ] as const;
+
+const DEFAULT_HOME_SETTINGS: Required<PublicHomeSettings> = {
+  hero_badge: "Barbería Premium",
+  hero_title_line_1: "Donde el estilo",
+  hero_title_highlight: "define",
+  hero_title_line_2: "tu personalidad",
+  hero_subtitle: "Cortes profesionales, atención personalizada y experiencia de nivel en cada sede.",
+  who_we_are_text:
+    "En Filo Estilo fusionamos la maestría técnica con una visión moderna de la imagen. Nuestro compromiso es ofrecerte una experiencia premium donde la precisión artesanal y la asesoría personalizada se unen para potenciar tu identidad única.",
+  contact_title: "Agenda, consulta o escríbenos",
+  contact_subtitle: "Te ayudamos a elegir sede, servicio y horario ideal. Respuesta rápida por WhatsApp o llamada.",
+  central_phone_label: "Central telefónica",
+  central_phone_schedule: "Atención Lun - Sáb 9:00 a.m. - 8:00 p.m.",
+  whatsapp_label: "WhatsApp",
+  whatsapp_help_text: "Reservas y consultas inmediatas",
+  floating_whatsapp: "+51 999 999 999",
+  who_image_1: "/hero-bg.png",
+  who_image_2: "/hero-bg.png",
+  experience_image: "/hero-bg.png",
+  service_slide_images: ["/hero-bg.png"],
+  fallback_testimonials: [
+    {
+      name: "Cliente",
+      result: "Resultado premium",
+      quote: "Excelente experiencia, muy recomendado.",
+      image: "/hero-bg.png",
+    },
+  ],
+  value_cards: [
+    { title: "Humanidad", desc: "Atención cercana para que te sientas cómodo desde que llegas." },
+    { title: "Diferenciación", desc: "Técnicas actuales y propuesta de estilo personalizada." },
+    { title: "Transparencia", desc: "Precios claros y recomendaciones honestas." },
+    { title: "Empatía", desc: "Escuchamos lo que buscas y lo llevamos a un look real." },
+  ],
+  experience_points: [
+    { title: "Asesoría de Visagismo", text: "Diseñamos tu look basándonos en tu estructura facial y estilo personal." },
+    { title: "Maestría Técnica", text: "Especialistas capacitados en las tendencias más vanguardistas del mundo." },
+    { title: "Productos Premium", text: "Utilizamos marcas líderes para garantizar un acabado de nivel superior." },
+    { title: "Gestión de Tiempo", text: "Sistema de reserva online ágil y atención personalizada por WhatsApp." },
+  ],
+};
 
 export default function Home() {
   const [services, setServices] = useState<Service[]>([]);
@@ -76,10 +104,12 @@ export default function Home() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [activeService, setActiveService] = useState(0);
   const [activeStory, setActiveStory] = useState(0);
+  const [mobileServiceIndex, setMobileServiceIndex] = useState(0);
   const [contactBranch, setContactBranch] = useState("");
+  const [homeSettings, setHomeSettings] = useState<PublicHomeSettings>({});
 
   useEffect(() => {
-    fetch("/api/public/home")
+    fetch("/api/home")
       .then((r) => r.json())
       .then((d) => {
         const nextBranches = d.branches ?? [];
@@ -88,6 +118,7 @@ export default function Home() {
         setServices(nextServices);
         setFeaturedServices(d.featured_services ?? []);
         setTestimonials(d.testimonials ?? []);
+        setHomeSettings(d?.site_settings?.public_home ?? {});
         if (nextBranches.length > 0) {
           setContactBranch(nextBranches[0].slug);
         }
@@ -97,6 +128,7 @@ export default function Home() {
         setBranches([]);
         setFeaturedServices([]);
         setTestimonials([]);
+        setHomeSettings({});
       });
   }, []);
 
@@ -116,8 +148,11 @@ export default function Home() {
     const dbSlides = featuredServices
       .map((item) => item.image_url)
       .filter((url): url is string => Boolean(url));
-    return dbSlides.length > 0 ? dbSlides : FALLBACK_SERVICE_SLIDES;
-  }, [featuredServices]);
+    const configuredSlides = Array.isArray(homeSettings.service_slide_images)
+      ? homeSettings.service_slide_images.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+      : [];
+    return dbSlides.length > 0 ? dbSlides : (configuredSlides.length > 0 ? configuredSlides : DEFAULT_HOME_SETTINGS.service_slide_images);
+  }, [featuredServices, homeSettings.service_slide_images]);
 
   useEffect(() => {
     if (keyServices.length <= 1) return;
@@ -127,15 +162,27 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [keyServices.length]);
 
+  useEffect(() => {
+    const mobileItems = services.slice(0, 8);
+    if (mobileItems.length <= 1) return;
+    const timer = setInterval(() => {
+      setMobileServiceIndex((prev) => (prev + 1) % mobileItems.length);
+    }, 3800);
+    return () => clearInterval(timer);
+  }, [services]);
+
   const successStories = useMemo(() => {
-    if (testimonials.length === 0) return FALLBACK_SUCCESS_STORIES;
+    const configuredFallback = Array.isArray(homeSettings.fallback_testimonials)
+      ? homeSettings.fallback_testimonials
+      : DEFAULT_HOME_SETTINGS.fallback_testimonials;
+    if (testimonials.length === 0) return configuredFallback;
     return testimonials.map((item) => ({
       name: item.name,
       result: item.result ?? item.title ?? "Experiencia premium",
       quote: item.quote,
-      image: item.image_url ?? "https://montalvoformen.com.pe/wp-content/uploads/2023/10/layer-1-260x260.png",
+      image: item.image_url ?? configuredFallback[0]?.image ?? "/hero-bg.png",
     }));
-  }, [testimonials]);
+  }, [testimonials, homeSettings.fallback_testimonials]);
 
   const branchContacts = useMemo(() => {
     if (branches.length === 0) return FALLBACK_BRANCH_CONTACTS;
@@ -156,6 +203,16 @@ export default function Home() {
   }, [branches]);
 
   const selectedBranch = branchContacts.find((b) => b.id === contactBranch) ?? branchContacts[0];
+  const content = { ...DEFAULT_HOME_SETTINGS, ...homeSettings };
+  const floatingWa = (content.floating_whatsapp || "").replace(/\D/g, "") || "51999999999";
+  const valueCards =
+    Array.isArray(content.value_cards) && content.value_cards.length > 0
+      ? content.value_cards
+      : DEFAULT_HOME_SETTINGS.value_cards;
+  const experiencePoints =
+    Array.isArray(content.experience_points) && content.experience_points.length > 0
+      ? content.experience_points
+      : DEFAULT_HOME_SETTINGS.experience_points;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -176,18 +233,18 @@ export default function Home() {
         </div>
 
         <div className="relative z-10 mx-auto max-w-4xl px-6 pt-24 text-center">
-          <span className="section-label">Barbería Premium</span>
+          <span className="section-label">{content.hero_badge}</span>
           <h1 className="mt-6 text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight text-white" style={{ fontFamily: "var(--font-playfair), serif" }}>
-            Donde el estilo <span className="text-[var(--accent)]">define</span>
+            {content.hero_title_line_1} <span className="text-[var(--accent)]">{content.hero_title_highlight}</span>
             <br />
-            tu personalidad
+            {content.hero_title_line_2}
           </h1>
           <p className="mt-6 text-lg text-white/85 max-w-2xl mx-auto">
-            Cortes profesionales, atención personalizada y experiencia de nivel en cada sede.
+            {content.hero_subtitle}
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/reservar" className="btn-gold text-base !px-8 !py-3.5">Reservar Ahora</Link>
-            <Link href="/#servicios" className="btn-outline text-base !px-8 !py-3.5 !text-white hover:!text-[var(--accent)]">Ver Servicios</Link>
+            <Link href="/servicios" className="btn-outline text-base !px-8 !py-3.5 !text-white hover:!text-[var(--accent)]">Ver Servicios</Link>
           </div>
         </div>
 
@@ -204,8 +261,8 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid lg:grid-cols-2 gap-10 items-center">
             <div className="grid grid-cols-2 gap-4">
-              <img src="https://www.sanantonio.cl/media/k2/items/cache/bcba2c7d61a07f13286612c710db37fe_XL.jpg" alt="Barbero trabajando" className="h-88 md:h-[420px] w-full object-cover object-center rounded-2xl border border-[var(--border)]" />
-              <img src="https://raorbarberstudio.com/wp-content/uploads/2024/04/Nuevo-Corte-Pelo-Mejora-Autoestima-Raor-Barber-Studio-Barbershop-Palma-de-Mallorca-1200x800.jpg" alt="Detalle de corte" className="h-88 md:h-[420px] w-full object-cover object-center rounded-2xl border border-[var(--border)]" />
+              <img src={content.who_image_1} alt="Barbero trabajando" className="h-88 md:h-[420px] w-full object-cover object-center rounded-2xl border border-[var(--border)]" />
+              <img src={content.who_image_2} alt="Detalle de corte" className="h-88 md:h-[420px] w-full object-cover object-center rounded-2xl border border-[var(--border)]" />
             </div>
             <div>
               <span className="section-label">Quiénes Somos</span>
@@ -213,7 +270,7 @@ export default function Home() {
                 Redefiniendo el estándar del cuidado masculino
               </h2>
               <p className="mt-4 text-[var(--text-secondary)] leading-relaxed">
-                En Filo Estilo fusionamos la maestría técnica con una visión moderna de la imagen. Nuestro compromiso es ofrecerte una experiencia premium donde la precisión artesanal y la asesoría personalizada se unen para potenciar tu identidad única.
+                {content.who_we_are_text}
               </p>
               <Link href="/sedes" className="btn-outline mt-6">Explorar Nuestras Sedes</Link>
             </div>
@@ -240,50 +297,32 @@ export default function Home() {
             </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                title: "Humanidad",
-                desc: "Atención cercana para que te sientas cómodo desde que llegas.",
-                icon: (
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                ),
-              },
-              {
-                title: "Diferenciación",
-                desc: "Técnicas actuales y propuesta de estilo personalizada.",
-                icon: (
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
-                    <line x1="20" y1="4" x2="8.12" y2="15.88" />
-                    <line x1="14.47" y1="14.48" x2="20" y2="20" />
-                    <line x1="8.12" y1="8.12" x2="12" y2="12" />
-                  </svg>
-                ),
-              },
-              {
-                title: "Transparencia",
-                desc: "Precios claros y recomendaciones honestas.",
-                icon: (
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M12 8c-1.657 0-3 1.343-3 3m6 0a3 3 0 00-3-3m0 0V5m0 6v8m6-2.5a9 9 0 11-12 0" />
-                  </svg>
-                ),
-              },
-              {
-                title: "Empatía",
-                desc: "Escuchamos lo que buscas y lo llevamos a un look real.",
-                icon: (
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M8 10h8M8 14h5M6 3h12a2 2 0 012 2v12a2 2 0 01-2 2h-5l-4 3v-3H6a2 2 0 01-2-2V5a2 2 0 012-2z" />
-                  </svg>
-                ),
-              },
-            ].map((item) => (
+            {valueCards.map((item, idx) => (
               <article key={item.title} className="glass-card group p-6 transition-all duration-300 hover:-translate-y-1 hover:border-[var(--accent-border)]">
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]">
-                  {item.icon}
+                  {idx % 4 === 0 && (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  )}
+                  {idx % 4 === 1 && (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
+                      <line x1="20" y1="4" x2="8.12" y2="15.88" />
+                      <line x1="14.47" y1="14.48" x2="20" y2="20" />
+                      <line x1="8.12" y1="8.12" x2="12" y2="12" />
+                    </svg>
+                  )}
+                  {idx % 4 === 2 && (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M12 8c-1.657 0-3 1.343-3 3m6 0a3 3 0 00-3-3m0 0V5m0 6v8m6-2.5a9 9 0 11-12 0" />
+                    </svg>
+                  )}
+                  {idx % 4 === 3 && (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M8 10h8M8 14h5M6 3h12a2 2 0 012 2v12a2 2 0 01-2 2h-5l-4 3v-3H6a2 2 0 01-2-2V5a2 2 0 012-2z" />
+                    </svg>
+                  )}
                 </div>
                 <h3 className="font-semibold text-lg group-hover:text-[var(--accent)] transition-colors">{item.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">{item.desc}</p>
@@ -303,25 +342,15 @@ export default function Home() {
                 Compromiso con la perfección en cada detalle
               </h2>
               <ul className="mt-6 space-y-5 text-[var(--text-secondary)]">
-                <li className="flex gap-3">
-                  <span className="text-[var(--accent)] font-bold">✓</span>
-                  <span><strong>Asesoría de Visagismo:</strong> Diseñamos tu look basándonos en tu estructura facial y estilo personal.</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-[var(--accent)] font-bold">✓</span>
-                  <span><strong>Maestría Técnica:</strong> Especialistas capacitados en las tendencias más vanguardistas del mundo.</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-[var(--accent)] font-bold">✓</span>
-                  <span><strong>Productos Premium:</strong> Utilizamos marcas líderes para garantizar un acabado de nivel superior.</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-[var(--accent)] font-bold">✓</span>
-                  <span><strong>Gestión de Tiempo:</strong> Sistema de reserva online ágil y atención personalizada por WhatsApp.</span>
-                </li>
+                {experiencePoints.map((point) => (
+                  <li key={point.title} className="flex gap-3">
+                    <span className="text-[var(--accent)] font-bold">✓</span>
+                    <span><strong>{point.title}:</strong> {point.text}</span>
+                  </li>
+                ))}
               </ul>
             </div>
-            <img src="https://cdn.pixabay.com/photo/2019/02/25/13/38/haircut-4019676_1280.jpg" alt="Barbero en acción" className="h-[420px] w-full object-cover rounded-2xl border border-[var(--border)]" />
+            <img src={content.experience_image} alt="Barbero en acción" className="h-[420px] w-full object-cover rounded-2xl border border-[var(--border)]" />
           </div>
         </div>
       </section>
@@ -338,36 +367,136 @@ export default function Home() {
           {keyServices.length === 0 ? (
             <p className="text-center text-[var(--text-muted)]">Cargando servicios...</p>
           ) : (
-            <div className="glass-card overflow-hidden">
-              <div className="grid lg:grid-cols-2">
-                <img
-                  src={serviceSlides[activeService % serviceSlides.length]}
-                  alt={keyServices[activeService].name}
-                  className="h-64 md:h-80 lg:h-[440px] w-full object-cover object-center"
-                />
-                <div className="p-8 lg:p-10 flex flex-col justify-center">
-                  <p className="text-sm uppercase tracking-wider text-[var(--accent)] font-semibold">Servicio destacado</p>
-                  <h3 className="mt-2 text-3xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>{keyServices[activeService].name}</h3>
-                  <p className="mt-3 text-[var(--text-secondary)]">{keyServices[activeService].description ?? "Servicio profesional con acabado premium."}</p>
-                  <p className="mt-4 text-lg font-semibold text-[var(--accent)]">
-                    S/ {keyServices[activeService].price} · {keyServices[activeService].duration_minutes} min
-                  </p>
-                  <div className="mt-6">
-                    <Link href="/reservar" className="btn-gold">Reservar este servicio</Link>
-                  </div>
-                  <div className="mt-6 flex gap-2">
-                    {keyServices.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setActiveService(idx)}
-                        className={`h-2.5 rounded-full transition-all ${activeService === idx ? "w-8 bg-[var(--accent)]" : "w-2.5 bg-[var(--border-strong)]"}`}
-                        aria-label={`Ver servicio ${idx + 1}`}
-                      />
-                    ))}
+            <div className="space-y-8">
+              <div className="glass-card overflow-hidden">
+                <div className="grid lg:grid-cols-2">
+                  <img
+                    src={serviceSlides[activeService % serviceSlides.length]}
+                    alt={keyServices[activeService].name}
+                    className="h-64 md:h-80 lg:h-[440px] w-full object-cover object-center"
+                  />
+                  <div className="p-8 lg:p-10 flex flex-col justify-center">
+                    <p className="text-sm uppercase tracking-wider text-[var(--accent)] font-semibold">Servicio destacado</p>
+                    <h3 className="mt-2 text-3xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>{keyServices[activeService].name}</h3>
+                    <p className="mt-3 text-[var(--text-secondary)]">{keyServices[activeService].description ?? "Servicio profesional con acabado premium."}</p>
+                    <p className="mt-4 text-lg font-semibold text-[var(--accent)]">
+                      S/ {keyServices[activeService].price} · {keyServices[activeService].duration_minutes} min
+                    </p>
+                    <div className="mt-6">
+                      <Link href="/reservar" className="btn-gold">Reservar este servicio</Link>
+                    </div>
+                    <div className="mt-6 flex gap-2">
+                      {keyServices.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setActiveService(idx)}
+                          className={`h-2.5 rounded-full transition-all ${activeService === idx ? "w-8 bg-[var(--accent)]" : "w-2.5 bg-[var(--border-strong)]"}`}
+                          aria-label={`Ver servicio ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+
+              <div className="sm:hidden">
+                <div className="relative overflow-hidden rounded-2xl">
+                  <div
+                    className="flex transition-transform duration-500 ease-out"
+                    style={{ transform: `translateX(-${mobileServiceIndex * 100}%)` }}
+                  >
+                    {services.slice(0, 8).map((service, idx) => (
+                      <article
+                        key={service.id}
+                        className="group relative w-full shrink-0 overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] min-h-[280px]"
+                      >
+                        <img
+                          src={serviceSlides[idx % serviceSlides.length]}
+                          alt={service.name}
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
+                        <div className="relative z-10 flex h-full flex-col justify-end p-4">
+                          <p className="text-xs uppercase tracking-wider text-[var(--accent)]">Servicio</p>
+                          <h3 className="mt-1 text-lg font-semibold text-white">{service.name}</h3>
+                          <p className="mt-1 text-xs text-white/80 line-clamp-2">{service.description ?? "Cuidado profesional para tu estilo."}</p>
+                          <div className="mt-3 flex items-center justify-between">
+                            <span className="text-base font-bold text-[var(--accent)]">S/ {service.price}</span>
+                            <span className="text-xs text-white/90">{service.duration_minutes} min</span>
+                          </div>
+                          <Link
+                            href={`/reservar?service_id=${service.id}`}
+                            className="mt-3 inline-flex w-fit items-center gap-1 rounded-full border border-[var(--accent-border)] bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-[var(--bg-primary)]"
+                          >
+                            Reservar
+                          </Link>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setMobileServiceIndex((prev) => (prev - 1 + services.slice(0, 8).length) % services.slice(0, 8).length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-sm"
+                    aria-label="Anterior"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileServiceIndex((prev) => (prev + 1) % services.slice(0, 8).length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-sm"
+                    aria-label="Siguiente"
+                  >
+                    ›
+                  </button>
+                </div>
+                <div className="mt-3 flex justify-center gap-1.5">
+                  {services.slice(0, 8).map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setMobileServiceIndex(idx)}
+                      aria-label={`Slide ${idx + 1}`}
+                      className={`h-2 rounded-full transition-all ${mobileServiceIndex === idx ? "w-6 bg-[var(--accent)]" : "w-2 bg-[var(--border-strong)]"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="hidden sm:grid sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {services.slice(0, 8).map((service, idx) => (
+                  <article
+                    key={service.id}
+                    className="group relative overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] min-h-[260px]"
+                  >
+                    <img
+                      src={serviceSlides[idx % serviceSlides.length]}
+                      alt={service.name}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
+                    <div className="relative z-10 flex h-full flex-col justify-end p-4">
+                      <p className="text-xs uppercase tracking-wider text-[var(--accent)]">Servicio</p>
+                      <h3 className="mt-1 text-base font-semibold text-white">{service.name}</h3>
+                      <p className="mt-1 text-xs text-white/75 line-clamp-2">{service.description ?? "Cuidado profesional para tu estilo."}</p>
+                      <div className="mt-3 flex items-center justify-between">
+                        <span className="text-sm font-bold text-[var(--accent)]">S/ {service.price}</span>
+                        <span className="translate-y-3 opacity-0 text-xs text-white transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+                          {service.duration_minutes} min
+                        </span>
+                      </div>
+                      <Link
+                        href={`/reservar?service_id=${service.id}`}
+                        className="mt-3 inline-flex w-fit translate-y-3 items-center gap-1 rounded-full border border-[var(--accent-border)] bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--bg-primary)] opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
+                      >
+                        Reservar
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+                </div>
+              </div>
           )}
         </div>
       </section>
@@ -421,10 +550,10 @@ export default function Home() {
               <div>
                 <span className="section-label">Contacto</span>
                 <h3 className="mt-4 text-3xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
-                  Agenda, consulta o escríbenos
+                  {content.contact_title}
                 </h3>
                 <p className="mt-3 text-[var(--text-secondary)]">
-                  Te ayudamos a elegir sede, servicio y horario ideal. Respuesta rápida por WhatsApp o llamada.
+                  {content.contact_subtitle}
                 </p>
 
                 <div className="mt-6 grid gap-3">
@@ -437,15 +566,15 @@ export default function Home() {
                   </a>
                   <a href={`tel:${selectedBranch.phone.replace(/\s+/g, "")}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4 hover:border-[var(--accent-border)] transition-colors">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">Central telefónica</p>
-                      <span className="text-sm text-[var(--text-secondary)]">Atención Lun - Sáb 9:00 a.m. - 8:00 p.m.</span>
+                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">{content.central_phone_label}</p>
+                      <span className="text-sm text-[var(--text-secondary)]">{content.central_phone_schedule}</span>
                     </div>
                     <span className="text-[var(--accent)] font-semibold text-sm sm:text-base whitespace-nowrap">{selectedBranch.phone}</span>
                   </a>
                   <a href={selectedBranch.waUrl} target="_blank" rel="noreferrer" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4 hover:border-[var(--accent-border)] transition-colors">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">WhatsApp</p>
-                      <span className="text-sm text-[var(--text-secondary)]">Reservas y consultas inmediatas</span>
+                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">{content.whatsapp_label}</p>
+                      <span className="text-sm text-[var(--text-secondary)]">{content.whatsapp_help_text}</span>
                     </div>
                     <span className="text-[var(--accent)] font-semibold text-sm sm:text-base whitespace-nowrap">{selectedBranch.whatsapp}</span>
                   </a>
@@ -499,7 +628,7 @@ export default function Home() {
       </section>
 
       <a
-        href={selectedBranch?.waUrl ?? "https://wa.me/51999999999"}
+        href={selectedBranch?.waUrl ?? `https://wa.me/${floatingWa}`}
         target="_blank"
         rel="noreferrer"
         aria-label="WhatsApp"
@@ -515,3 +644,4 @@ export default function Home() {
     </>
   );
 }
+

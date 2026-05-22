@@ -23,7 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <header className="sticky top-0 z-40 border-b border-[var(--border)]" style={{ background: "var(--bg-secondary)" }}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
+            <Link href="/admin" className="flex items-center gap-2 group">
               <div className="relative">
                 <div className="absolute inset-0 bg-[var(--accent)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
                 <svg
@@ -52,6 +52,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors hover:text-[var(--accent)]"
+              style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface)", color: "var(--text-secondary)" }}
+            >
+              Ver Página Web
+            </Link>
             <ThemeToggle />
             <LogoutButton />
           </div>

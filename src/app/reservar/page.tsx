@@ -1,31 +1,78 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { useToast } from "@/components/toast";
 
-type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number };
-type Barber = { id: string; full_name: string; specialty: string | null };
+type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number; branch_id: string | null };
+type Barber = { id: string; full_name: string; specialty: string | null; branch_id?: string | null };
 type Branch = { id: string; name: string; slug: string; address: string | null; phone: string | null };
 type Slot = { start_time: string; end_time: string };
+type CalendarCell = { iso: string; day: number; inMonth: boolean; disabled: boolean; isToday: boolean };
+type Stage = "branch" | "booking" | "payment";
+type PayMethod = "qr" | "cash" | "card";
 
-const STEPS = [
-  { label: "Servicio", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
-  { label: "Barbero", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
-  { label: "Fecha", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
-  { label: "Horario", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
-  { label: "Confirmar", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
+const BRANCH_IMAGE_MAP: Record<string, string> = {
+  "sede-principal": "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=1400&auto=format&fit=crop",
+  "sede-norte": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?q=80&w=1400&auto=format&fit=crop",
+};
+
+const SERVICE_IMAGE_POOL = [
+  "https://images.unsplash.com/photo-1622287162716-f311baa1a2b8?q=80&w=900&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1519501025264-65ba15a82390?q=80&w=900&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1517832606299-7ae9b720a186?q=80&w=900&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=900&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=900&auto=format&fit=crop",
 ];
+
+function getServiceImage(serviceName: string, idx: number) {
+  const key = serviceName.toLowerCase();
+  if (key.includes("barba")) return "https://images.unsplash.com/photo-1493256338651-d82f7acb2b38?q=80&w=900&auto=format&fit=crop";
+  if (key.includes("corte")) return "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=900&auto=format&fit=crop";
+  if (key.includes("premium")) return "https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=900&auto=format&fit=crop";
+  return SERVICE_IMAGE_POOL[idx % SERVICE_IMAGE_POOL.length];
+}
+
+const BARBER_IMAGE_MAP: Record<string, string> = {
+  carlos: "https://images.unsplash.com/photo-1618077360395-f3068be8e001?q=80&w=600&auto=format&fit=crop", // Carlos Martínez
+  javier: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop", // Javier Ramírez
+  jefferson: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop", // Jefferson
+  miguel: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600&auto=format&fit=crop", // Miguel Ángel
+};
+
+function getBarberImage(fullName: string) {
+  const name = fullName.toLowerCase();
+  if (name.includes("carlos")) return BARBER_IMAGE_MAP.carlos;
+  if (name.includes("javier")) return BARBER_IMAGE_MAP.javier;
+  if (name.includes("jefferson")) return BARBER_IMAGE_MAP.jefferson;
+  if (name.includes("miguel")) return BARBER_IMAGE_MAP.miguel;
+  return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop";
+}
+
+function formatCardNumber(input: string) {
+  return input
+    .replace(/\D/g, "")
+    .slice(0, 16)
+    .replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+
+function formatExpiry(input: string) {
+  const digits = input.replace(/\D/g, "").slice(0, 4);
+  if (digits.length < 3) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
 
 function ReservarPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+
+  const [stage, setStage] = useState<Stage>("branch");
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
 
@@ -34,25 +81,29 @@ function ReservarPageContent() {
   const [barberId, setBarberId] = useState("");
   const [date, setDate] = useState("");
   const [slotStart, setSlotStart] = useState("");
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const [people, setPeople] = useState(1);
+
+  const [paymentMethod, setPaymentMethod] = useState<PayMethod>("qr");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardHolder, setCardHolder] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  /* Auth state */
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-
-  /* Current step indicator */
-  const currentStep = useMemo(() => {
-    if (!branchId) return 0;
-    if (!serviceId) return 1;
-    if (!barberId) return 2;
-    if (!date) return 3;
-    if (!slotStart) return 4;
-    return 4;
-  }, [branchId, serviceId, barberId, date, slotStart]);
+  const [requestedServiceId, setRequestedServiceId] = useState("");
 
   const minDate = useMemo(() => {
     const now = new Date();
@@ -65,61 +116,127 @@ function ReservarPageContent() {
     return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
   }, []);
 
+  const calendarLabel = useMemo(
+    () => calendarMonth.toLocaleDateString("es-PE", { month: "long", year: "numeric" }),
+    [calendarMonth],
+  );
+
+  const services = useMemo(() => allServices.filter((s) => s.branch_id === branchId), [allServices, branchId]);
+
+  const monthMatrix = useMemo(() => {
+    const start = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+    const firstWeekDay = (start.getDay() + 6) % 7;
+    const matrixStart = new Date(start);
+    matrixStart.setDate(start.getDate() - firstWeekDay);
+
+    const minTime = new Date(`${minDate}T00:00:00`).getTime();
+    const maxTime = new Date(`${maxDate}T00:00:00`).getTime();
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    const cells: CalendarCell[] = [];
+    for (let i = 0; i < 42; i += 1) {
+      const d = new Date(matrixStart);
+      d.setDate(matrixStart.getDate() + i);
+      const iso = d.toISOString().slice(0, 10);
+      const stamp = new Date(`${iso}T00:00:00`).getTime();
+      cells.push({
+        iso,
+        day: d.getDate(),
+        inMonth: d.getMonth() === calendarMonth.getMonth(),
+        disabled: stamp < minTime || stamp > maxTime,
+        isToday: iso === todayIso,
+      });
+    }
+
+    return cells;
+  }, [calendarMonth, minDate, maxDate]);
+
   useEffect(() => {
     async function loadCatalog() {
       const res = await fetch("/api/booking/catalog");
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(json.error ?? "No se pudo cargar catálogo"); return; }
-      setBranches(json.branches ?? []);
-      const requestedBranchId = searchParams.get("branch_id");
-      const requestedExists = (json.branches ?? []).some((b: Branch) => b.id === requestedBranchId);
-      if (requestedBranchId && requestedExists) {
-        setBranchId(requestedBranchId);
-      } else if (json.branches?.[0]?.id) {
-        setBranchId(json.branches[0].id);
+      if (!res.ok) {
+        setError(json.error ?? "No se pudo cargar catálogo");
+        return;
+      }
+
+      const fetchedBranches = json.branches ?? [];
+      const fetchedServices = json.services ?? [];
+      setBranches(fetchedBranches);
+      setAllServices(fetchedServices);
+
+      const requestedService = searchParams.get("service_id");
+      const requestedBranch = searchParams.get("branch_id");
+
+      if (requestedService && fetchedServices.some((s: Service) => s.id === requestedService)) {
+        setRequestedServiceId(requestedService);
+        setServiceId(requestedService);
+        const serviceBranch = fetchedServices.find((s: Service) => s.id === requestedService)?.branch_id;
+        if (serviceBranch) setBranchId(serviceBranch);
+      }
+
+      if (requestedBranch && fetchedBranches.some((b: Branch) => b.id === requestedBranch)) {
+        setBranchId(requestedBranch);
+      } else if (!requestedService && fetchedBranches?.[0]?.id) {
+        setBranchId(fetchedBranches[0].id);
       }
     }
+
     async function checkAuth() {
       try {
         const res = await fetch("/api/auth/me");
         const json = await res.json().catch(() => ({}));
         setIsAuthenticated(!!json.authenticated);
         if (!json.authenticated) setShowAuthModal(true);
-      } catch { setIsAuthenticated(false); setShowAuthModal(true); }
+      } catch {
+        setIsAuthenticated(false);
+        setShowAuthModal(true);
+      }
     }
+
     void loadCatalog();
     void checkAuth();
   }, [searchParams]);
 
   useEffect(() => {
-    async function loadBranchCatalog() {
-      if (!branchId) {
-        setServices([]);
-        setBarbers([]);
-        setServiceId("");
-        setBarberId("");
+    if (!branchId) return;
+    const branchServices = allServices.filter((s) => s.branch_id === branchId);
+    if (!branchServices.find((s) => s.id === serviceId)) {
+      if (requestedServiceId && branchServices.find((s) => s.id === requestedServiceId)) {
+        setTimeout(() => setServiceId(requestedServiceId), 0);
         return;
       }
+      const nextServiceId = branchServices?.[0]?.id ?? "";
+      setTimeout(() => setServiceId(nextServiceId), 0);
+    }
+
+    async function loadBranchDetails() {
       const res = await fetch(`/api/booking/catalog?branch_id=${branchId}`);
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(json.error ?? "No se pudo cargar catálogo por sede");
+        setError(json.error ?? "No se pudo cargar datos de sede");
         return;
       }
-      setServices(json.services ?? []);
-      setBarbers(json.barbers ?? []);
-      setServiceId((json.services?.[0]?.id as string) ?? "");
-      setBarberId((json.barbers?.[0]?.id as string) ?? "");
+      const fetchedBarbers = json.barbers ?? [];
+      setBarbers(fetchedBarbers);
+      setBarberId((prev) => (fetchedBarbers.some((b: Barber) => b.id === prev) ? prev : (fetchedBarbers?.[0]?.id ?? "")));
       setSlotStart("");
+      setSelectedSlots([]);
       setSlots([]);
     }
-    void loadBranchCatalog();
-  }, [branchId]);
 
-  async function loadSlots() {
+    void loadBranchDetails();
+  }, [allServices, branchId, serviceId, requestedServiceId]);
+
+  const loadSlots = useCallback(async () => {
     setError(null);
     setSlotStart("");
-    if (!branchId || !serviceId || !barberId || !date) { setSlots([]); return; }
+    setSelectedSlots([]);
+    if (!branchId || !serviceId || !barberId || !date) {
+      setSlots([]);
+      return;
+    }
+
     setLoadingSlots(true);
     const res = await fetch("/api/booking/availability", {
       method: "POST",
@@ -128,360 +245,882 @@ function ReservarPageContent() {
     });
     const json = await res.json().catch(() => ({}));
     setLoadingSlots(false);
-    if (!res.ok) { setError(json.error ?? "No se pudo consultar disponibilidad"); setSlots([]); return; }
+
+    if (!res.ok) {
+      setError(json.error ?? "No se pudo consultar disponibilidad");
+      setSlots([]);
+      return;
+    }
+
     setSlots(json.slots ?? []);
-  }
+  }, [barberId, branchId, date, serviceId]);
+
+  useEffect(() => {
+    if (stage === "branch") return;
+    if (!branchId || !serviceId || !barberId || !date) return;
+    const timer = setTimeout(() => {
+      void loadSlots();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [stage, branchId, serviceId, barberId, date, loadSlots]);
 
   const selectedService = useMemo(() => services.find((s) => s.id === serviceId) ?? null, [services, serviceId]);
   const selectedBarber = useMemo(() => barbers.find((b) => b.id === barberId) ?? null, [barbers, barberId]);
+  const selectedBranch = useMemo(() => branches.find((b) => b.id === branchId) ?? null, [branches, branchId]);
+
+  const whatsappUrl = useMemo(() => {
+    const whatsappPhone = selectedBranch?.phone ? selectedBranch.phone.replace(/\D/g, "") : "51999999999";
+    const waNumber = whatsappPhone.startsWith("51") ? whatsappPhone : `51${whatsappPhone}`;
+    return `https://wa.me/${waNumber}?text=${encodeURIComponent(
+      `Hola, me comunico de Filo Estilo. Quisiera solicitar una reserva personalizada para ${people} personas en la sede ${selectedBranch?.name ?? ""}.`
+    )}`;
+  }, [selectedBranch, people]);
+
+  function updatePeople(nextValue: number) {
+    const safe = Math.max(1, nextValue);
+    setPeople(safe);
+    setSelectedSlots((prev) => prev.slice(0, safe));
+    setSlotStart("");
+  }
+
+  function validatePayment() {
+    if (paymentMethod !== "card") return true;
+
+    if (!/^\d{4} \d{4} \d{4} \d{4}$/.test(cardNumber)) {
+      toast("Tarjeta inválida. Debe tener 16 dígitos", "error");
+      return false;
+    }
+    if (!cardHolder.trim()) {
+      toast("Ingresa el nombre del titular", "error");
+      return false;
+    }
+    if (!/^(0[1-9]|1[0-2])\/(\d{2})$/.test(cardExpiry)) {
+      toast("Fecha inválida. Usa MM/AA", "error");
+      return false;
+    }
+    if (!/^\d{3,4}$/.test(cardCvv)) {
+      toast("CVV inválido", "error");
+      return false;
+    }
+    return true;
+  }
 
   async function book(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    /* If not authenticated, show modal */
-    if (!isAuthenticated) { setShowAuthModal(true); return; }
-    if (!slotStart) { toast("Debes seleccionar un horario", "error"); return; }
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (selectedSlots.length !== people) {
+      toast(`Debes seleccionar exactamente ${people} horarios (uno por cada asistente)`, "error");
+      return;
+    }
+    if (!validatePayment()) return;
+
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/my/appointments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        branch_id: branchId,
-        barber_id: barberId,
-        service_id: serviceId,
-        appointment_date: date,
-        start_time: slotStart,
-        notes: notes || null,
-      }),
-    });
-    const json = await res.json().catch(() => ({}));
-    setLoading(false);
-    if (!res.ok) { toast(json.error ?? "No se pudo crear la cita", "error"); return; }
-    toast("¡Cita reservada correctamente!");
-    router.push("/mis-citas?created=1");
+
+    try {
+      // Loop over each selected slot and create a separate appointment row in Supabase
+      for (const slot of selectedSlots) {
+        const txId = `TX-${Date.now().toString(36).toUpperCase()}`;
+        const paymentMeta =
+          paymentMethod === "qr"
+            ? `[PAGO FICTICIO] metodo:QR tx:${txId}`
+            : paymentMethod === "cash"
+              ? `[PAGO FICTICIO] metodo:EFECTIVO tx:${txId}`
+              : `[PAGO FICTICIO] metodo:TARJETA tx:${txId} card:${cardNumber.slice(-4)}`;
+
+        const res = await fetch("/api/my/appointments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            branch_id: branchId,
+            barber_id: barberId,
+            service_id: serviceId,
+            appointment_date: date,
+            start_time: slot,
+            initial_status: "cancelled",
+            notes: `${paymentMeta} | Personas:${people} | Horarios del grupo: [${selectedSlots.join(", ")}]${notes ? ` | ${notes}` : ""}`,
+          }),
+        });
+
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json.error ?? "No se pudo registrar uno de los horarios");
+        }
+      }
+
+      toast(`¡Excelente! Se registraron con éxito tus ${selectedSlots.length} citas.`);
+      router.push("/mis-citas?created=1");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "No se pudo crear la cita";
+      toast(message, "error");
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   }
+
+  const steps = [
+    { key: "branch", label: "Sede y servicio", done: stage !== "branch", icon: "M17.657 16.657L13.414 12.414A6 6 0 1012 13.828l4.243 4.243a1 1 0 001.414-1.414zM8 12a4 4 0 110-8 4 4 0 010 8z" },
+    { key: "booking", label: "Barbero y horario", done: stage === "payment", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
+    { key: "payment", label: "Pago y confirmación", done: false, icon: "M17 9V7a5 5 0 00-10 0v2m-2 0h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8a2 2 0 012-2z" },
+  ] as const;
 
   return (
     <>
       <main className="flex-1 pt-28 pb-20">
-        <div className="mx-auto max-w-5xl px-6">
-          {/* Header */}
-          <div className="text-center mb-10">
-            <span className="section-label">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Reservación
-            </span>
-            <h1
-              className="mt-4 text-3xl sm:text-4xl font-bold"
-              style={{ fontFamily: "var(--font-playfair), serif" }}
-            >
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="text-center mb-8">
+            <span className="section-label">Reservación</span>
+            <h1 className="mt-3 text-2xl sm:text-3xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
               Reserva tu <span className="text-[var(--accent)]">Cita</span>
             </h1>
-            <p className="mt-2 text-[var(--text-secondary)]">
-              Completa los siguientes pasos para agendar tu visita
-            </p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">Flujo rápido: sede, barbero, horario y pago.</p>
           </div>
 
-          {/* Steps indicator */}
-          <div className="flex items-center justify-center gap-2 mb-12 flex-wrap">
-            {STEPS.map((step, i) => (
-              <div key={step.label} className="flex items-center gap-2">
-                <div
-                  className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all ${
-                    i <= currentStep
-                      ? "bg-[var(--accent)] text-[var(--bg-primary)]"
-                      : "bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-strong)]"
-                  }`}
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path d={step.icon} />
-                  </svg>
-                  <span className="hidden sm:inline">{step.label}</span>
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div className={`w-6 h-px ${i < currentStep ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]"}`} />
-                )}
-              </div>
-            ))}
-          </div>
-
-          <form onSubmit={book} className="space-y-8">
-            {/* Branch selection */}
-            <div className="glass-card p-6 sm:p-8">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">1</span>
-                Elige tu sede
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {branches.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => setBranchId(b.id)}
-                    className={`text-left rounded-xl p-4 border transition-all ${
-                      branchId === b.id
-                        ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-lg shadow-[var(--accent)]/5"
-                        : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
-                    }`}
-                  >
-                    <p className="font-medium">{b.name}</p>
-                    {b.address && <p className="mt-1 text-xs text-[var(--text-muted)]">{b.address}</p>}
-                    {b.phone && <p className="mt-1 text-xs text-[var(--text-muted)]">{b.phone}</p>}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Service selection */}
-            <div className="glass-card p-6 sm:p-8">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">2</span>
-                Elige tu servicio
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {services.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setServiceId(s.id)}
-                    className={`text-left rounded-xl p-4 border transition-all ${
-                      serviceId === s.id
-                        ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-lg shadow-[var(--accent)]/5"
-                        : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium text-sm">{s.name}</span>
-                      <span className="shrink-0 text-sm font-bold text-[var(--accent)]">S/ {s.price}</span>
-                    </div>
-                    {s.description && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.description}</p>}
-                    <p className="mt-2 text-xs text-[var(--text-muted)] flex items-center gap-1">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div className="mb-6 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <div className="inline-flex min-w-max items-center gap-2">
+              {steps.map((step, idx) => {
+                const isActive = stage === step.key;
+                return (
+                  <div key={step.key} className="flex items-center gap-2">
+                    <div className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold border sm:px-4 ${isActive ? "bg-[var(--accent)] text-[var(--bg-primary)] border-[var(--accent)]" : step.done ? "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent-border)]" : "bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-strong)]"}`}>
+                      <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path d={step.icon} />
                       </svg>
-                      {s.duration_minutes} min
-                    </p>
-                  </button>
-                ))}
-              </div>
+                      <span className="hidden sm:inline">{step.label}</span>
+                    </div>
+                    {idx < steps.length - 1 && <div className="h-px w-4 bg-[var(--border-strong)] sm:w-5" />}
+                  </div>
+                );
+              })}
             </div>
+          </div>
 
-            {/* Barber selection */}
-            <div className="glass-card p-6 sm:p-8">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">3</span>
-                Elige tu barbero
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {barbers.map((b, i) => {
-                  const initials = b.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2);
-                  const hues = [32, 45, 20];
+          {stage === "branch" && (
+            <section className="glass-card p-4 sm:p-6 space-y-5">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h2 className="text-base font-semibold">1. Elige sede y confirma servicio</h2>
+                <span className="text-xs text-[var(--text-muted)]">Vista tipo sedes</span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {branches.map((b) => {
+                  const branchServices = allServices.filter((s) => s.branch_id === b.id).slice(0, 4);
+                  const isActive = b.id === branchId;
+                  const branchImage = BRANCH_IMAGE_MAP[b.slug] ?? "https://images.unsplash.com/photo-1512690459411-b0fd1b0b34fe?q=80&w=1400&auto=format&fit=crop";
                   return (
                     <button
                       key={b.id}
                       type="button"
-                      onClick={() => setBarberId(b.id)}
-                      className={`flex items-center gap-4 text-left rounded-xl p-4 border transition-all ${
-                        barberId === b.id
-                          ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-lg shadow-[var(--accent)]/5"
-                          : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
-                      }`}
+                      onClick={() => setBranchId(b.id)}
+                      className={`text-left rounded-xl border overflow-hidden transition-all ${isActive ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"}`}
                     >
-                      <div
-                        className="h-12 w-12 rounded-full flex items-center justify-center text-sm font-bold shrink-0 border border-[var(--accent-border)]"
-                        style={{
-                          background: `linear-gradient(135deg, hsl(${hues[i % 3]},40%,18%), hsl(${hues[i % 3]},30%,12%))`,
-                          color: `hsl(${hues[i % 3]},60%,65%)`,
-                        }}
-                      >
-                        {initials}
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{b.full_name}</p>
-                        <p className="text-xs text-[var(--text-muted)]">{b.specialty ?? "Barbero profesional"}</p>
+                      <img src={branchImage} alt={b.name} className="h-32 w-full object-cover" />
+                      <div className="p-4">
+                        <p className="font-semibold text-lg">{b.name}</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">{b.address ?? "Dirección por confirmar"}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {branchServices.map((s) => (
+                            <span key={s.id} className="rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{s.name}</span>
+                          ))}
+                        </div>
                       </div>
                     </button>
                   );
                 })}
               </div>
-            </div>
 
-            {/* Date + slots */}
-            <div className="glass-card p-6 sm:p-8">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">4</span>
-                Fecha y horario
-              </h2>
+              <div>
+                <p className="mb-2 text-sm font-medium">Servicios de la sede elegida</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {services.map((s, idx) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setServiceId(s.id)}
+                      className={`text-left rounded-lg border p-2 transition-all overflow-hidden ${serviceId === s.id ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"}`}
+                    >
+                      <div className="flex gap-3">
+                        <img src={getServiceImage(s.name, idx)} alt={s.name} className="h-16 w-20 rounded-md object-cover" />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium">{s.name}</span>
+                            <span className="text-sm font-bold text-[var(--accent)]">S/ {s.price}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-[var(--text-muted)]">{s.duration_minutes} min</p>
+                          {s.description && <p className="mt-0.5 text-[11px] text-[var(--text-muted)] line-clamp-1">{s.description}</p>}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                <input
-                  type="date"
-                  value={date}
-                  min={minDate}
-                  max={maxDate}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="input-dark sm:max-w-[220px]"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => void loadSlots()}
-                  disabled={loadingSlots || !branchId || !serviceId || !barberId || !date}
-                  className="btn-outline !py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {loadingSlots ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                        <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
-                      </svg>
-                      Consultando...
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setStage("booking")} disabled={!branchId || !serviceId} className="btn-gold disabled:opacity-40 disabled:cursor-not-allowed">Continuar</button>
+              </div>
+            </section>
+          )}
+
+          {stage === "booking" && (
+            <section className="glass-card p-4 sm:p-5 space-y-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h2 className="text-base font-semibold">2. Barbero y horario</h2>
+                <button type="button" onClick={() => setStage("branch")} className="text-xs text-[var(--accent)] hover:underline">Cambiar sede/servicio</button>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {barbers.map((b) => {
+                  const isActive = barberId === b.id;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setBarberId(b.id)}
+                      className={`group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all ${isActive ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"}`}
+                    >
+                      <img
+                        src={getBarberImage(b.full_name)}
+                        alt={b.full_name}
+                        className="h-10 w-10 rounded-full object-cover border border-[var(--accent-border)] shrink-0 transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{b.full_name}</p>
+                        <p className="text-[11px] text-[var(--text-muted)]">{b.specialty ?? "Barbero"}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[300px,1fr]">
+                <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <button type="button" onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} className="h-7 w-7 rounded border border-[var(--border-strong)]">‹</button>
+                    <p className="text-xs font-semibold capitalize">{calendarLabel}</p>
+                    <button type="button" onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} className="h-7 w-7 rounded border border-[var(--border-strong)]">›</button>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-[var(--text-muted)] mb-1">{"LMXJVSD".split("").map((d) => <span key={d}>{d}</span>)}</div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {monthMatrix.map((cell) => (
+                      <button
+                        key={cell.iso}
+                        type="button"
+                        disabled={cell.disabled}
+                        onClick={() => setDate(cell.iso)}
+                        className={`h-8 rounded text-xs border ${date === cell.iso ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-primary)]" : cell.disabled ? "border-transparent opacity-30" : "border-[var(--border)] hover:border-[var(--accent-border)]"} ${cell.isToday && date !== cell.iso ? "ring-1 ring-[var(--accent-border)]" : ""}`}
+                      >
+                        {cell.day}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {/* Premium Counter Component (No Limit) */}
+                    <div className="flex items-center justify-between rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-1.5 h-10 select-none">
+                      <span className="text-xs text-[var(--text-muted)] font-medium">Asistentes:</span>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => updatePeople(people - 1)}
+                          className="w-6 h-6 rounded bg-[var(--accent-soft)] hover:bg-[var(--accent-soft)]/80 text-[var(--accent)] flex items-center justify-center font-bold text-sm transition-all border border-[var(--accent-border)] active:scale-95 cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          value={people}
+                          onChange={(e) => updatePeople(Number(e.target.value))}
+                          className="w-10 bg-transparent text-center text-sm font-bold text-[var(--text-primary)] focus:outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updatePeople(people + 1)}
+                          className="w-6 h-6 rounded bg-[var(--accent-soft)] hover:bg-[var(--accent-soft)]/80 text-[var(--accent)] flex items-center justify-center font-bold text-sm transition-all border border-[var(--accent-border)] active:scale-95 cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--text-muted)] flex items-center justify-between h-10">
+                      <span>Disponibles</span>
+                      <span>{loadingSlots ? "Actualizando..." : `${slots.length} horarios`}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 grid-cols-3 sm:grid-cols-4">
+                    {!loadingSlots && date && (
+                      slots.length === 0 ? (
+                        <div className="col-span-full text-center py-6 px-4 bg-red-950/10 border border-red-500/20 rounded-xl space-y-3 animate-fade-in">
+                          <p className="text-sm text-[var(--text-muted)]">No hay horarios disponibles para esta fecha.</p>
+                          <a
+                            href={whatsappUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] hover:bg-[#20ba5a] text-white px-4 py-2.5 text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+                          >
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 .007c-6.617 0-12 5.391-12 12 0 2.115.549 4.16 1.595 5.977l-1.595 5.83 5.951-1.564c1.752.959 3.737 1.464 5.753 1.464h.003c6.616 0 12-5.39 12-12 0-3.2-1.243-6.206-3.5-8.46-2.256-2.254-5.262-3.497-8.462-3.497zm6.393 16.947c-.27.76-1.318 1.483-2.13 1.595-.54.075-1.242.1-3.607-.879-3.023-1.252-4.969-4.323-5.12-4.524-.152-.201-1.217-1.616-1.217-3.084 0-1.469.771-2.19 1.041-2.49.27-.3.59-.375.79-.375h.563c.18 0 .42-.068.653.495.24.577.818 2.002.893 2.152.075.15.128.323.023.533-.105.21-.158.338-.315.518-.158.18-.33.405-.472.54-.158.15-.323.315-.143.623.18.3.8 1.312 1.718 2.128.172.15.344.293.51.428.878.712 1.425.6 1.83.188.248-.255.772-.893.975-1.193.203-.3.405-.255.675-.15.27.105 1.718.81 2.018.96.3.15.5.225.57.345.075.12.075.69-.195 1.45z"/>
+                            </svg>
+                            Reserva por WhatsApp
+                          </a>
+                        </div>
+                      ) : slots.length < people ? (
+                        <div className="col-span-full text-center py-6 px-4 bg-[var(--accent-soft)]/20 border border-[var(--accent-border)] rounded-xl space-y-3.5 animate-fade-in">
+                          <div className="space-y-1">
+                            <p className="text-sm font-bold text-[var(--accent)]">
+                              Reserva Grupal Personalizada
+                            </p>
+                            <p className="text-xs text-[var(--text-muted)]">
+                              Has seleccionado <span className="font-semibold text-[var(--accent)]">{people} personas</span>, pero solo quedan <span className="font-semibold text-stone-200">{slots.length} horarios disponibles</span> para agendar en línea.
+                            </p>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed max-w-md mx-auto">
+                            No te preocupes. Para atender a tu grupo de forma coordinada y brindarte una experiencia premium a medida, por favor contáctanos directamente por WhatsApp. ¡Nosotros organizamos todo por ti!
+                          </p>
+                          <div className="flex justify-center">
+                            <a
+                              href={whatsappUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] hover:bg-[#20ba5a] text-white px-5 py-2.5 text-xs font-bold transition-all shadow-md hover:shadow-lg active:scale-95 cursor-pointer"
+                            >
+                              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                <path d="M12 .007c-6.617 0-12 5.391-12 12 0 2.115.549 4.16 1.595 5.977l-1.595 5.83 5.951-1.564c1.752.959 3.737 1.464 5.753 1.464h.003c6.616 0 12-5.39 12-12 0-3.2-1.243-6.206-3.5-8.46-2.256-2.254-5.262-3.497-8.462-3.497zm6.393 16.947c-.27.76-1.318 1.483-2.13 1.595-.54.075-1.242.1-3.607-.879-3.023-1.252-4.969-4.323-5.12-4.524-.152-.201-1.217-1.616-1.217-3.084 0-1.469.771-2.19 1.041-2.49.27-.3.59-.375.79-.375h.563c.18 0 .42-.068.653.495.24.577.818 2.002.893 2.152.075.15.128.323.023.533-.105.21-.158.338-.315.518-.158.18-.33.405-.472.54-.158.15-.323.315-.143.623.18.3.8 1.312 1.718 2.128.172.15.344.293.51.428.878.712 1.425.6 1.83.188.248-.255.772-.893.975-1.193.203-.3.405-.255.675-.15.27.105 1.718.81 2.018.96.3.15.5.225.57.345.075.12.075.69-.195 1.45z"/>
+                              </svg>
+                              Coordinar Reserva Personalizada
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        slots.map((slot) => (
+                          <button
+                            key={slot.start_time}
+                            type="button"
+                            onClick={() => setSlotStart(slot.start_time)}
+                            className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                              slotStart === slot.start_time
+                                ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-primary)] shadow-md shadow-[var(--accent)]/10"
+                                : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
+                            }`}
+                          >
+                            {slot.start_time}
+                          </button>
+                        ))
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setStage("payment")} disabled={!slotStart} className="btn-gold disabled:opacity-40 disabled:cursor-not-allowed">Ir a pago</button>
+              </div>
+            </section>
+          )}
+
+          {stage === "payment" && (
+            <form onSubmit={book} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column: Ticket-like Reservation Summary */}
+              <section className="relative overflow-hidden bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl shadow-xl p-6 sm:p-8 space-y-6 lg:col-span-7">
+                {/* Decorative Side Ticket Stubs (cutouts) */}
+                <div className="absolute -left-3 top-[68%] w-6 h-6 bg-[var(--bg-primary)] rounded-full border-r border-[var(--border-strong)] z-10 hidden sm:block"></div>
+                <div className="absolute -right-3 top-[68%] w-6 h-6 bg-[var(--bg-primary)] rounded-full border-l border-[var(--border-strong)] z-10 hidden sm:block"></div>
+
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-4">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-[var(--accent)] font-semibold bg-[var(--accent-soft)] px-2.5 py-1 rounded-full border border-[var(--accent-border)]">
+                      Pre-Reserva Confirmada
                     </span>
-                  ) : (
-                    "Consultar horarios"
-                  )}
-                </button>
-              </div>
-
-              {/* Time slots grid */}
-              <div className="flex flex-wrap gap-2">
-                {slots.map((slot) => (
+                    <h2 className="text-xl font-bold mt-2 font-display" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                      Resumen del Ticket
+                    </h2>
+                  </div>
                   <button
-                    key={slot.start_time}
                     type="button"
-                    onClick={() => setSlotStart(slot.start_time)}
-                    className={`rounded-lg px-4 py-2.5 text-sm font-medium border transition-all ${
-                      slotStart === slot.start_time
-                        ? "bg-[var(--accent)] text-[var(--bg-primary)] border-[var(--accent)] shadow-lg shadow-[var(--accent)]/20"
-                        : "bg-[var(--bg-surface)] border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)]"
-                    }`}
+                    onClick={() => setStage("booking")}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors bg-[var(--accent-soft)] hover:bg-[var(--accent-soft)]/20 px-3 py-1.5 rounded-lg border border-[var(--accent-border)]"
                   >
-                    {slot.start_time}
-                  </button>
-                ))}
-                {!loadingSlots && slots.length === 0 && date && (
-                  <p className="text-sm text-[var(--text-muted)] py-2">Sin horarios disponibles para esta fecha</p>
-                )}
-              </div>
-            </div>
-
-            {/* Notes + Summary */}
-            <div className="glass-card p-6 sm:p-8">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] text-sm font-bold">5</span>
-                Confirmar reserva
-              </h2>
-
-              <textarea
-                placeholder="Notas adicionales (opcional)"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="input-dark !h-20 resize-none mb-4"
-              />
-
-              {/* Summary card */}
-              <div className="rounded-xl bg-[var(--bg-surface)] border border-[var(--border-strong)] p-5 space-y-3">
-                <h3 className="text-sm font-semibold text-[var(--accent)] uppercase tracking-wider">Resumen</h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-[var(--text-muted)]">Servicio</span>
-                    <p className="font-medium">{selectedService?.name ?? "—"}</p>
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-muted)]">Barbero</span>
-                    <p className="font-medium">{selectedBarber?.full_name ?? "—"}</p>
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-muted)]">Duración</span>
-                    <p className="font-medium">{selectedService?.duration_minutes ?? "—"} min</p>
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-muted)]">Horario</span>
-                    <p className="font-medium">{slotStart || "No seleccionado"}</p>
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-muted)]">Fecha</span>
-                    <p className="font-medium">{date || "—"}</p>
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-muted)]">Precio</span>
-                    <p className="text-lg font-bold text-[var(--accent)]">S/ {selectedService?.price ?? "—"}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Messages */}
-              {error && (
-                <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  {error}
-                </div>
-              )}
-
-
-              <button
-                type="submit"
-                disabled={loading || !branchId || !date || !slotStart || !serviceId || !barberId}
-                className="btn-gold w-full !py-3.5 mt-4 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                      <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                     </svg>
-                    Reservando...
-                  </span>
-                ) : (
-                  "Confirmar Reserva"
-                )}
-              </button>
-            </div>
-          </form>
+                    Editar
+                  </button>
+                </div>
+
+                {/* Ticket Details Grid */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Sede */}
+                  <div className="flex gap-3 p-3.5 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]/50">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Sede</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedBranch?.name ?? "-"}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)] line-clamp-1">{selectedBranch?.address}</p>
+                    </div>
+                  </div>
+
+                  {/* Servicio */}
+                  <div className="flex gap-3 p-3.5 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]/50">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 0 0 .495-7.467 5.99 5.99 0 0 0-1.925 3.546 5.974 5.974 0 0 1-2.133-1A3.75 3.75 0 0 0 12 18z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Servicio</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedService?.name ?? "-"}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">{selectedService?.duration_minutes} min</p>
+                    </div>
+                  </div>
+
+                  {/* Barbero */}
+                  <div className="flex gap-3 p-3.5 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]/50">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Especialista</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedBarber?.full_name ?? "-"}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">{selectedBarber?.specialty ?? "Barbero Profesional"}</p>
+                    </div>
+                  </div>
+
+                  {/* Fecha y Hora */}
+                  <div className="flex gap-3 p-3.5 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]/50">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Fecha y Hora</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{date || "-"} a las {slotStart || "-"}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">Hora local confirmada</p>
+                    </div>
+                  </div>
+
+                  {/* Personas */}
+                  <div className="flex gap-3 p-3.5 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]/50 sm:col-span-2">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 flex justify-between items-center">
+                      <div>
+                        <p className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Asistentes</p>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">{people} {people === 1 ? "Persona" : "Personas"}</p>
+                      </div>
+                      <span className="text-[11px] text-[var(--text-muted)] italic">Reserva múltiple habilitada</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dashed Separator mimicking a coupon rip strip */}
+                <div className="relative my-6">
+                  <div className="absolute left-[-32px] right-[-32px] top-1/2 -translate-y-1/2 border-t-2 border-dashed border-[var(--border-strong)]"></div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-[var(--bg-surface)] px-4 text-[10px] text-[var(--text-muted)] tracking-wider uppercase font-semibold">
+                      Detalle de Facturación
+                    </span>
+                  </div>
+                </div>
+
+                {/* Billing Breakdown */}
+                <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-secondary)]/30 p-4 sm:p-5 text-sm space-y-3">
+                  <div className="flex justify-between items-center text-[var(--text-secondary)]">
+                    <span>Precio del Servicio ({selectedService?.name})</span>
+                    <span className="font-semibold text-[var(--text-primary)]">S/ {(selectedService?.price ?? 0).toFixed(2)}</span>
+                  </div>
+                  {people > 1 && (
+                    <div className="flex justify-between items-center text-[var(--text-secondary)]">
+                      <span>Multiplicador por Personas</span>
+                      <span className="font-semibold text-[var(--text-primary)]">x {people}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-[var(--text-secondary)]">
+                    <span>IGV (18% incluido)</span>
+                    <span className="font-mono text-xs text-[var(--text-muted)]">S/ {((selectedService?.price ?? 0) * people * 0.18 / 1.18).toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="border-t border-[var(--border)] pt-4 flex justify-between items-baseline">
+                    <span className="font-bold text-base text-[var(--text-primary)] font-display" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                      Total Neto a Pagar
+                    </span>
+                    <div className="text-right">
+                      <span className="font-bold text-2xl text-[var(--accent)] tracking-tight">
+                        S/ {((selectedService?.price ?? 0) * people).toFixed(2)}
+                      </span>
+                      <p className="text-[10px] text-[var(--text-muted)] font-medium">Moneda Nacional (PEN)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5 text-[var(--text-muted)]">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+                    </svg>
+                    Notas o Requerimientos Especiales (opcional)
+                  </label>
+                  <textarea
+                    placeholder="Ej. Tengo alergias a algún producto, prefiero un corte específico, etc."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="input-dark !h-24 resize-none text-sm transition-all focus:border-[var(--accent)] hover:border-[var(--border-strong)]"
+                  />
+                </div>
+              </section>
+
+              {/* Right Column: Premium Payment Form */}
+              <section className="glass-card p-6 sm:p-8 space-y-6 flex flex-col justify-between lg:col-span-5">
+                <div className="space-y-4">
+                  <div className="border-b border-[var(--border)] pb-3">
+                    <h2 className="text-lg font-bold font-display" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                      Métodos de Pago
+                    </h2>
+                    <p className="text-xs text-[var(--text-muted)]">Elige tu forma de pago preferida</p>
+                  </div>
+
+                  {/* Tabs Selector with Icons */}
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {/* QR Tab */}
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("qr")}
+                      className={`flex flex-col sm:flex-row items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition-all duration-300 cursor-pointer ${
+                        paymentMethod === "qr"
+                          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] shadow-[0_0_12px_rgba(212,168,67,0.15)]"
+                          : "border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75ZM13.5 16.5h.75v.75h-.75v-.75ZM16.5 13.5h.75v.75h-.75v-.75ZM18 15h.75v.75H18V15ZM15 15h.75v.75H15V15ZM13.5 15h.75v.75h-.75V15ZM15 18h.75v.75H15V18ZM18 18h.75v.75H18V18ZM19.5 18h.75v.75h-.75V18ZM19.5 15h.75v.75h-.75V15ZM19.5 13.5h.75v.75h-.75v-.75Z" />
+                      </svg>
+                      <span className="text-[10px] sm:text-xs">QR Digital</span>
+                    </button>
+
+                    {/* Cash Tab */}
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("cash")}
+                      className={`flex flex-col sm:flex-row items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition-all duration-300 cursor-pointer ${
+                        paymentMethod === "cash"
+                          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] shadow-[0_0_12px_rgba(212,168,67,0.15)]"
+                          : "border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5h16.5M3.75 20.25h16.5M3 7.5h18M3 16.5h18m-18-9v9m18-9v9M5.25 5.25h13.5m-13.5 13.5h13.5" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 14.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" />
+                      </svg>
+                      <span className="text-[10px] sm:text-xs">Efectivo</span>
+                    </button>
+
+                    {/* Card Tab */}
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("card")}
+                      className={`flex flex-col sm:flex-row items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition-all duration-300 cursor-pointer ${
+                        paymentMethod === "card"
+                          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] shadow-[0_0_12px_rgba(212,168,67,0.15)]"
+                          : "border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-19.5 5.25h19.5m-19.5 0h19.5M2.25 12h19.5m-19.5 0h19.5M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                      </svg>
+                      <span className="text-[10px] sm:text-xs">Tarjeta</span>
+                    </button>
+                  </div>
+
+                  {/* QR Method Detail */}
+                  {paymentMethod === "qr" && (
+                    <div className="space-y-4 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-secondary)]/30 p-5 animate-fade-in">
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">Escanea el código QR Oficial</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-0.5">Compatible con Yape, Plin y Banca Móvil</p>
+                      </div>
+                      
+                      <div className="flex justify-center py-2">
+                        <div className="relative p-3 bg-white rounded-2xl border-4 border-[var(--accent)] shadow-2xl flex items-center justify-center group overflow-hidden">
+                          <img
+                            src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=FiloEstilo-QR-Test"
+                            alt="QR de Pago Filo Estilo"
+                            className="h-36 w-36 rounded transition-all duration-300 group-hover:scale-105"
+                          />
+                          {/* Inner glowing logo look */}
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black rounded-lg border border-[var(--accent-border)] p-1 text-[8px] font-bold text-[var(--accent)] tracking-tighter">
+                            FILO
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Instructions */}
+                      <div className="space-y-2.5 border-t border-[var(--border)] pt-4 text-[11px] text-[var(--text-secondary)]">
+                        <div className="flex gap-2">
+                          <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">1</span>
+                          <p>Escanea el QR y transfiere el monto exacto: <strong className="text-[var(--accent)]">S/ {((selectedService?.price ?? 0) * people).toFixed(2)}</strong></p>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">2</span>
+                          <p>Verifica que figure la razón social **Filo & Estilo S.A.C.**</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">3</span>
+                          <p>Completa el registro presionando el botón &quot;Confirmar y Registrar Cita&quot;. Validaremos tu transacción en sede.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cash Method Detail */}
+                  {paymentMethod === "cash" && (
+                    <div className="space-y-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 animate-fade-in text-sm text-[var(--text-secondary)]">
+                      <div className="flex gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.745 3.745 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.745 3.745 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-[var(--text-primary)]">Pago Físico en Establecimiento</h4>
+                          <p className="text-xs text-[var(--text-muted)] mt-0.5">Reserva 100% segura y garantizada</p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3 text-xs text-[var(--text-secondary)] border-t border-[var(--border)] pt-4">
+                        <p>
+                          Tu cita se guardará de inmediato. Podrás efectuar el pago completo de su monto de **S/ {((selectedService?.price ?? 0) * people).toFixed(2)}** en efectivo, tarjeta de débito/crédito o transferencia al culminar tu atención.
+                        </p>
+                        <p className="font-medium text-[var(--accent)]">
+                          Nota: Te solicitamos llegar al menos 10 minutos antes de tu cita programada.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card Method Detail with interactive Card Mockup */}
+                  {paymentMethod === "card" && (
+                    <div className="space-y-5 animate-fade-in">
+                      {/* CSS Interactive Metallic Virtual Credit Card */}
+                      <div 
+                        className={`w-full max-w-[310px] mx-auto h-[180px] rounded-2xl relative shadow-2xl overflow-hidden p-5 flex flex-col justify-between transition-all duration-500 transform hover:scale-[1.03] border bg-gradient-to-br from-[#1d1e26] via-[#13141a] to-[#0a0a0f] ${
+                          focusedField === "cvv" ? "border-red-400/30" : "border-amber-500/25"
+                        }`}
+                      >
+                        {/* Shimmer overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none rounded-2xl shimmer-card"></div>
+                        
+                        {/* Card Header */}
+                        <div className="flex justify-between items-start z-10">
+                          <div className="text-left">
+                            <p className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-widest font-display" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                              Filo Estilo
+                            </p>
+                            <p className="text-[7px] text-[var(--text-muted)] tracking-wider uppercase font-mono">Barbería Premium</p>
+                          </div>
+                          {/* Secure Card Shield Symbol */}
+                          <div className="text-[var(--accent)] font-semibold flex items-center gap-1">
+                            <span className="text-[8px] uppercase tracking-wider font-mono opacity-80">VIP</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                              <path fillRule="evenodd" d="M12.516 2.185a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.97a.75.75 0 0 0-.722-.515 11.24 11.24 0 0 1-7.877-3.08Z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
+
+                        {/* Card Chip & Wi-Fi */}
+                        <div className="flex justify-between items-center z-10">
+                          {/* Electronic Chip */}
+                          <div className="w-9 h-7 bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-500 rounded-md opacity-85 shadow-md flex flex-col justify-around p-1">
+                            <div className="border-b border-black/10 w-full h-px"></div>
+                            <div className="border-b border-black/10 w-full h-px"></div>
+                            <div className="border-b border-black/10 w-full h-px"></div>
+                          </div>
+                          {/* Wi-Fi contactless wave */}
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white/50 rotate-90">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.375 9a3.75 3.75 0 1 1 0 7.5" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.625 5.625a8.75 8.75 0 1 1 0 12.75" />
+                          </svg>
+                        </div>
+
+                        {/* Card Number display */}
+                        <div className="text-center z-10">
+                          <p className="text-sm font-mono tracking-widest text-stone-100 font-semibold drop-shadow-md">
+                            {cardNumber || "•••• •••• •••• ••••"}
+                          </p>
+                        </div>
+
+                        {/* Card Footer details */}
+                        <div className="flex justify-between items-end z-10">
+                          <div className="text-left max-w-[70%]">
+                            <p className="text-[7px] text-[var(--text-muted)] uppercase tracking-wider font-mono">Titular de Tarjeta</p>
+                            <p className="text-[10px] font-mono tracking-wider text-stone-200 font-semibold truncate uppercase">
+                              {cardHolder || "NOMBRE COMPLETO"}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[7px] text-[var(--text-muted)] uppercase tracking-wider font-mono">Expiración</p>
+                            <p className="text-[10px] font-mono text-stone-200 font-semibold">{cardExpiry || "MM/AA"}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[7px] text-[var(--text-muted)] uppercase tracking-wider font-mono">CVV</p>
+                            <p className={`text-[10px] font-mono text-stone-200 font-semibold bg-black/30 px-1.5 py-0.5 rounded border ${focusedField === "cvv" ? "border-red-400 bg-red-950/20 text-red-300" : "border-transparent"}`}>
+                              {cardCvv || "•••"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Input Fields Form */}
+                      <div className="space-y-3.5 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-secondary)]/30 p-4 sm:p-5">
+                        {/* Card Number Input */}
+                        <div className="input-icon-wrap with-left-icon">
+                          <input
+                            value={cardNumber}
+                            onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                            onFocus={() => setFocusedField("number")}
+                            onBlur={() => setFocusedField(null)}
+                            placeholder="Número de Tarjeta (16 dígitos)"
+                            className="input-dark text-sm"
+                            maxLength={19}
+                          />
+                          <div className="input-icon-left">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-19.5 5.25h19.5m-19.5 0h19.5M2.25 12h19.5m-19.5 0h19.5M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                            </svg>
+                          </div>
+                        </div>
+
+                        {/* Cardholder Input */}
+                        <div className="input-icon-wrap with-left-icon">
+                          <input
+                            value={cardHolder}
+                            onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
+                            onFocus={() => setFocusedField("holder")}
+                            onBlur={() => setFocusedField(null)}
+                            placeholder="Nombre del Titular (en Tarjeta)"
+                            className="input-dark text-sm"
+                          />
+                          <div className="input-icon-left">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                            </svg>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3.5">
+                          {/* Card Expiry */}
+                          <div className="input-icon-wrap with-left-icon">
+                            <input
+                              value={cardExpiry}
+                              onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
+                              onFocus={() => setFocusedField("expiry")}
+                              onBlur={() => setFocusedField(null)}
+                              placeholder="MM/AA"
+                              className="input-dark text-sm"
+                              maxLength={5}
+                            />
+                            <div className="input-icon-left">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75" />
+                              </svg>
+                            </div>
+                          </div>
+
+                          {/* Card CVV */}
+                          <div className="input-icon-wrap with-left-icon">
+                            <input
+                              value={cardCvv}
+                              onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                              onFocus={() => setFocusedField("cvv")}
+                              onBlur={() => setFocusedField(null)}
+                              placeholder="CVV"
+                              className="input-dark text-sm"
+                              maxLength={4}
+                            />
+                            <div className="input-icon-left">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0V10.5m-2.25 0h13.5c.621 0 1.125.504 1.125 1.125v7.497c0 .621-.504 1.125-1.125 1.125H5.25a1.125 1.125 0 0 1-1.125-1.125v-7.497c0-.621.504-1.125 1.125-1.125Z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-[var(--text-muted)] flex items-center gap-1 bg-black/10 px-2.5 py-1.5 rounded-lg border border-[var(--border)]">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-emerald-400 shrink-0">
+                            <path fillRule="evenodd" d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm3 4.25a.75.75 0 0 0-1.06-.02L7 8.67 6.06 7.73a.75.75 0 0 0-1.06 1.06l1.5 1.5a.75.75 0 0 0 1.08-.02l3.5-3.75a.75.75 0 0 0-.08-1.07Z" clipRule="evenodd" />
+                          </svg>
+                          Conexión segura SSL. Encriptación de datos de extremo a extremo.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="alert-error animate-fade-in text-xs py-2 px-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4 text-red-400">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                      </svg>
+                      {error}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 mt-6 border-t border-[var(--border)] pt-5">
+                  <button
+                    type="submit"
+                    disabled={loading || !slotStart}
+                    className="btn-gold w-full !py-3.5 disabled:opacity-40 disabled:cursor-not-allowed text-sm uppercase tracking-wider font-bold shadow-lg transition-all duration-300 hover:shadow-xl active:scale-[0.99] cursor-pointer"
+                  >
+                    {loading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        {/* Elegant spinner */}
+                        <svg className="animate-spin h-4.5 w-4.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Procesando Reserva...
+                      </span>
+                    ) : (
+                      "Confirmar y Registrar Cita"
+                    )}
+                  </button>
+                  <p className="text-[10px] text-[var(--text-muted)] text-center italic">
+                    Se registrará en Supabase con estado inicial cancelada (modo pruebas).
+                  </p>
+                </div>
+              </section>
+            </form>
+          )}
         </div>
       </main>
 
-      {/* Auth modal */}
       {showAuthModal && !isAuthenticated && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAuthModal(false)} />
-          <div className="relative w-full max-w-md rounded-2xl p-8 animate-fade-in shadow-2xl text-center"
-            style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)" }}>
-
-            {/* Icon */}
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl mb-5"
-              style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
-              <svg className="h-8 w-8" style={{ color: "var(--accent)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-
-            <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-playfair), serif", color: "var(--text-primary)" }}>
-              Inicia sesión para <span style={{ color: "var(--accent)" }}>reservar</span>
-            </h3>
-            <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Necesitas una cuenta para agendar tu cita. Es rápido y fácil.
-            </p>
-
+          <div className="relative w-full max-w-md rounded-2xl p-8 text-center" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)" }}>
+            <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>Inicia sesión para reservar</h3>
             <div className="mt-6 space-y-3">
-              <Link href="/login" className="btn-gold w-full !py-3">
-                Iniciar Sesión
-              </Link>
-              <Link href="/register" className="btn-outline w-full !py-3">
-                Crear Cuenta
-              </Link>
+              <Link href="/login" className="btn-gold w-full !py-3">Iniciar Sesión</Link>
+              <Link href="/register" className="btn-outline w-full !py-3">Crear Cuenta</Link>
             </div>
-
-            <button onClick={() => setShowAuthModal(false)} className="mt-4 text-sm transition-colors"
-              style={{ color: "var(--text-muted)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}>
-              Seguir explorando
-            </button>
           </div>
         </div>
       )}
