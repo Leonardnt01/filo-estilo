@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "bdd:test": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@automated\"",
+    "bdd:test:all": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\"",
+    "bdd:test:client": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@client and @automated\"",
+    "bdd:test:admin": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@admin and @automated\""
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -21,6 +25,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^12.2.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
