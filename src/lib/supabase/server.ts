@@ -8,7 +8,8 @@ export async function createClient() {
 
   return createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,  
+    //dasdsdasdasda   
     {
       cookies: {
         getAll() {
