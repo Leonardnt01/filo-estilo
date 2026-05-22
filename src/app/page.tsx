@@ -44,6 +44,19 @@ type PublicHomeSettings = {
   experience_points?: HomeExperiencePoint[];
 };
 
+const BLOCKED_IMAGE_HOSTS = ["vecteezy.com"];
+
+function isSafeImageUrl(url: string | null | undefined) {
+  if (!url || typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    return !BLOCKED_IMAGE_HOSTS.some((host) => parsed.hostname.includes(host));
+  } catch {
+    return false;
+  }
+}
+
 const FALLBACK_BRANCH_CONTACTS = [
   {
     id: "principal",
@@ -99,6 +112,7 @@ const DEFAULT_HOME_SETTINGS: Required<PublicHomeSettings> = {
 
 export default function Home() {
   const [services, setServices] = useState<Service[]>([]);
+  const [loadingHome, setLoadingHome] = useState(true);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [featuredServices, setFeaturedServices] = useState<FeaturedService[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -108,12 +122,27 @@ export default function Home() {
   const [contactBranch, setContactBranch] = useState("");
   const [homeSettings, setHomeSettings] = useState<PublicHomeSettings>({});
 
+  const logImageError = (context: string, src: string | undefined, extra?: Record<string, unknown>) => {
+    // Debug helper to identify broken external image URLs quickly.
+    console.error("[HomeImageError]", {
+      context,
+      src: src ?? null,
+      ...extra,
+    });
+  };
+
   useEffect(() => {
     fetch("/api/home")
       .then((r) => r.json())
       .then((d) => {
         const nextBranches = d.branches ?? [];
         const nextServices = d.services ?? [];
+        console.log("[HomeData] /api/home loaded", {
+          branches: nextBranches.length,
+          services: nextServices.length,
+          featuredServices: (d.featured_services ?? []).length,
+          testimonials: (d.testimonials ?? []).length,
+        });
         setBranches(nextBranches);
         setServices(nextServices);
         setFeaturedServices(d.featured_services ?? []);
@@ -124,11 +153,15 @@ export default function Home() {
         }
       })
       .catch(() => {
+        console.error("[HomeData] /api/home failed");
         setServices([]);
         setBranches([]);
         setFeaturedServices([]);
         setTestimonials([]);
         setHomeSettings({});
+      })
+      .finally(() => {
+        setLoadingHome(false);
       });
   }, []);
 
@@ -147,12 +180,20 @@ export default function Home() {
   const serviceSlides = useMemo(() => {
     const dbSlides = featuredServices
       .map((item) => item.image_url)
-      .filter((url): url is string => Boolean(url));
+      .filter((url): url is string => isSafeImageUrl(url));
     const configuredSlides = Array.isArray(homeSettings.service_slide_images)
-      ? homeSettings.service_slide_images.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+      ? homeSettings.service_slide_images.filter((url): url is string => isSafeImageUrl(url))
       : [];
     return dbSlides.length > 0 ? dbSlides : (configuredSlides.length > 0 ? configuredSlides : DEFAULT_HOME_SETTINGS.service_slide_images);
   }, [featuredServices, homeSettings.service_slide_images]);
+
+  useEffect(() => {
+    console.log("[HomeData] serviceSlides", serviceSlides);
+    const suspicious = serviceSlides.filter((url) => typeof url === "string" && url.includes("vecteezy.com"));
+    if (suspicious.length > 0) {
+      console.warn("[HomeData] suspicious slide urls found", suspicious);
+    }
+  }, [serviceSlides]);
 
   useEffect(() => {
     if (keyServices.length <= 1) return;
@@ -364,8 +405,28 @@ export default function Home() {
             </h2>
           </div>
 
-          {keyServices.length === 0 ? (
-            <p className="text-center text-[var(--text-muted)]">Cargando servicios...</p>
+          {loadingHome ? (
+            <div className="space-y-8 animate-pulse">
+              <div className="glass-card overflow-hidden">
+                <div className="grid lg:grid-cols-2">
+                  <div className="h-64 md:h-80 lg:h-[440px] w-full bg-[var(--bg-surface)]" />
+                  <div className="p-8 lg:p-10 space-y-4">
+                    <div className="h-4 w-40 rounded bg-[var(--bg-surface)]" />
+                    <div className="h-10 w-72 rounded bg-[var(--bg-surface)]" />
+                    <div className="h-4 w-full rounded bg-[var(--bg-surface)]" />
+                    <div className="h-4 w-2/3 rounded bg-[var(--bg-surface)]" />
+                    <div className="h-11 w-52 rounded-full bg-[var(--bg-surface)]" />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, idx) => (
+                  <div key={idx} className="h-[260px] rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)]" />
+                ))}
+              </div>
+            </div>
+          ) : keyServices.length === 0 ? (
+            <p className="text-center text-[var(--text-muted)]">No hay servicios disponibles.</p>
           ) : (
             <div className="space-y-8">
               <div className="glass-card overflow-hidden">
@@ -374,6 +435,12 @@ export default function Home() {
                     src={serviceSlides[activeService % serviceSlides.length]}
                     alt={keyServices[activeService].name}
                     className="h-64 md:h-80 lg:h-[440px] w-full object-cover object-center"
+                    onError={(e) =>
+                      logImageError("featured-hero", e.currentTarget.src, {
+                        activeService,
+                        serviceName: keyServices[activeService]?.name,
+                      })
+                    }
                   />
                   <div className="p-8 lg:p-10 flex flex-col justify-center">
                     <p className="text-sm uppercase tracking-wider text-[var(--accent)] font-semibold">Servicio destacado</p>
@@ -414,6 +481,13 @@ export default function Home() {
                           src={serviceSlides[idx % serviceSlides.length]}
                           alt={service.name}
                           className="absolute inset-0 h-full w-full object-cover"
+                          onError={(e) =>
+                            logImageError("mobile-service-card", e.currentTarget.src, {
+                              idx,
+                              serviceId: service.id,
+                              serviceName: service.name,
+                            })
+                          }
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
                         <div className="relative z-10 flex h-full flex-col justify-end p-4">
@@ -474,6 +548,13 @@ export default function Home() {
                       src={serviceSlides[idx % serviceSlides.length]}
                       alt={service.name}
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={(e) =>
+                        logImageError("desktop-service-card", e.currentTarget.src, {
+                          idx,
+                          serviceId: service.id,
+                          serviceName: service.name,
+                        })
+                      }
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
                     <div className="relative z-10 flex h-full flex-col justify-end p-4">
@@ -518,6 +599,12 @@ export default function Home() {
                       src={successStories[activeStory].image}
                       alt={successStories[activeStory].name}
                       className="h-36 w-36 md:h-44 md:w-44 rounded-full object-cover object-center"
+                      onError={(e) =>
+                        logImageError("testimonial-avatar", e.currentTarget.src, {
+                          activeStory,
+                          name: successStories[activeStory]?.name,
+                        })
+                      }
                     />
                   </div>
                 </div>

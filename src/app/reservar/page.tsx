@@ -370,7 +370,7 @@ function ReservarPageContent() {
 
   return (
     <>
-      <main className="flex-1 pt-28 pb-20">
+      <main className="flex-1 pt-36 pb-20">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <div className="text-center mb-8">
             <span className="section-label">Reservación</span>
@@ -380,7 +380,7 @@ function ReservarPageContent() {
             <p className="mt-1 text-sm text-[var(--text-secondary)]">Flujo rápido: sede, barbero, horario y pago.</p>
           </div>
 
-          <div className="mb-6 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <div className="mb-6 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 sm:flex sm:justify-center">
             <div className="inline-flex min-w-max items-center gap-2">
               {steps.map((step, idx) => {
                 const isActive = stage === step.key;
