@@ -36,30 +36,61 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  let query = supabase
-    .from("appointments")
-    .select(`
+
+  const selectVariants: string[] = [
+    `
       id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      barber:barbers(full_name, image_url),
+      service:services(name, price, image_url),
+      branch:branches(name)
+    `,
+    `
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      barber:barbers(full_name, image_url),
+      service:services(name, price),
+      branch:branches(name)
+    `,
+    `
+      id, client_id, barber_id, service_id, branch_id, customer_name, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
       barber:barbers(full_name),
       service:services(name, price),
       branch:branches(name)
-    `)
-    .order("appointment_date", { ascending: false })
-    .order("start_time", { ascending: false })
-    .limit(limit);
+    `,
+    `
+      id, client_id, barber_id, service_id, branch_id, appointment_date, start_time, end_time, status, notes, created_at, updated_at
+    `,
+  ];
 
-  if (statusParam) query = query.eq("status", statusParam);
-  if (barberId) query = query.eq("barber_id", barberId);
-  if (serviceId) query = query.eq("service_id", serviceId);
-  if (branchId) query = query.eq("branch_id", branchId);
-  if (dateFrom) query = query.gte("appointment_date", dateFrom);
-  if (dateTo) query = query.lte("appointment_date", dateTo);
+  let data: any = null;
+  let error: { message: string } | null = null;
 
-  const { data, error } = await query;
+  for (const select of selectVariants) {
+    let query: any = supabase
+      .from("appointments")
+      .select(select)
+      .order("appointment_date", { ascending: false })
+      .order("start_time", { ascending: false })
+      .limit(limit);
+
+    if (statusParam) query = query.eq("status", statusParam);
+    if (barberId) query = query.eq("barber_id", barberId);
+    if (serviceId) query = query.eq("service_id", serviceId);
+    if (branchId) query = query.eq("branch_id", branchId);
+    if (dateFrom) query = query.gte("appointment_date", dateFrom);
+    if (dateTo) query = query.lte("appointment_date", dateTo);
+
+    const res = await query;
+    if (!res.error) {
+      data = res.data;
+      error = null;
+      break;
+    }
+    error = { message: res.error.message };
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, count: data.length, items: data });
+  return NextResponse.json({ ok: true, count: data ? data.length : 0, items: data });
 }

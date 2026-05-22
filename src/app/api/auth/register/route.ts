@@ -16,9 +16,15 @@ const registerSchema = z.object({
 
 export async function POST(request: Request) {
   const clientId = getClientIdentifier(request);
+  console.log("[auth/register] request received", { clientId });
   const rateLimit = checkRateLimit(`auth:register:${clientId}`, {
     maxAttempts: 3,
     windowMs: 60_000,
+  });
+  console.log("[auth/register] local rate limit", {
+    clientId,
+    allowed: rateLimit.allowed,
+    retryAfterSeconds: rateLimit.retryAfterSeconds,
   });
 
   if (!rateLimit.allowed) {
@@ -46,6 +52,10 @@ export async function POST(request: Request) {
   const bodyResult = registerSchema.safeParse(await request.json().catch(() => null));
 
   if (!bodyResult.success) {
+    console.log("[auth/register] invalid payload", {
+      clientId,
+      issues: bodyResult.error.issues,
+    });
     logSecurityEvent({
       event: "auth.register.invalid_payload",
       level: "warn",
@@ -60,6 +70,13 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  const maskedEmail = bodyResult.data.email.replace(/(.{2}).*(@.*)/, "$1***$2");
+  console.log("[auth/register] payload validated", {
+    clientId,
+    email: maskedEmail,
+    fullNameLength: bodyResult.data.full_name.length,
+  });
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -90,6 +107,13 @@ export async function POST(request: Request) {
   });
 
   if (error) {
+    console.log("[auth/register] supabase.auth.signUp failed", {
+      clientId,
+      email: maskedEmail,
+      message: error.message,
+      status: error.status ?? null,
+      code: error.code ?? null,
+    });
     logSecurityEvent({
       event: "auth.register.failed",
       level: "warn",
@@ -106,6 +130,10 @@ export async function POST(request: Request) {
   }
 
   if (!data.user) {
+    console.log("[auth/register] signUp returned no user", {
+      clientId,
+      email: maskedEmail,
+    });
     logSecurityEvent({
       event: "auth.register.user_creation_missing",
       level: "error",
@@ -122,6 +150,11 @@ export async function POST(request: Request) {
 
   // Supabase can return success with an existing user when confirmation flow is enabled.
   if ((data.user.identities?.length ?? 0) === 0) {
+    console.log("[auth/register] duplicate identity response", {
+      clientId,
+      email: maskedEmail,
+      userId: data.user.id,
+    });
     logSecurityEvent({
       event: "auth.register.duplicate_identity",
       level: "warn",
@@ -144,14 +177,31 @@ export async function POST(request: Request) {
 
   const firstTry = await supabase.from("profiles").upsert(profilePayload, { onConflict: "id" });
   let profileError: { message: string } | null = firstTry.error ? { message: firstTry.error.message } : null;
+  console.log("[auth/register] profile upsert first try", {
+    clientId,
+    userId: data.user.id,
+    ok: !profileError,
+    error: profileError?.message ?? null,
+  });
 
   if (profileError) {
     try {
       const admin = createAdminClient();
       const fallbackTry = await admin.from("profiles").upsert(profilePayload, { onConflict: "id" });
       profileError = fallbackTry.error ? { message: fallbackTry.error.message } : null;
+      console.log("[auth/register] profile upsert fallback", {
+        clientId,
+        userId: data.user.id,
+        ok: !profileError,
+        error: profileError?.message ?? null,
+      });
     } catch (e) {
       profileError = { message: e instanceof Error ? e.message : "Could not create profile" };
+      console.log("[auth/register] profile upsert fallback threw", {
+        clientId,
+        userId: data.user.id,
+        error: profileError.message,
+      });
     }
   }
 
@@ -183,6 +233,11 @@ export async function POST(request: Request) {
     userId: data.user.id,
     email: data.user.email ?? bodyResult.data.email,
     status: 201,
+  });
+  console.log("[auth/register] success", {
+    clientId,
+    userId: data.user.id,
+    email: maskedEmail,
   });
 
   return NextResponse.json(

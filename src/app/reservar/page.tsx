@@ -111,6 +111,11 @@ function ReservarPageContent() {
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
+  // Estados de progreso de confirmación animada
+  const [bookingStatus, setBookingStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [bookingErrorMsg, setBookingErrorMsg] = useState<string | null>(null);
+  const [currentBookingIndex, setCurrentBookingIndex] = useState(0);
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [requestedServiceId, setRequestedServiceId] = useState("");
@@ -409,9 +414,13 @@ function ReservarPageContent() {
 
     setLoading(true);
     setError(null);
+    setBookingStatus("loading");
+    setBookingErrorMsg(null);
+    setCurrentBookingIndex(0);
 
     try {
       for (const [index, slot] of selectedSlots.entries()) {
+        setCurrentBookingIndex(index);
         const txId = `TX-${Date.now().toString(36).toUpperCase()}`;
         const paymentMeta =
           paymentMethod === "qr"
@@ -440,12 +449,17 @@ function ReservarPageContent() {
         }
       }
 
+      setBookingStatus("success");
       toast(`¡Excelente! Se registraron con éxito tus ${selectedSlots.length} citas.`);
-      router.push("/mis-citas?created=1");
+      setTimeout(() => {
+        router.push("/mis-citas?created=1");
+      }, 2200);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "No se pudo crear la cita";
       toast(message, "error");
       setError(message);
+      setBookingStatus("error");
+      setBookingErrorMsg(message);
     } finally {
       setLoading(false);
     }
@@ -1506,6 +1520,98 @@ function ReservarPageContent() {
                 Sabor premium y atención personalizada de Filo Estilo.
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de progreso de reserva premium */}
+      {bookingStatus !== "idle" && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-fade-in bg-black/85 backdrop-blur-md">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b10]/95 p-8 text-center shadow-[0_0_60px_-15px_rgba(212,168,67,0.3)] backdrop-blur-2xl animate-scale-up">
+            <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent rounded-t-2xl" />
+            
+            {bookingStatus === "loading" && (
+              <div className="space-y-6 py-4">
+                {/* Gold luxury spinner */}
+                <div className="relative mx-auto flex h-20 w-20 items-center justify-center">
+                  <div className="absolute inset-0 rounded-full border-4 border-[var(--accent)]/10" />
+                  <div className="absolute inset-0 rounded-full border-4 border-t-[var(--accent)] animate-spin" />
+                  <div className="h-10 w-10 rounded-full bg-[var(--accent-soft)]/20 border border-[var(--accent-border)]/30 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-[var(--accent)] animate-pulse">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-lg font-bold text-white tracking-wide" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                    Procesando Reserva
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed max-w-xs mx-auto">
+                    Por favor espera un momento mientras registramos tu espacio exclusivo en Filo Estilo.
+                  </p>
+                </div>
+
+                {/* Sub status details for group bookings */}
+                {selectedSlots.length > 1 && (
+                  <div className="rounded-xl border border-white/5 bg-white/5 p-3 text-[11px] text-[var(--accent)] font-medium inline-flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent)]"></span>
+                    </span>
+                    Procesando cita {currentBookingIndex + 1} de {selectedSlots.length}...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {bookingStatus === "success" && (
+              <div className="space-y-6 py-4 animate-scale-up">
+                {/* Gorgeous Green/Gold Success Checkmark */}
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/10 border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] relative">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-10 h-10 text-emerald-400 animate-scale-up">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-white tracking-wide" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                    ¡Reserva Confirmada!
+                  </h3>
+                  <p className="text-xs text-emerald-100/70 leading-relaxed max-w-xs mx-auto">
+                    Tus citas se han programado con éxito. Redirigiendo a tu historial de citas...
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {bookingStatus === "error" && (
+              <div className="space-y-6 py-4 animate-scale-up">
+                {/* Red/Gold Error Icon */}
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)] relative">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8 text-red-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                  </svg>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-lg font-bold text-white tracking-wide" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                    Error al Reservar
+                  </h3>
+                  <p className="text-xs text-red-400/80 leading-relaxed max-w-xs mx-auto">
+                    {bookingErrorMsg || "No se pudieron programar tus citas. Por favor inténtalo de nuevo."}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setBookingStatus("idle")}
+                  className="btn-gold !py-2.5 px-6 font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -177,7 +177,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </svg>
             </button>
             <div className="hidden lg:block">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent)]">Panel de Gestión</span>
               <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)]" style={{ fontFamily: "var(--font-playfair), serif" }}>
                 {navItems.find(item => isActiveLink(item.href))?.label || "Administración"}
               </h1>
