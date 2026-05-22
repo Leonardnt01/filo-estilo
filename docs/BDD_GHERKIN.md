@@ -9,7 +9,7 @@ Este proyecto usa BDD para validar historias de usuario con escenarios Gherkin.
 - HU-03 Catalogo por sede
 - HU-04 Reserva y bloqueo de duplicidad
 - HU-05 Mis citas (proteccion por sesion)
-- HU-07 Acceso restringido a modulo admin
+- HU-07 Acceso restringido y permitido a modulo admin
 - HU-06, HU-08, HU-09, HU-10 documentadas como escenarios manuales
 
 ## Estructura
@@ -26,17 +26,13 @@ Este proyecto usa BDD para validar historias de usuario con escenarios Gherkin.
 npm run dev
 ```
 
-2. Definir un usuario confirmado para pruebas autenticadas en `.env.local`:
+2. Definir usuarios confirmados para pruebas autenticadas en `.env.local`:
 
 ```txt
 BDD_CLIENT_EMAIL=tu_correo_confirmado@mail.com
 BDD_CLIENT_PASSWORD=tu_password
-```
-
-3. (Opcional) Cambiar URL base de pruebas:
-
-```txt
-BDD_BASE_URL=http://localhost:3001
+BDD_ADMIN_EMAIL=tu_admin_confirmado@mail.com
+BDD_ADMIN_PASSWORD=tu_password_admin
 ```
 
 ## Ejecucion
@@ -47,9 +43,20 @@ Escenarios automatizados:
 npm run bdd:test
 ```
 
+Solo cliente:
+
+```bash
+npm run bdd:test:client
+```
+
+Solo administrador:
+
+```bash
+npm run bdd:test:admin
+```
+
 Todos los escenarios (incluye manuales/documentales):
 
 ```bash
 npm run bdd:test:all
 ```
-

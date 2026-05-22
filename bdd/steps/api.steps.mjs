@@ -70,6 +70,20 @@ Given("existe un cliente confirmado para pruebas BDD", function () {
   };
 });
 
+Given("existe un administrador confirmado para pruebas BDD", function () {
+  const email = process.env.BDD_ADMIN_EMAIL;
+  const password = process.env.BDD_ADMIN_PASSWORD;
+  assert.ok(
+    email && password,
+    "Faltan BDD_ADMIN_EMAIL y BDD_ADMIN_PASSWORD en variables de entorno para escenarios autenticados de administrador.",
+  );
+  this.testUser = {
+    email,
+    password,
+    full_name: "Administrador BDD Configurado",
+  };
+});
+
 Given("inicio sesion con el cliente de prueba", async function () {
   assert.ok(this.testUser, "No existe cliente de prueba en contexto");
   await this.request("POST", "/api/auth/login", {
@@ -80,6 +94,19 @@ Given("inicio sesion con el cliente de prueba", async function () {
     this.lastResponse.status,
     200,
     `No se pudo iniciar sesion de prueba: ${this.lastResponse.text}`,
+  );
+});
+
+Given("inicio sesion con el administrador de prueba", async function () {
+  assert.ok(this.testUser, "No existe administrador de prueba en contexto");
+  await this.request("POST", "/api/auth/login", {
+    email: this.testUser.email,
+    password: this.testUser.password,
+  });
+  assert.equal(
+    this.lastResponse.status,
+    200,
+    `No se pudo iniciar sesion admin de prueba: ${this.lastResponse.text}`,
   );
 });
 

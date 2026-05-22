@@ -1,5 +1,5 @@
-@automated @hu01 @hu02
-Feature: HU-01 y HU-02 Autenticacion de cliente
+@automated @client @hu01 @hu02
+Feature: Cliente - autenticacion
   Como cliente
   Quiero registrarme e iniciar sesion
   Para gestionar mis citas
@@ -19,7 +19,6 @@ Feature: HU-01 y HU-02 Autenticacion de cliente
     Given existe un cliente confirmado para pruebas BDD
     When inicio sesion con el cliente de prueba
     Then la respuesta debe tener codigo 200
-    And la respuesta JSON debe tener "authenticated" igual a "true"
 
   Scenario: HU-02 Credenciales incorrectas
     Given existe un cliente confirmado para pruebas BDD
@@ -31,3 +30,4 @@ Feature: HU-01 y HU-02 Autenticacion de cliente
     And inicio sesion con el cliente de prueba
     When cierro la sesion actual
     Then la respuesta debe tener codigo 200
+

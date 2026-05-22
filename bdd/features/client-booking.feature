@@ -1,5 +1,5 @@
-@automated @hu03 @hu04 @hu05
-Feature: HU-03 HU-04 HU-05 Catalogo, reserva y mis citas
+@automated @client @hu03 @hu04 @hu05
+Feature: Cliente - catalogo y reservas
   Como cliente
   Quiero ver servicios y gestionar reservas
   Para organizar mis atenciones
@@ -26,3 +26,4 @@ Feature: HU-03 HU-04 HU-05 Catalogo, reserva y mis citas
     Given no tengo sesion autenticada
     When consulto mis citas
     Then la respuesta debe tener codigo 401
+

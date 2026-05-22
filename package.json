@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "bdd:test": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@automated\"",
-    "bdd:test:all": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\""
+    "bdd:test:all": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\"",
+    "bdd:test:client": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@client and @automated\"",
+    "bdd:test:admin": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@admin and @automated\""
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
