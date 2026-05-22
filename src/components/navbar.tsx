@@ -94,7 +94,7 @@ export function Navbar() {
         background: (overHero && !menuOpen) ? "rgba(5,8,17,0.62)" : "var(--nav-bg-scroll)",
       }}
     >
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <nav className="relative mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-3 group">
           <div className="relative">
             <div className="absolute inset-0 bg-[var(--accent)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
@@ -126,7 +126,7 @@ export function Navbar() {
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-1 rounded-full border px-2 py-1.5 backdrop-blur-md transition-all"
+        <div className="absolute left-1/2 hidden -translate-x-1/2 md:flex items-center gap-1 rounded-full border px-2 py-1.5 backdrop-blur-md transition-all"
           style={{ 
             borderColor: overHero ? "rgba(255,255,255,0.15)" : "var(--border-strong)", 
             background: overHero ? "rgba(255,255,255,0.05)" : "var(--bg-surface)", 

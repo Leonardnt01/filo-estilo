@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     barbersQuery = barbersQuery.eq("branch_id", branchId);
   }
 
-  const [branchesRes, servicesRes, barbersRes] = await Promise.all([
+  const [branchesRes, servicesResRaw, barbersRes] = await Promise.all([
     supabase
       .from("branches")
       .select("id, name, slug, address, phone, hero_image_url, cover_image_url")
@@ -33,6 +33,27 @@ export async function GET(request: Request) {
     servicesQuery,
     barbersQuery,
   ]);
+
+  let servicesRes = servicesResRaw;
+
+  // Backward compatibility: some DBs still don't have services.image_url.
+  if (servicesRes.error?.message?.toLowerCase().includes("services.image_url")) {
+    let fallbackServicesQuery = supabase
+      .from("services")
+      .select("id, name, description, price, duration_minutes, branch_id")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (branchId) {
+      fallbackServicesQuery = fallbackServicesQuery.eq("branch_id", branchId);
+    }
+
+    const fallbackServices = await fallbackServicesQuery;
+    servicesRes = {
+      ...fallbackServices,
+      data: (fallbackServices.data ?? []).map((item) => ({ ...item, image_url: null })),
+    } as typeof servicesResRaw;
+  }
 
   if (branchesRes.error) {
     return NextResponse.json({ error: branchesRes.error.message }, { status: 500 });
