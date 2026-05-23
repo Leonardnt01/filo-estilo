@@ -12,6 +12,8 @@ const loginSchema = z.object({
   password: z.string().min(6),
 });
 
+//sdadadsada
+
 export async function POST(request: Request) {
   const clientId = getClientIdentifier(request);
   const rateLimit = checkRateLimit(`auth:login:${clientId}`, {
