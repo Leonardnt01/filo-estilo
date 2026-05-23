@@ -27,3 +27,17 @@ Feature: Cliente - catalogo y reservas
     When consulto mis citas
     Then la respuesta debe tener codigo 401
 
+  Scenario: HU-05 Mis citas con sesion activa
+    Given existe un cliente confirmado para pruebas BDD
+    And inicio sesion con el cliente de prueba
+    When consulto mis citas
+    Then la respuesta debe tener codigo 200
+    And la respuesta JSON debe tener "ok" igual a "true"
+
+  Scenario: HU-04 Reserva rechazada por fecha pasada
+    Given existe un cliente confirmado para pruebas BDD
+    And inicio sesion con el cliente de prueba
+    And preparo un payload de reserva con fecha pasada
+    When intento crear una reserva invalida
+    Then la respuesta debe tener codigo 400
+
