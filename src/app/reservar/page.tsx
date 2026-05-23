@@ -1382,25 +1382,7 @@ function ReservarPageContent() {
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
-                        <p className="font-semibold text-emerald-300">Credenciales de prueba (demo profesor)</p>
-                        <p className="mt-1">Número: <span className="font-mono">{DEMO_CARD.number}</span></p>
-                        <p>Titular: <span className="font-mono">{DEMO_CARD.holder}</span></p>
-                        <p>Vence: <span className="font-mono">{DEMO_CARD.expiry}</span> | CVV: <span className="font-mono">{DEMO_CARD.cvv}</span></p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCardNumber(DEMO_CARD.number);
-                            setCardHolder(DEMO_CARD.holder);
-                            setCardExpiry(DEMO_CARD.expiry);
-                            setCardCvv(DEMO_CARD.cvv);
-                            toast("Credenciales demo cargadas");
-                          }}
-                          className="mt-2 rounded-lg border border-emerald-400/40 bg-emerald-400/20 px-2.5 py-1 font-semibold text-emerald-200 hover:bg-emerald-400/30 transition-colors"
-                        >
-                          Rellenar demo
-                        </button>
-                      </div>
+                      
                     </div>
                   )}
 
