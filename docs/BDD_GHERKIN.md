@@ -13,6 +13,7 @@ Este proyecto usa BDD para validar historias de usuario con escenarios Gherkin.
 - HU-06, HU-08, HU-09, HU-10 documentadas como escenarios manuales
 
 Nota de estabilidad:
+
 - HU-01 se mantiene en manual porque el endpoint de registro dispara envio de email y Supabase (plan free / SMTP por defecto) aplica limite estricto por hora.
 - Se agregaron escenarios automatizados objetivos para:
   - Rate limit en login (HTTP 429 + cabecera Retry-After).
@@ -50,6 +51,7 @@ BDD_ADMIN_PASSWORD=tu_password_admin
 ```
 
 Nota:
+
 - Las variables se leen automaticamente desde `.env.local` al ejecutar Cucumber.
 - `BDD_CLIENT_*` debe ser un usuario con rol cliente.
 - `BDD_ADMIN_*` debe ser un usuario con rol admin.
