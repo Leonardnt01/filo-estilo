@@ -1385,6 +1385,7 @@ function ReservarPageContent() {
                       
                     </div>
                   )}
+                 
 
                   {error && (
                     <div className="alert-error animate-fade-in text-xs py-2 px-3">
