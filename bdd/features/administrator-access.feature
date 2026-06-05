@@ -1,7 +1,7 @@
 @automated @admin @hu07
 Feature: Administrador - acceso al modulo administrativo
   Como administrador
-  Quiero acceder al panel y protegerlo
+  Quiero acceder al panel 
   Para gestionar la operacion del sistema
 
   Scenario: Acceso admin sin sesion

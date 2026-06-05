@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
+import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
 
 let cachedRegisteredUser = null;
+let cachedClientFixture = null;
+let cachedAdminFixture = null;
+
+function requiredEnv(name) {
+  const value = process.env[name];
+  if (typeof value !== "string") return null;
+  const clean = value.trim();
+  return clean.length > 0 ? clean : null;
+}
 
 function resolvePath(obj, path) {
   return path.split(".").reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
@@ -23,6 +34,66 @@ function formatDateOffset(daysAhead) {
   const d = new Date();
   d.setDate(d.getDate() + daysAhead);
   return d.toISOString().slice(0, 10);
+}
+
+function getSupabaseAdminClientForBdd() {
+  const url = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const serviceRoleKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+  assert.ok(url && serviceRoleKey, "Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY para crear fixtures BDD.");
+  return createClient(url, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    realtime: { transport: ws },
+  });
+}
+
+async function ensureFixtureUser(role, options = {}) {
+  const { ignoreEnv = false } = options;
+  const cached = role === "admin" ? cachedAdminFixture : cachedClientFixture;
+  if (cached) return cached;
+
+  const envEmail = ignoreEnv ? null : requiredEnv(role === "admin" ? "BDD_ADMIN_EMAIL" : "BDD_CLIENT_EMAIL");
+  const envPassword = ignoreEnv ? null : requiredEnv(role === "admin" ? "BDD_ADMIN_PASSWORD" : "BDD_CLIENT_PASSWORD");
+  if (!ignoreEnv && envEmail && envPassword) {
+    const fromEnv = { email: envEmail, password: envPassword, full_name: role === "admin" ? "Administrador BDD Configurado" : "Cliente BDD Configurado" };
+    if (role === "admin") cachedAdminFixture = fromEnv;
+    else cachedClientFixture = fromEnv;
+    return fromEnv;
+  }
+
+  const admin = getSupabaseAdminClientForBdd();
+  const randomSuffix = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+  const email = `bdd_${role}_${randomSuffix}@mail.com`;
+  const password = `Bdd_${role}_123456`;
+
+  const createRes = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: role === "admin" ? "Administrador BDD Auto" : "Cliente BDD Auto" },
+  });
+
+  assert.ok(!createRes.error && createRes.data.user, `No se pudo crear fixture ${role} BDD: ${createRes.error?.message ?? "sin detalle"}`);
+
+  const userId = createRes.data.user.id;
+  const profilePayload = {
+    id: userId,
+    full_name: role === "admin" ? "Administrador BDD Auto" : "Cliente BDD Auto",
+    role: role === "admin" ? "admin" : "client",
+  };
+
+  const { error: profileError } = await admin.from("profiles").upsert(profilePayload, { onConflict: "id" });
+  assert.ok(!profileError, `No se pudo upsert perfil fixture ${role}: ${profileError?.message ?? "sin detalle"}`);
+
+  const fixture = {
+    email,
+    password,
+    full_name: profilePayload.full_name,
+  };
+
+  if (role === "admin") cachedAdminFixture = fixture;
+  else cachedClientFixture = fixture;
+
+  return fixture;
 }
 
 Given("genero un cliente de prueba", function () {
@@ -56,32 +127,38 @@ Given("existe un cliente de prueba registrado", async function () {
   cachedRegisteredUser = { ...this.testUser };
 });
 
-Given("existe un cliente confirmado para pruebas BDD", function () {
-  const email = process.env.BDD_CLIENT_EMAIL;
-  const password = process.env.BDD_CLIENT_PASSWORD;
-  assert.ok(
-    email && password,
-    "Faltan BDD_CLIENT_EMAIL y BDD_CLIENT_PASSWORD en variables de entorno para escenarios autenticados.",
-  );
-  this.testUser = {
-    email,
-    password,
-    full_name: "Cliente BDD Configurado",
-  };
+Given("existe un cliente confirmado para pruebas BDD", async function () {
+  const candidate = await ensureFixtureUser("client");
+  this.testUser = candidate;
+
+  await this.request("POST", "/api/auth/login", {
+    email: candidate.email,
+    password: candidate.password,
+  });
+
+  if (this.lastResponse.status !== 200) {
+    cachedClientFixture = null;
+    this.testUser = await ensureFixtureUser("client", { ignoreEnv: true });
+  }
+
+  this.clearSession();
 });
 
-Given("existe un administrador confirmado para pruebas BDD", function () {
-  const email = process.env.BDD_ADMIN_EMAIL;
-  const password = process.env.BDD_ADMIN_PASSWORD;
-  assert.ok(
-    email && password,
-    "Faltan BDD_ADMIN_EMAIL y BDD_ADMIN_PASSWORD en variables de entorno para escenarios autenticados de administrador.",
-  );
-  this.testUser = {
-    email,
-    password,
-    full_name: "Administrador BDD Configurado",
-  };
+Given("existe un administrador confirmado para pruebas BDD", async function () {
+  const candidate = await ensureFixtureUser("admin");
+  this.testUser = candidate;
+
+  await this.request("POST", "/api/auth/login", {
+    email: candidate.email,
+    password: candidate.password,
+  });
+
+  if (this.lastResponse.status !== 200) {
+    cachedAdminFixture = null;
+    this.testUser = await ensureFixtureUser("admin", { ignoreEnv: true });
+  }
+
+  this.clearSession();
 });
 
 Given("inicio sesion con el cliente de prueba", async function () {
@@ -117,6 +194,9 @@ Given("no tengo sesion autenticada", function () {
 When("registro el cliente de prueba", async function () {
   assert.ok(this.testUser, "No existe cliente de prueba en contexto");
   await this.request("POST", "/api/auth/register", this.testUser);
+  if (this.lastResponse.status === 201 || this.lastResponse.status === 409) {
+    cachedRegisteredUser = { ...this.testUser };
+  }
 });
 
 When("intento registrar nuevamente el mismo cliente", async function () {
@@ -130,6 +210,16 @@ When("inicio sesion con password incorrecta", async function () {
     email: this.testUser.email,
     password: `${this.testUser.password}_incorrecta`,
   });
+});
+
+When("realizo 6 intentos fallidos de inicio de sesion", async function () {
+  assert.ok(this.testUser, "No existe cliente de prueba en contexto");
+  for (let i = 0; i < 6; i += 1) {
+    await this.request("POST", "/api/auth/login", {
+      email: this.testUser.email,
+      password: `${this.testUser.password}_incorrecta`,
+    });
+  }
 });
 
 When("cierro la sesion actual", async function () {
@@ -190,6 +280,14 @@ Given("encuentro un horario reservable", async function () {
         start_time: slots[0].start_time,
         notes: "Reserva automatizada BDD",
       };
+      this.reservationCandidates = slots.slice(0, 5).map((slot) => ({
+        branch_id: branch.id,
+        barber_id: barber.id,
+        service_id: service.id,
+        appointment_date: appointmentDate,
+        start_time: slot.start_time,
+        notes: "Reserva automatizada BDD",
+      }));
       break;
     }
     if (found) break;
@@ -201,12 +299,50 @@ Given("encuentro un horario reservable", async function () {
 
 When("creo una reserva con el horario encontrado", async function () {
   assert.ok(this.reservationPayload, "No existe payload de reserva preparado");
-  await this.request("POST", "/api/my/appointments", this.reservationPayload);
+  const candidates = this.reservationCandidates?.length
+    ? this.reservationCandidates
+    : [this.reservationPayload];
+
+  let last = null;
+  for (const candidate of candidates) {
+    await this.request("POST", "/api/my/appointments", candidate);
+    last = this.lastResponse;
+    if (this.lastResponse.status === 201) {
+      this.reservationPayload = candidate;
+      return;
+    }
+  }
+
+  this.lastResponse = last;
 });
 
 When("intento crear la misma reserva nuevamente", async function () {
   assert.ok(this.reservationPayload, "No existe payload de reserva preparado");
   await this.request("POST", "/api/my/appointments", this.reservationPayload);
+});
+
+Given("preparo un payload de reserva con fecha pasada", async function () {
+  const catalogResponse = await this.request("GET", "/api/booking/catalog");
+  assert.equal(catalogResponse.status, 200, `Catalogo no disponible: ${catalogResponse.text}`);
+  const branch = catalogResponse.json?.branches?.[0];
+  const service = (catalogResponse.json?.services ?? []).find((s) => s.branch_id === branch?.id);
+  const barber = (catalogResponse.json?.barbers ?? []).find((b) => b.branch_id === branch?.id);
+  assert.ok(branch && service && barber, "No hay datos minimos (sede/servicio/barbero) para probar reserva invalida");
+
+  const yesterday = formatDateOffset(-1);
+  this.invalidReservationPayload = {
+    branch_id: branch.id,
+    barber_id: barber.id,
+    service_id: service.id,
+    appointment_date: yesterday,
+    start_time: "09:00",
+    notes: "Reserva invalida BDD",
+  };
+});
+
+When("intento crear una reserva invalida", async function () {
+  assert.ok(this.invalidReservationPayload, "No existe payload invalido preparado");
+  await this.request("POST", "/api/my/appointments", this.invalidReservationPayload);
 });
 
 Then("la respuesta debe tener codigo {int}", function (statusCode) {
@@ -238,5 +374,11 @@ Then("el catalogo filtrado solo contiene elementos de esa sede", function () {
 
   for (const service of services) assert.equal(service.branch_id, this.selectedBranchId);
   for (const barber of barbers) assert.equal(barber.branch_id, this.selectedBranchId);
+});
+
+Then('la cabecera {string} debe existir', function (headerName) {
+  assert.ok(this.lastResponse?.headers, "No hay cabeceras para validar");
+  const value = this.lastResponse.headers.get(headerName);
+  assert.ok(value && String(value).trim().length > 0, `No existe cabecera esperada: ${headerName}`);
 });
 

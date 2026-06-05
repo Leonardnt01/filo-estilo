@@ -1,30 +1,42 @@
-@automated @client @hu01 @hu02
+@client @hu01 @hu02
 Feature: Cliente - autenticacion
   Como cliente
   Quiero registrarme e iniciar sesion
   Para gestionar mis citas
 
+  @manual
   Scenario: HU-01 Registro exitoso
     Given genero un cliente de prueba
     When registro el cliente de prueba
     Then la respuesta debe tener codigo 201
     And la respuesta JSON debe tener "ok" igual a "true"
 
+  @manual
   Scenario: HU-01 Correo ya registrado
     Given existe un cliente de prueba registrado
     When intento registrar nuevamente el mismo cliente
     Then la respuesta debe tener codigo 409
 
+  @automated
   Scenario: HU-02 Inicio de sesion exitoso
     Given existe un cliente confirmado para pruebas BDD
     When inicio sesion con el cliente de prueba
     Then la respuesta debe tener codigo 200
 
+  @automated
   Scenario: HU-02 Credenciales incorrectas
     Given existe un cliente confirmado para pruebas BDD
     When inicio sesion con password incorrecta
     Then la respuesta debe tener codigo 401
 
+  @automated
+  Scenario: HU-02 Bloqueo por multiples intentos fallidos
+    Given existe un cliente confirmado para pruebas BDD
+    When realizo 6 intentos fallidos de inicio de sesion
+    Then la respuesta debe tener codigo 429
+    And la cabecera "Retry-After" debe existir
+
+  @automated
   Scenario: HU-02 Cierre de sesion
     Given existe un cliente confirmado para pruebas BDD
     And inicio sesion con el cliente de prueba

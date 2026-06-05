@@ -1,4 +1,40 @@
-import { setWorldConstructor } from "@cucumber/cucumber";
+import fs from "node:fs";
+import path from "node:path";
+import { setWorldConstructor, setDefaultTimeout } from "@cucumber/cucumber";
+
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  const raw = fs.readFileSync(filePath, "utf8");
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const normalized = trimmed.startsWith("export ")
+      ? trimmed.slice("export ".length).trim()
+      : trimmed;
+
+    const separator = normalized.indexOf("=");
+    if (separator <= 0) continue;
+
+    const key = normalized.slice(0, separator).trim();
+    let value = normalized.slice(separator + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    if (key && process.env[key] == null) {
+      process.env[key] = value;
+    }
+  }
+}
+
+const projectRoot = process.cwd();
+loadEnvFile(path.join(projectRoot, ".env.local"));
+loadEnvFile(path.join(projectRoot, ".env"));
+setDefaultTimeout(30_000);
 
 function parseSetCookieHeader(value) {
   if (!value) return [];
@@ -8,6 +44,7 @@ function parseSetCookieHeader(value) {
 class ApiWorld {
   constructor() {
     this.baseUrl = process.env.BDD_BASE_URL || "http://localhost:3000";
+    this.clientIp = `10.10.${Math.floor(Math.random() * 200) + 1}.${Math.floor(Math.random() * 200) + 1}`;
     this.cookies = new Map();
     this.lastResponse = null;
     this.testUser = null;
@@ -46,7 +83,10 @@ class ApiWorld {
   }
 
   async request(method, path, body) {
-    const headers = { Accept: "application/json" };
+    const headers = {
+      Accept: "application/json",
+      "x-forwarded-for": this.clientIp,
+    };
     const cookieHeader = this.getCookieHeader();
     if (cookieHeader) headers.Cookie = cookieHeader;
 
