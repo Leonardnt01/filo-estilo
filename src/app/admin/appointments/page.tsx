@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -43,7 +42,7 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
     if (isPrepaid) {
       return {
         label: "Pagado y Confirmado",
-        color: "#10b981", // emerald
+        color: "#10b981", // este es colorcito esmeralda porseaca
         bg: "rgba(16, 185, 129, 0.1)",
         border: "rgba(16, 185, 129, 0.2)",
         icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
@@ -51,7 +50,7 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
     } else {
       return {
         label: "Pendiente (Pago en Local)",
-        color: "#f59e0b", // amber
+        color: "#f59e0b", // color amber de brawl
         bg: "rgba(245, 158, 11, 0.1)",
         border: "rgba(245, 158, 11, 0.2)",
         icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
@@ -63,7 +62,7 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
     case "confirmed":
       return {
         label: "Confirmado",
-        color: "#3b82f6", // blue
+        color: "#3b82f6", // blue oceano
         bg: "rgba(59, 130, 246, 0.1)",
         border: "rgba(59, 130, 246, 0.2)",
         icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
@@ -71,7 +70,7 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
     case "in_progress":
       return {
         label: "En Atención",
-        color: "#a855f7", // purple
+        color: "#a855f7", // moradito 
         bg: "rgba(168, 85, 247, 0.1)",
         border: "rgba(168, 85, 247, 0.2)",
         icon: "M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
@@ -79,7 +78,7 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
     case "completed":
       return {
         label: "Finalizado",
-        color: "#22c55e", // green
+        color: "#22c55e", // verdecito
         bg: "rgba(34, 197, 94, 0.1)",
         border: "rgba(34, 197, 94, 0.2)",
         icon: "M5 13l4 4L19 7"
@@ -87,7 +86,7 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
     case "cancelled":
       return {
         label: "Cancelado",
-        color: "#ef4444", // red
+        color: "#ef4444", // rojito
         bg: "rgba(239, 68, 68, 0.1)",
         border: "rgba(239, 68, 68, 0.2)",
         icon: "M6 18L18 6M6 6l12 12"
@@ -95,7 +94,7 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
     case "no_show":
       return {
         label: "No Asistió",
-        color: "#9ca3af", // gray
+        color: "#9ca3af", // gray o gris
         bg: "rgba(156, 163, 175, 0.1)",
         border: "rgba(156, 163, 175, 0.2)",
         icon: "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
@@ -121,7 +120,6 @@ const getStepStatus = (step: number, status: Appointment["status"]): "completed"
   return "upcoming";
 };
 
-// Notes extractor interface
 interface ParsedNotes {
   payment: {
     method: string;
@@ -133,7 +131,7 @@ interface ParsedNotes {
   userNote: string | null;
 }
 
-// Notes parser helper
+
 function parseAppointmentNotes(notesStr: string | null): ParsedNotes {
   if (!notesStr) {
     return { payment: null, companions: null, groupSlots: null, userNote: null };
@@ -170,13 +168,13 @@ function parseAppointmentNotes(notesStr: string | null): ParsedNotes {
         groupSlots = match[1].split(",").map((s) => s.trim()).filter(Boolean);
       }
     } else {
-      // Hide internal/demo system notes from UI
+      
       if (/reserva automatizada bdd/i.test(trimmed)) continue;
       userNoteParts.push(trimmed);
     }
   }
 
-  // Fallback if no split by pipe but contains keywords
+  
   if (!payment && (notesStr.includes("metodo:") || notesStr.includes("[PAGO FICTICIO]"))) {
     const methodMatch = notesStr.match(/metodo:\s*([^\s|]+)/i);
     const txMatch = notesStr.match(/tx:\s*([^\s|]+)/i);
@@ -192,7 +190,7 @@ function parseAppointmentNotes(notesStr: string | null): ParsedNotes {
   return { payment, companions, groupSlots, userNote: userNote || null };
 }
 
-// WhatsApp link generator helper
+
 function getWhatsAppUrl(phone: string | null): string {
   if (!phone) return "";
   const cleaned = phone.replace(/\D/g, "");
@@ -231,7 +229,7 @@ export default function AdminAppointmentsPage() {
       setBarbers(bJson.items ?? []);
       setServices(sJson.items ?? []);
     } catch {
-      // fail silently
+      
     }
   }
 
