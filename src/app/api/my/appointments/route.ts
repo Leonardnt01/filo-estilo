@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { resolveAvailability, validateBookingWindow } from "@/lib/booking";
 import { getAuthContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
-const appointmentStatus = z.enum([
-  "pending",
-  "confirmed",
-  "in_progress",
-  "completed",
-  "cancelled",
-  "no_show",
-]);
+const appointmentStatus = z.enum(["pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"]);
 
 const createAppointmentSchema = z.object({
   branch_id: z.uuid(),
@@ -22,14 +16,6 @@ const createAppointmentSchema = z.object({
   notes: z.string().trim().max(2000).optional().nullable(),
   initial_status: z.enum(["pending", "cancelled"]).optional(),
 });
-
-function addMinutes(time: string, minutes: number) {
-  const [h, m] = time.split(":").map(Number);
-  const total = h * 60 + m + minutes;
-  const nh = Math.floor(total / 60);
-  const nm = total % 60;
-  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
-}
 
 export async function GET(request: Request) {
   const { user } = await getAuthContext();
@@ -56,7 +42,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("appointments")
     .select(
-      "id, client_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+      "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
     )
     .eq("client_id", user.id)
     .order("appointment_date", { ascending: false })
@@ -91,61 +77,33 @@ export async function POST(request: Request) {
   }
 
   const { branch_id, barber_id, service_id, appointment_date, start_time, notes, initial_status } = parsed.data;
-  const today = new Date();
-  const todayIso = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString().slice(0, 10);
-  const maxDate = new Date(today);
-  maxDate.setDate(maxDate.getDate() + 60);
-  const maxIso = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate()).toISOString().slice(0, 10);
-
-  if (appointment_date < todayIso) {
-    return NextResponse.json({ error: "Appointment date cannot be in the past" }, { status: 400 });
-  }
-
-  if (appointment_date > maxIso) {
-    return NextResponse.json({ error: "Appointment date exceeds booking window (60 days)" }, { status: 400 });
+  const bookingWindowError = validateBookingWindow(appointment_date);
+  if (bookingWindowError) {
+    return NextResponse.json({ error: bookingWindowError }, { status: 400 });
   }
 
   const supabase = await createClient();
 
-  const [
-    { data: service, error: serviceError },
-    { data: barber, error: barberError },
-    { data: profile, error: profileError },
-  ] = await Promise.all([
-    supabase
-      .from("services")
-      .select("duration_minutes, branch_id")
-      .eq("id", service_id)
-      .eq("branch_id", branch_id)
-      .eq("is_active", true)
-      .maybeSingle(),
-    supabase
-      .from("barbers")
-      .select("id")
-      .eq("id", barber_id)
-      .eq("branch_id", branch_id)
-      .eq("is_active", true)
-      .maybeSingle(),
+  const [{ data: profile, error: profileError }, availability] = await Promise.all([
     supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
+    resolveAvailability(supabase, {
+      branchId: branch_id,
+      barberId: barber_id,
+      serviceId: service_id,
+      appointmentDate: appointment_date,
+    }),
   ]);
 
-  if (serviceError) {
-    return NextResponse.json({ error: serviceError.message }, { status: 500 });
-  }
-  if (barberError) {
-    return NextResponse.json({ error: barberError.message }, { status: 500 });
-  }
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
-  if (!service) {
-    return NextResponse.json({ error: "Service not found or inactive" }, { status: 400 });
+  if (!availability.ok) {
+    return NextResponse.json({ error: availability.error }, { status: availability.status });
   }
-  if (!barber) {
-    return NextResponse.json({ error: "Barber not found or inactive for this branch" }, { status: 400 });
+  const selectedSlot = availability.slots.find((slot) => slot.start_time === start_time);
+  if (!selectedSlot) {
+    return NextResponse.json({ error: "Selected slot is not available" }, { status: 409 });
   }
-
-  const endTime = addMinutes(start_time, service.duration_minutes);
 
   const { data, error } = await supabase
     .from("appointments")
@@ -159,12 +117,12 @@ export async function POST(request: Request) {
       customer_email: user.email ?? null,
       appointment_date,
       start_time,
-      end_time: endTime,
+      end_time: selectedSlot.end_time,
       status: initial_status ?? "pending",
       notes: notes ?? null,
     })
     .select(
-      "id, client_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+      "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
     )
     .single();
 
