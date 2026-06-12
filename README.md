@@ -75,7 +75,7 @@ npm run start
 ## Documentacion QA y pruebas API
 
 - Checklist QA: [docs/QA_CHECKLIST.md](docs/QA_CHECKLIST.md)
-- Guia Bruno/Postman: [docs/API_TESTING_BRUNO.md](docs/API_TESTING_BRUNO.md)
+- Guia Bruno/Postman: [API_DOCUMENTATION.MD](API_DOCUMENTATION.MD)
 
 ## Roadmap funcional
 
