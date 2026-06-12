@@ -39,6 +39,31 @@ Este proyecto usa BDD para validar los flujos criticos del MVP real de FILO ESTI
 - El catalogo se consulta desde `GET /api/booking/catalog`.
 - El modulo admin exige sesion y permisos validos.
 
+## Rol de BDD dentro del proyecto
+
+En FILO ESTILO, BDD se utiliza para validar comportamiento funcional observable del sistema, especialmente:
+
+- autenticacion del cliente
+- catalogo y reservas
+- proteccion de rutas administrativas
+- trazabilidad entre historias de usuario y pruebas ejecutables
+
+BDD no reemplaza las pruebas unitarias. Su objetivo principal es comprobar que el sistema responda correctamente desde el punto de vista del negocio y de los criterios de aceptacion.
+
+## Relacion con TDD y Vitest
+
+El proyecto complementa BDD con TDD parcial usando Vitest.
+
+- BDD + Cucumber + Gherkin: valida flujos funcionales de punta a punta
+- TDD + Vitest: valida logica interna critica y reusable
+
+La separacion adoptada en FILO ESTILO es:
+
+- `bdd/features/*`: comportamiento funcional del sistema
+- `tests/unit/*`: pruebas unitarias sobre helpers y reglas de negocio
+
+De esta forma, BDD cubre el "que hace el sistema" y TDD cubre el "como responde la logica interna ante casos criticos".
+
 ## Requisitos previos
 
 1. Levantar servidor:
@@ -87,3 +112,16 @@ Todos los escenarios:
 ```bash
 npm run bdd:test:all
 ```
+
+## Evidencia recomendada
+
+Para la documentacion academica se recomienda adjuntar:
+
+- captura de `npm run bdd:test:client`
+- captura de `npm run bdd:test:admin`
+- captura de escenarios manuales relevantes
+- referencia cruzada con `docs/FUNCTIONAL_TEST_MATRIX_APF2.md`
+
+Para la capa unitaria complementaria, ver:
+
+- [docs/TDD_VITEST.md](C:/Users/ASUS/Desktop/integrador/filo-estilo/docs/TDD_VITEST.md)

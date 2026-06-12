@@ -106,7 +106,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
   in_progress: { label: "En progreso", color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/20" },
   completed:   { label: "Completada",  color: "text-green-400",  bg: "bg-green-500/10 border-green-500/20" },
   cancelled:   { label: "Cancelada",   color: "text-red-400",    bg: "bg-red-500/10 border-red-500/20" },
-  no_show:     { label: "No asistio",  color: "text-gray-400",   bg: "bg-gray-500/10 border-gray-500/20" },
+  no_show:     { label: "No asistió",  color: "text-gray-400",   bg: "bg-gray-500/10 border-gray-500/20" },
 };
 
 function MyAppointmentsContent() {
@@ -191,9 +191,9 @@ function MyAppointmentsContent() {
                   <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold">No tienes citas aun</h3>
+              <h3 className="text-lg font-semibold">No tienes citas aún</h3>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Reserva tu primera cita y aparecera aqui.
+                Reserva tu primera cita y aparecerá aquí.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <a href="/reservar" className="btn-gold inline-flex">Reservar ahora</a>
@@ -212,7 +212,7 @@ function MyAppointmentsContent() {
                 const parsed = parseNotes(item.notes);
 
                 // Default placeholders if catalog not loaded yet
-                const serviceName = service?.name ?? "Servicio de barberia";
+                const serviceName = service?.name ?? "Servicio de Barbería";
                 const servicePrice = service ? `S/. ${service.price.toFixed(2)}` : null;
                 const barberName = barber?.full_name ?? "Barbero Asignado";
                 const branchName = branch?.name ?? "Sede Filo Estilo";
@@ -279,7 +279,7 @@ function MyAppointmentsContent() {
                           <svg className="h-3.5 w-3.5 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                           </svg>
-                          Hora de cita: <span className="font-bold text-[var(--accent)]">{item.start_time.slice(0, 5)}</span>
+                          Hora de Cita: <span className="font-bold text-[var(--accent)]">{item.start_time.slice(0, 5)}</span>
                         </span>
                         
                         {/* Legacy Notes Text representation if they are not parsed */}
@@ -310,7 +310,7 @@ function MyAppointmentsContent() {
                                   <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v2.25h12V3.75A2.25 2.25 0 0 0 15.75 1.5h-2.25M6 6H18v12H6V6Zm12-2.25v14.25a2.25 2.25 0 0 1-2.25 2.25H8.25A2.25 2.25 0 0 1 6 18V3.75" />
                                   </svg>
-                                  Pago movil QR
+                                  Pago Móvil QR
                                 </span>
                               )}
                               {parsed.method === "EFECTIVO" && (

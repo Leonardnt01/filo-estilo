@@ -35,7 +35,7 @@ const STATUS_CONFIG_SIMPLE: Record<Appointment["status"], { label: string }> = {
   in_progress: { label: "En progreso" },
   completed: { label: "Completada" },
   cancelled: { label: "Cancelada" },
-  no_show: { label: "No asistio" },
+  no_show: { label: "No asistió" },
 };
 
 const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boolean) => {
@@ -70,7 +70,7 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
       };
     case "in_progress":
       return {
-        label: "En atencion",
+        label: "En Atención",
         color: "#a855f7", // moradito 
         bg: "rgba(168, 85, 247, 0.1)",
         border: "rgba(168, 85, 247, 0.2)",
@@ -94,7 +94,7 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
       };
     case "no_show":
       return {
-        label: "No asistio",
+        label: "No Asistió",
         color: "#9ca3af", // gray o gris
         bg: "rgba(156, 163, 175, 0.1)",
         border: "rgba(156, 163, 175, 0.2)",
@@ -317,7 +317,7 @@ export default function AdminAppointmentsPage() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <h2 className="text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--font-playfair), serif" }}>
-                Gestion de <span style={{ color: "var(--accent)" }}>Citas</span>
+                Gestión de <span style={{ color: "var(--accent)" }}>Citas</span>
               </h2>
               <p className="mt-1 text-xs sm:text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
                 Monitorea y actualiza el estado de las citas en tiempo real. {items.length} {items.length === 1 ? "cita encontrada" : "citas encontradas"}
@@ -505,7 +505,7 @@ export default function AdminAppointmentsPage() {
                         {[
                           { num: 1, label: isPrepaid ? "Pagado" : "Registrado" },
                           { num: 2, label: "Confirmado" },
-                          { num: 3, label: "En atencion" },
+                          { num: 3, label: "En Atención" },
                           { num: 4, label: "Finalizado" }
                         ].map((step, idx) => {
                           const stepState = getStepStatus(step.num, item.status);

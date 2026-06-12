@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
     "bdd:test": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@automated\"",
     "bdd:test:all": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\"",
     "bdd:test:manual": "cucumber-js \"bdd/features/manual-backlog.feature\" --import \"bdd/**/*.mjs\" --tags \"@manual\"",
@@ -34,6 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }
