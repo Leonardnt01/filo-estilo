@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { useConfirm } from "@/components/confirm-modal";
 import { AdminHeaderSkeleton, AdminTableSkeleton } from "@/components/admin-skeletons";
-import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/admin-client-cache";
+import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/cache/admin-client-cache";
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number; is_active: boolean };
 type Branch = { id: string; name: string };

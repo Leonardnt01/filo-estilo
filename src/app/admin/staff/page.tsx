@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { AdminHeaderSkeleton, AdminTableSkeleton } from "@/components/admin-skeletons";
-import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/admin-client-cache";
+import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/cache/admin-client-cache";
 
 type Branch = { id: string; name: string };
 type Membership = {
