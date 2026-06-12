@@ -40,4 +40,3 @@ export function invalidateCacheByPrefix(prefix: string) {
     if (key.startsWith(prefix)) cache.delete(key);
   }
 }
-

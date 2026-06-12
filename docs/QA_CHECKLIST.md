@@ -1,81 +1,66 @@
 # QA Checklist - Filo Estilo Multi-Sede
 
-Checklist de validacion funcional para cierre de proyecto (local + predeploy).
+Checklist de validacion funcional para cierre de MVP y predeploy.
 
-## 1) Auth y sesion (cookies SSR)
+## 1) Auth y sesion
 
-- [ ] `POST /api/auth/register` crea usuario client con `full_name`.
-- [ ] `POST /api/auth/login` responde `ok: true` y setea cookie de sesion.
-- [ ] `GET /api/auth/me` devuelve `authenticated: true` despues de login.
+- [ ] `POST /api/auth/register` crea usuario cliente con `{ email, password, full_name }`.
+- [ ] `POST /api/auth/register` responde `409` si el correo ya existe.
+- [ ] `POST /api/auth/login` responde `200` y crea sesion.
+- [ ] `POST /api/auth/login` responde `401` con credenciales invalidas.
+- [ ] `POST /api/auth/login` responde `429` al exceder intentos.
 - [ ] `POST /api/auth/logout` limpia sesion.
-- [ ] Sin sesion: `/admin/*` redirige o bloquea correctamente.
+- [ ] `GET /api/auth/me` devuelve `authenticated: true` despues del login.
 
-## 2) Roles y permisos
+## 2) Cliente y catalogo
 
-- [ ] Usuario client NO accede a `/admin/*`.
-- [ ] Usuario owner/admin SI accede a `/admin/*`.
-- [ ] `GET /api/admin/branches` solo muestra sedes permitidas para owner/admin.
-- [ ] `GET /api/admin/health` responde 200 para owner/admin y 403 para client.
-
-## 3) Multi-sede catalogo
-
-- [ ] `GET /api/booking/catalog` devuelve `branches`, `services`, `barbers`.
+- [ ] `GET /api/booking/catalog` devuelve `branches`, `services` y `barbers`.
 - [ ] `GET /api/booking/catalog?branch_id=...` filtra por sede.
 - [ ] `/sedes` lista sedes activas.
-- [ ] `/sedes/[slug]` muestra servicios/barberos de esa sede.
-- [ ] CTA a `/reservar?branch_id=...` preselecciona sede.
+- [ ] `/sedes/[slug]` muestra catalogo de la sede.
 
-## 4) Reserva de cita
+## 3) Reserva
 
-- [ ] Flujo completo en `/reservar`: sede -> servicio -> barbero -> fecha -> horario.
-- [ ] `POST /api/booking/availability` devuelve slots validos por sede/barbero/servicio.
+- [ ] Flujo `/reservar`: sede -> servicio -> barbero -> fecha -> horario -> pago simulado -> confirmacion.
+- [ ] El texto visible menciona "pago simulado" o "validacion ficticia interna".
 - [ ] `POST /api/my/appointments` crea cita `pending`.
-- [ ] En conflicto de horario activo, API rechaza y no duplica.
+- [ ] La API rechaza reservas duplicadas activas.
 - [ ] Al reservar, redirige a `/mis-citas?created=1`.
 
-## 5) Mis citas y perfil
+## 4) Mis citas y perfil
 
 - [ ] `/mis-citas` muestra solo citas del usuario autenticado.
-- [ ] `/perfil` carga datos del profile y permite actualizar `full_name/phone`.
-- [ ] Usuario client no puede ver citas de otros.
+- [ ] El flujo normal no expone "Generar citas demo".
+- [ ] `/perfil` permite actualizar `full_name` y `phone`.
 
-## 6) Admin operacion por sede
+## 5) Admin por sede
 
-- [ ] `admin/services`: CRUD y activar/desactivar por sede.
-- [ ] `admin/barbers`: CRUD y activar/desactivar por sede.
-- [ ] `admin/business-hours`: CRUD por sede y validez de barber de la misma sede.
-- [ ] `admin/appointments`: filtro por sede, estado y cambio de estado.
-- [ ] `admin/staff`: alta por email y toggle de membresia.
+- [ ] `GET /api/admin/branches` solo lista sedes gestionables.
+- [ ] Usuario cliente no accede a `/admin/*`.
+- [ ] Admin global puede operar cualquier sede.
+- [ ] Owner/admin de sede solo opera recursos de sus sedes.
+- [ ] `admin/services` respeta permisos por sede.
+- [ ] `admin/barbers` respeta permisos por sede.
+- [ ] `admin/business-hours` respeta permisos por sede.
+- [ ] `admin/appointments` respeta permisos por sede.
 
-## 7) Casos de error HTTP (usabilidad minima)
+## 6) Backlog declarado
 
-- [ ] 400 payload invalido: mensaje claro en UI.
-- [ ] 401 no autenticado: bloquea acciones privadas.
-- [ ] 403 sin permisos: no mostrar acciones restringidas.
-- [ ] 404 usuario no encontrado en staff por email.
-- [ ] 409 registro duplicado en auth/register.
-- [ ] 500 inesperado: UI muestra error usable.
+- [ ] HU-06 cancelacion/reprogramacion marcada como backlog en documentos finales.
+- [ ] HU-07 CRUD completo de sedes marcado como backlog en documentos finales.
 
-## 8) Build y deploy readiness
+## 7) Build y deploy
 
-- [ ] `npm run lint` sin errores.
-- [ ] `npm run build` exitoso.
-- [ ] Variables en Vercel cargadas correctamente:
+- [ ] `npm run lint`
+- [ ] `npm run build`
+- [ ] Variables de entorno cargadas en cloud:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY`
-- [ ] Smoke test en produccion:
-  - Home carga
-  - Login/register
-  - Reservar
-  - Admin por sede
 
----
+## 8) Evidencia
 
-Si un item falla, registrar:
-1. Endpoint/pantalla
-2. Request exacto
-3. Response y status
-4. Captura
-5. Repro pasos
-
+- [ ] Captura de BDD cliente
+- [ ] Captura de BDD admin
+- [ ] Captura del flujo de reserva con pago simulado
+- [ ] Captura del panel admin restringido por sede

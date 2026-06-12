@@ -18,6 +18,23 @@ type MyAppointment = {
   service_id?: string | null;
 };
 
+type CatalogService = {
+  id: string;
+  name: string;
+  price: number;
+  branch_id: string | null;
+};
+
+type CatalogBarber = {
+  id: string;
+  full_name: string;
+};
+
+type CatalogBranch = {
+  id: string;
+  name: string;
+};
+
 interface ParsedNotes {
   isPagoFicticio: boolean;
   method: string | null;
@@ -89,7 +106,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
   in_progress: { label: "En progreso", color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/20" },
   completed:   { label: "Completada",  color: "text-green-400",  bg: "bg-green-500/10 border-green-500/20" },
   cancelled:   { label: "Cancelada",   color: "text-red-400",    bg: "bg-red-500/10 border-red-500/20" },
-  no_show:     { label: "No asistió",  color: "text-gray-400",   bg: "bg-gray-500/10 border-gray-500/20" },
+  no_show:     { label: "No asistio",  color: "text-gray-400",   bg: "bg-gray-500/10 border-gray-500/20" },
 };
 
 function MyAppointmentsContent() {
@@ -97,10 +114,9 @@ function MyAppointmentsContent() {
   const searchParams = useSearchParams();
   const [items, setItems] = useState<MyAppointment[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [creatingDemo, setCreatingDemo] = useState(false);
-  const [services, setServices] = useState<any[]>([]);
-  const [barbers, setBarbers] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [services, setServices] = useState<CatalogService[]>([]);
+  const [barbers, setBarbers] = useState<CatalogBarber[]>([]);
+  const [branches, setBranches] = useState<CatalogBranch[]>([]);
 
   async function load() {
     try {
@@ -124,7 +140,7 @@ function MyAppointmentsContent() {
         setBarbers(catalogJson.barbers ?? []);
         setBranches(catalogJson.branches ?? []);
       }
-    } catch (err) {
+    } catch {
       setError("No se pudo conectar con el servidor para cargar tus citas.");
     }
   }
@@ -136,19 +152,6 @@ function MyAppointmentsContent() {
       toast("Tu cita fue registrada y ya aparece en tu historial.");
     }
   }, [searchParams, toast]);
-
-  async function createDemoAppointments() {
-    setCreatingDemo(true);
-    setError(null);
-    const res = await fetch("/api/my/appointments/demo", { method: "POST" });
-    const json = await res.json().catch(() => ({}));
-    setCreatingDemo(false);
-    if (!res.ok) {
-      setError(json.error ?? "No se pudieron crear citas demo");
-      return;
-    }
-    await load();
-  }
 
   return (
     <main className="flex-1 pt-28 pb-20">
@@ -188,20 +191,12 @@ function MyAppointmentsContent() {
                   <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold">No tienes citas aún</h3>
+              <h3 className="text-lg font-semibold">No tienes citas aun</h3>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Reserva tu primera cita y aparecerá aquí.
+                Reserva tu primera cita y aparecera aqui.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <a href="/reservar" className="btn-gold inline-flex">Reservar ahora</a>
-                <button
-                  onClick={() => void createDemoAppointments()}
-                  disabled={creatingDemo}
-                  className="admin-btn"
-                  type="button"
-                >
-                  {creatingDemo ? "Creando demo..." : "Generar citas demo"}
-                </button>
               </div>
             </div>
           ) : (
@@ -217,7 +212,7 @@ function MyAppointmentsContent() {
                 const parsed = parseNotes(item.notes);
 
                 // Default placeholders if catalog not loaded yet
-                const serviceName = service?.name ?? "Servicio de Barbería";
+                const serviceName = service?.name ?? "Servicio de barberia";
                 const servicePrice = service ? `S/. ${service.price.toFixed(2)}` : null;
                 const barberName = barber?.full_name ?? "Barbero Asignado";
                 const branchName = branch?.name ?? "Sede Filo Estilo";
@@ -284,7 +279,7 @@ function MyAppointmentsContent() {
                           <svg className="h-3.5 w-3.5 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                           </svg>
-                          Hora de Cita: <span className="font-bold text-[var(--accent)]">{item.start_time.slice(0, 5)}</span>
+                          Hora de cita: <span className="font-bold text-[var(--accent)]">{item.start_time.slice(0, 5)}</span>
                         </span>
                         
                         {/* Legacy Notes Text representation if they are not parsed */}
@@ -315,7 +310,7 @@ function MyAppointmentsContent() {
                                   <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v2.25h12V3.75A2.25 2.25 0 0 0 15.75 1.5h-2.25M6 6H18v12H6V6Zm12-2.25v14.25a2.25 2.25 0 0 1-2.25 2.25H8.25A2.25 2.25 0 0 1 6 18V3.75" />
                                   </svg>
-                                  Pago Móvil QR
+                                  Pago movil QR
                                 </span>
                               )}
                               {parsed.method === "EFECTIVO" && (
@@ -382,7 +377,7 @@ function MyAppointmentsContent() {
                               <div className="flex-1">
                                 <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Nota adicional del cliente</p>
                                 <p className="text-xs text-[var(--text-secondary)] italic leading-relaxed mt-0.5">
-                                  "{parsed.userNotes}"
+                                  &quot;{parsed.userNotes}&quot;
                                 </p>
                               </div>
                             </div>

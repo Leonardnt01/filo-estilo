@@ -10,7 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const registerSchema = z.object({
   email: z.email(),
-  password: z.string().min(6),
+  password: z.string().min(8),
   full_name: z.string().trim().min(1),
 });
 

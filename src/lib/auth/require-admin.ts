@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import type { BranchRole } from "@/lib/auth/session";
-import { getAuthContext } from "@/lib/auth/session";
+import { getAuthContext, getManageableBranchIds, isGlobalAdmin } from "@/lib/auth/session";
 
 export async function requireAdmin() {
   const { user, role, memberships } = await getAuthContext();
@@ -13,10 +12,10 @@ export async function requireAdmin() {
     };
   }
 
-  const allowedRoles: BranchRole[] = ["owner", "admin"];
-  const hasStaffRole = memberships.some((m) => allowedRoles.includes(m.role));
+  const manageableBranchIds = getManageableBranchIds(role, memberships);
+  const hasStaffRole = manageableBranchIds === null || manageableBranchIds.length > 0;
 
-  if (role !== "admin" && !hasStaffRole) {
+  if (!isGlobalAdmin(role) && !hasStaffRole) {
     return {
       ok: false as const,
       response: NextResponse.json({ error: "Forbidden: owner/admin role required" }, { status: 403 }),

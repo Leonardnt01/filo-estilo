@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { canManageBranch, getManageableBranchIds, isGlobalAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 const appointmentStatus = z.enum([
@@ -16,6 +17,7 @@ const appointmentStatus = z.enum([
 export async function GET(request: Request) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) return adminCheck.response;
+  const { role, memberships } = adminCheck;
 
   const { searchParams } = new URL(request.url);
   const rawLimit = Number(searchParams.get("limit") ?? "20");
@@ -27,6 +29,10 @@ export async function GET(request: Request) {
   const branchId = searchParams.get("branch_id");
   const dateFrom = searchParams.get("date_from");
   const dateTo = searchParams.get("date_to");
+
+  if (branchId && !canManageBranch(role, memberships, branchId)) {
+    return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
+  }
 
   if (statusParam) {
     const parsedStatus = appointmentStatus.safeParse(statusParam);
@@ -61,11 +67,11 @@ export async function GET(request: Request) {
     `,
   ];
 
-  let data: any = null;
+  let data: unknown[] | null = null;
   let error: { message: string } | null = null;
 
   for (const select of selectVariants) {
-    let query: any = supabase
+    let query = supabase
       .from("appointments")
       .select(select)
       .order("appointment_date", { ascending: false })
@@ -75,7 +81,15 @@ export async function GET(request: Request) {
     if (statusParam) query = query.eq("status", statusParam);
     if (barberId) query = query.eq("barber_id", barberId);
     if (serviceId) query = query.eq("service_id", serviceId);
-    if (branchId) query = query.eq("branch_id", branchId);
+    if (branchId) {
+      query = query.eq("branch_id", branchId);
+    } else if (!isGlobalAdmin(role)) {
+      const allowedBranchIds = getManageableBranchIds(role, memberships);
+      if (!allowedBranchIds || allowedBranchIds.length === 0) {
+        return NextResponse.json({ ok: true, count: 0, items: [] });
+      }
+      query = query.in("branch_id", allowedBranchIds);
+    }
     if (dateFrom) query = query.gte("appointment_date", dateFrom);
     if (dateTo) query = query.lte("appointment_date", dateTo);
 

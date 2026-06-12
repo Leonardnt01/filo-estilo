@@ -60,8 +60,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "This appointment can no longer be modified" }, { status: 400 });
   }
 
-  if (parsed.data.action === "cancel") {
-    const reason = parsed.data.reason?.trim();
+  const actionData = parsed.data;
+
+  if (actionData.action === "cancel") {
+    const cancelData = actionData;
+    const reason = cancelData.reason?.trim();
     const noteEntry = reason
       ? `[CLIENT_CANCELLED ${new Date().toISOString()}] ${reason}`
       : `[CLIENT_CANCELLED ${new Date().toISOString()}]`;
@@ -84,16 +87,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ ok: true, item: data });
   }
 
-  const bookingWindowError = validateBookingWindow(parsed.data.appointment_date);
+  const rescheduleData = actionData;
+  const bookingWindowError = validateBookingWindow(rescheduleData.appointment_date);
   if (bookingWindowError) {
     return NextResponse.json({ error: bookingWindowError }, { status: 400 });
   }
 
   const availability = await resolveAvailability(supabase, {
-    branchId: parsed.data.branch_id,
-    barberId: parsed.data.barber_id,
-    serviceId: parsed.data.service_id,
-    appointmentDate: parsed.data.appointment_date,
+    branchId: rescheduleData.branch_id,
+    barberId: rescheduleData.barber_id,
+    serviceId: rescheduleData.service_id,
+    appointmentDate: rescheduleData.appointment_date,
     excludeAppointmentId: appointment.id,
   });
 
@@ -101,20 +105,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: availability.error }, { status: availability.status });
   }
 
-  const selectedSlot = availability.slots.find((slot) => slot.start_time === parsed.data.start_time);
+  const selectedSlot = availability.slots.find((slot) => slot.start_time === rescheduleData.start_time);
   if (!selectedSlot) {
     return NextResponse.json({ error: "Selected slot is not available" }, { status: 409 });
   }
 
-  const noteEntry = `[CLIENT_RESCHEDULED ${new Date().toISOString()}] ${appointment.appointment_date} ${appointment.start_time} -> ${parsed.data.appointment_date} ${parsed.data.start_time}`;
+  const noteEntry = `[CLIENT_RESCHEDULED ${new Date().toISOString()}] ${appointment.appointment_date} ${appointment.start_time} -> ${rescheduleData.appointment_date} ${rescheduleData.start_time}`;
   const { data, error } = await supabase
     .from("appointments")
     .update({
-      branch_id: parsed.data.branch_id,
-      barber_id: parsed.data.barber_id,
-      service_id: parsed.data.service_id,
-      appointment_date: parsed.data.appointment_date,
-      start_time: parsed.data.start_time,
+      branch_id: rescheduleData.branch_id,
+      barber_id: rescheduleData.barber_id,
+      service_id: rescheduleData.service_id,
+      appointment_date: rescheduleData.appointment_date,
+      start_time: rescheduleData.start_time,
       end_time: selectedSlot.end_time,
       status: "pending",
       notes: appendAuditNote(appointment.notes, noteEntry),

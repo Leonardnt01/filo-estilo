@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { getManageableBranchIds, isGlobalAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -10,8 +11,7 @@ export async function GET() {
   const { user, role, memberships } = adminCheck;
   const supabase = await createClient();
 
-  // Legacy super-admin profile can see all active branches.
-  if (role === "admin") {
+  if (isGlobalAdmin(role)) {
     const { data, error } = await supabase
       .from("branches")
       .select("id, name, slug, address, phone, is_active")
@@ -22,8 +22,8 @@ export async function GET() {
     return NextResponse.json({ ok: true, items: data ?? [] });
   }
 
-  const branchIds = [...new Set(memberships.map((m) => m.branch_id))];
-  if (branchIds.length === 0) {
+  const branchIds = getManageableBranchIds(role, memberships);
+  if (!branchIds || branchIds.length === 0) {
     return NextResponse.json({ ok: true, items: [] });
   }
 

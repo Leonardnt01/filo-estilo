@@ -1,37 +1,43 @@
 # BDD con Gherkin y Cucumber
 
-Este proyecto usa BDD para validar historias de usuario con escenarios Gherkin.
+Este proyecto usa BDD para validar los flujos criticos del MVP real de FILO ESTILO.
 
-## Historias cubiertas
+## Alcance del MVP cubierto
 
-- HU-01 Registro de cliente (manual por limite de email provider en Supabase free)
+- HU-01 Registro de cliente
 - HU-02 Inicio y cierre de sesion
 - HU-03 Catalogo por sede
-- HU-04 Reserva y bloqueo de duplicidad
-- HU-05 Mis citas (proteccion por sesion)
-- HU-07 Acceso restringido y permitido a modulo admin
-- HU-06, HU-08, HU-09, HU-10 documentadas como escenarios manuales
+- HU-04 Reserva de cita
+- HU-05 Mis citas
+- HU-08 Gestion de servicios por sede
+- HU-09 Gestion de barberos y horarios
+- HU-10 Gestion administrativa de citas
 
-Nota de estabilidad:
+## Backlog fuera del MVP final
 
-- HU-01 se mantiene en manual porque el endpoint de registro dispara envio de email y Supabase (plan free / SMTP por defecto) aplica limite estricto por hora.
-- Se agregaron escenarios automatizados objetivos para:
-  - Rate limit en login (HTTP 429 + cabecera Retry-After).
-  - Mis citas con sesion activa (HTTP 200).
-  - Reserva rechazada por fecha pasada (HTTP 400).
+- HU-06 Cancelacion y reprogramacion
+- HU-07 CRUD completo de sedes
 
-## Matriz de alineacion HU -> Feature
+## Nota de trazabilidad
 
-- HU-01, HU-02: `bdd/features/client-authentication.feature`
-- HU-03, HU-04, HU-05: `bdd/features/client-booking.feature`
-- HU-07: `bdd/features/administrator-access.feature`
-- HU-06, HU-08, HU-09, HU-10 (manual): `bdd/features/manual-backlog.feature`
+- El archivo `bdd/features/administrator-access.feature` se conserva como prueba automatizada de seguridad y autorizacion del modulo administrativo.
+- Ese escenario valida controles 401, 403 y 200, pero en la documentacion final se presenta como control transversal de seguridad, no como HU-07 del MVP.
 
-## Estructura
+## Matriz de alineacion
 
-- `bdd/features/*.feature`
-- `bdd/steps/api.steps.mjs`
-- `bdd/support/world.mjs`
+- HU-01 y HU-02: `bdd/features/client-authentication.feature`
+- HU-03, HU-04 y HU-05: `bdd/features/client-booking.feature`
+- Control transversal de seguridad admin: `bdd/features/administrator-access.feature`
+- Escenarios manuales/documentales de backlog o evidencia operativa: `bdd/features/manual-backlog.feature`
+
+## Reglas de negocio observables que valida BDD
+
+- `POST /api/auth/register` usa `{ email, password, full_name }`.
+- `POST /api/auth/login` responde `200`, `401` o `429` segun el caso.
+- `POST /api/my/appointments` registra citas con estado inicial `pending`.
+- El flujo de reserva usa pago simulado con validacion ficticia interna.
+- El catalogo se consulta desde `GET /api/booking/catalog`.
+- El modulo admin exige sesion y permisos validos.
 
 ## Requisitos previos
 
@@ -41,7 +47,7 @@ Nota de estabilidad:
 npm run dev
 ```
 
-2. Definir usuarios confirmados para pruebas autenticadas en `.env.local`:
+2. Definir credenciales reales en `.env.local`:
 
 ```txt
 BDD_CLIENT_EMAIL=tu_correo_confirmado@mail.com
@@ -49,12 +55,6 @@ BDD_CLIENT_PASSWORD=tu_password
 BDD_ADMIN_EMAIL=tu_admin_confirmado@mail.com
 BDD_ADMIN_PASSWORD=tu_password_admin
 ```
-
-Nota:
-
-- Las variables se leen automaticamente desde `.env.local` al ejecutar Cucumber.
-- `BDD_CLIENT_*` debe ser un usuario con rol cliente.
-- `BDD_ADMIN_*` debe ser un usuario con rol admin.
 
 ## Ejecucion
 
@@ -82,7 +82,7 @@ Solo manual/documental:
 npm run bdd:test:manual
 ```
 
-Todos los escenarios (incluye manuales/documentales):
+Todos los escenarios:
 
 ```bash
 npm run bdd:test:all

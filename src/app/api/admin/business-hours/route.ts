@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { canManageBranch, getManageableBranchIds, isGlobalAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { hhmmString, isStartBeforeEnd } from "@/lib/validators";
 
@@ -22,16 +23,21 @@ const createBusinessHoursSchema = z
 export async function GET(request: Request) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) return adminCheck.response;
+  const { role, memberships } = adminCheck;
 
   const { searchParams } = new URL(request.url);
   const barberId = searchParams.get("barber_id");
   const branchId = searchParams.get("branch_id");
   const onlyActive = searchParams.get("only_active") === "true";
 
+  if (branchId && !canManageBranch(role, memberships, branchId)) {
+    return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
+  }
+
   const supabase = await createClient();
   let query = supabase
     .from("business_hours")
-    .select("id, barber_id, day_of_week, start_time, end_time, is_active, created_at, updated_at")
+    .select("id, barber_id, branch_id, day_of_week, start_time, end_time, is_active, created_at, updated_at")
     .order("day_of_week", { ascending: true })
     .order("start_time", { ascending: true });
 
@@ -40,6 +46,12 @@ export async function GET(request: Request) {
   }
   if (branchId) {
     query = query.eq("branch_id", branchId);
+  } else if (!isGlobalAdmin(role)) {
+    const allowedBranchIds = getManageableBranchIds(role, memberships);
+    if (!allowedBranchIds || allowedBranchIds.length === 0) {
+      return NextResponse.json({ ok: true, count: 0, items: [] });
+    }
+    query = query.in("branch_id", allowedBranchIds);
   }
 
   if (onlyActive) {
@@ -58,6 +70,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) return adminCheck.response;
+  const { role, memberships } = adminCheck;
 
   const payload = await request.json().catch(() => null);
   const parsed = createBusinessHoursSchema.safeParse(payload);
@@ -67,6 +80,10 @@ export async function POST(request: Request) {
       { error: "Invalid payload", details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  if (!canManageBranch(role, memberships, parsed.data.branch_id)) {
+    return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
   }
 
   const supabase = await createClient();

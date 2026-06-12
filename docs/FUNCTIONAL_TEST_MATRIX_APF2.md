@@ -1,98 +1,68 @@
 # Matriz de Pruebas Funcionales - APF2
 
-Fecha de elaboracion: 2026-06-01
-Proyecto: FILO ESTILO
-Rúbrica cubierta: Punto 1 - Evaluacion de Pruebas Funcionales
+Fecha de elaboracion: 2026-06-07  
+Proyecto: FILO ESTILO  
+Rubrica cubierta: Evaluacion de pruebas funcionales
 
 ## Objetivo
 
-Esta matriz consolida las pruebas funcionales del sistema FILO ESTILO con trazabilidad hacia las historias de usuario, los escenarios BDD implementados y los criterios de calidad de la ISO/IEC 25010 aplicables a la adecuacion funcional del software: completitud funcional, correccion funcional e idoneidad funcional.
+Esta matriz consolida la cobertura funcional del MVP real de FILO ESTILO y su trazabilidad hacia historias de usuario, controles transversales de seguridad y escenarios BDD.
 
 ## Frameworks utilizados
 
-- `@cucumber/cucumber`: automatizacion BDD con lenguaje Gherkin.
-- `Node.js fetch`: ejecucion de pruebas funcionales sobre endpoints reales del sistema.
-- `Supabase Auth + API Routes de Next.js`: servicios integrados que forman parte del flujo validado.
+- `@cucumber/cucumber`
+- Gherkin
+- `fetch` sobre endpoints reales de Next.js
+- Supabase Auth + API Routes + RLS
 
-## Cobertura general
+## Alcance funcional vigente
 
-| Indicador | Valor |
-|---|---:|
-| Historias de usuario trazadas | 10 |
-| Historias con automatizacion funcional | 5 |
-| Historias con cobertura manual/documental | 5 |
-| Escenarios automatizados | 12 |
-| Escenarios manuales/documentales | 6 |
-| Total de escenarios registrados | 18 |
+- Vigentes: HU-01, HU-02, HU-03, HU-04, HU-05, HU-08, HU-09, HU-10
+- Backlog: HU-06 Cancelacion/reprogramacion, HU-07 CRUD completo de sedes
+- Control adicional automatizado: acceso administrativo por autenticacion/autorizacion
 
-## Matriz de casos de prueba funcional
+## Matriz de casos
 
-| ID | HU | Escenario | Rol | Tipo | ISO 25010 | Archivo BDD | Endpoint o modulo validado | Resultado esperado | Evidencia de ejecucion |
-|---|---|---|---|---|---|---|---|---|---|
-| CPF-01 | HU-01 | Registro exitoso | Cliente | Manual | Completitud funcional | `bdd/features/client-authentication.feature` | `POST /api/auth/register` | `201` y `ok=true` | `npm run bdd:test:manual` + captura del escenario |
-| CPF-02 | HU-01 | Correo ya registrado | Cliente | Manual | Correccion funcional | `bdd/features/client-authentication.feature` | `POST /api/auth/register` | `409` por duplicidad de correo | `npm run bdd:test:manual` + captura del escenario |
-| CPF-03 | HU-02 | Inicio de sesion exitoso | Cliente | Automatizada | Idoneidad funcional | `bdd/features/client-authentication.feature` | `POST /api/auth/login` | `200` con sesion valida | `npm run bdd:test:client` |
-| CPF-04 | HU-02 | Credenciales incorrectas | Cliente | Automatizada | Correccion funcional | `bdd/features/client-authentication.feature` | `POST /api/auth/login` | `401` por credenciales invalidas | `npm run bdd:test:client` |
-| CPF-05 | HU-02 | Bloqueo por multiples intentos fallidos | Cliente | Automatizada | Correccion funcional | `bdd/features/client-authentication.feature` | `POST /api/auth/login` | `429` y cabecera `Retry-After` | `npm run bdd:test:client` |
-| CPF-06 | HU-02 | Cierre de sesion | Cliente | Automatizada | Idoneidad funcional | `bdd/features/client-authentication.feature` | `POST /api/auth/logout` | `200` y sesion terminada | `npm run bdd:test:client` |
-| CPF-07 | HU-03 | Catalogo general y filtrado por sede | Cliente | Automatizada | Completitud funcional | `bdd/features/client-booking.feature` | `GET /api/booking/catalog` | `200`, sedes visibles y filtro consistente | `npm run bdd:test:client` |
-| CPF-08 | HU-04 | Reserva duplicada bloqueada | Cliente | Automatizada | Correccion funcional | `bdd/features/client-booking.feature` | `POST /api/my/appointments` | primera reserva `201`, segundo intento `409` | `npm run bdd:test:client` |
-| CPF-09 | HU-04 | Reserva rechazada por fecha pasada | Cliente | Automatizada | Correccion funcional | `bdd/features/client-booking.feature` | `POST /api/my/appointments` | `400` por regla de negocio | `npm run bdd:test:client` |
-| CPF-10 | HU-05 | Mis citas requiere sesion | Cliente | Automatizada | Correccion funcional | `bdd/features/client-booking.feature` | `GET /api/my/appointments` | `401` sin autenticacion | `npm run bdd:test:client` |
-| CPF-11 | HU-05 | Mis citas con sesion activa | Cliente | Automatizada | Idoneidad funcional | `bdd/features/client-booking.feature` | `GET /api/my/appointments` | `200` y `ok=true` | `npm run bdd:test:client` |
-| CPF-12 | HU-06 | Cancelacion y reprogramacion de cita | Cliente | Manual | Completitud funcional | `bdd/features/manual-backlog.feature` | Flujo cliente de cita futura | actualizacion correcta de estado y disponibilidad | `npm run bdd:test:manual` + evidencia UI/API |
-| CPF-13 | HU-07 | Acceso admin sin sesion | Visitante | Automatizada | Correccion funcional | `bdd/features/administrator-access.feature` | `GET /api/admin/health` | `401` por falta de autenticacion | `npm run bdd:test:admin` |
-| CPF-14 | HU-07 | Acceso admin con rol cliente | Cliente | Automatizada | Correccion funcional | `bdd/features/administrator-access.feature` | `GET /api/admin/health` | `403` por permisos insuficientes | `npm run bdd:test:admin` |
-| CPF-15 | HU-07 | Acceso admin con rol administrador | Admin | Automatizada | Idoneidad funcional | `bdd/features/administrator-access.feature` | `GET /api/admin/health` | `200` con acceso autorizado | `npm run bdd:test:admin` |
-| CPF-16 | HU-08 | Gestion de servicios por sede | Admin | Manual | Completitud funcional | `bdd/features/manual-backlog.feature` | Panel admin de servicios | alta, edicion y desactivacion reflejadas en catalogo | `npm run bdd:test:manual` + evidencia UI |
-| CPF-17 | HU-09 | Gestion de barberos y horarios | Admin | Manual | Completitud funcional | `bdd/features/manual-backlog.feature` | Panel admin de barberos y horarios | disponibilidad actualizada para reserva | `npm run bdd:test:manual` + evidencia UI |
-| CPF-18 | HU-10 | Gestion administrativa de citas | Admin | Manual | Completitud funcional | `bdd/features/manual-backlog.feature` | Panel admin de citas | filtro y cambio de estados consistente | `npm run bdd:test:manual` + evidencia UI |
+| ID | Referencia | Escenario | Rol | Tipo | Modulo o endpoint | Resultado esperado | Evidencia |
+|---|---|---|---|---|---|---|---|
+| CPF-01 | HU-01 | Registro exitoso | Cliente | Manual | `POST /api/auth/register` | `201` y alta correcta | captura + evidencia manual |
+| CPF-02 | HU-01 | Correo duplicado | Cliente | Manual | `POST /api/auth/register` | `409` por duplicidad | captura + evidencia manual |
+| CPF-03 | HU-02 | Inicio de sesion exitoso | Cliente | Automatizada | `POST /api/auth/login` | `200` y sesion valida | `npm run bdd:test:client` |
+| CPF-04 | HU-02 | Credenciales invalidas | Cliente | Automatizada | `POST /api/auth/login` | `401` | `npm run bdd:test:client` |
+| CPF-05 | HU-02 | Rate limit de login | Cliente | Automatizada | `POST /api/auth/login` | `429` | `npm run bdd:test:client` |
+| CPF-06 | HU-02 | Cierre de sesion | Cliente | Automatizada | `POST /api/auth/logout` | `200` y sesion cerrada | `npm run bdd:test:client` |
+| CPF-07 | HU-03 | Catalogo general y filtrado por sede | Cliente | Automatizada | `GET /api/booking/catalog` | `200` y filtro consistente | `npm run bdd:test:client` |
+| CPF-08 | HU-04 | Reserva valida con pago simulado | Cliente | Manual | `/reservar` + `POST /api/my/appointments` | cita `pending` y redireccion a `mis-citas` | captura UI + red |
+| CPF-09 | HU-04 | Reserva duplicada bloqueada | Cliente | Automatizada | `POST /api/my/appointments` | `409` en segundo intento | `npm run bdd:test:client` |
+| CPF-10 | HU-04 | Reserva invalida por fecha pasada | Cliente | Automatizada | `POST /api/my/appointments` | `400` | `npm run bdd:test:client` |
+| CPF-11 | HU-05 | Mis citas requiere sesion | Cliente | Automatizada | `GET /api/my/appointments` | `401` | `npm run bdd:test:client` |
+| CPF-12 | HU-05 | Mis citas con sesion activa | Cliente | Automatizada | `GET /api/my/appointments` | `200` y listado propio | `npm run bdd:test:client` |
+| CPF-13 | SEC-01 | Acceso admin sin sesion | Visitante | Automatizada | `GET /api/admin/health` | `401` | `npm run bdd:test:admin` |
+| CPF-14 | SEC-01 | Acceso admin con rol cliente | Cliente | Automatizada | `GET /api/admin/health` | `403` | `npm run bdd:test:admin` |
+| CPF-15 | SEC-01 | Acceso admin autorizado | Admin | Automatizada | `GET /api/admin/health` | `200` | `npm run bdd:test:admin` |
+| CPF-16 | HU-08 | Gestion de servicios por sede | Admin | Manual | `/admin/services` | solo opera sedes permitidas | evidencia UI/API |
+| CPF-17 | HU-09 | Gestion de barberos y horarios por sede | Admin | Manual | `/admin/barbers`, `/admin/business-hours` | altas y ediciones restringidas por sede | evidencia UI/API |
+| CPF-18 | HU-10 | Gestion administrativa de citas por sede | Admin | Manual | `/admin/appointments` | filtro y cambios de estado solo en sedes permitidas | evidencia UI/API |
 
-## Trazabilidad por historia de usuario
+## Trazabilidad resumida
 
-| HU | Descripcion resumida | Estado de cobertura | Tipo de cobertura | Observacion |
-|---|---|---|---|---|
-| HU-01 | Registro de cliente | Parcial | Manual | Se mantiene manual por restriccion del proveedor de email de Supabase free |
-| HU-02 | Inicio y cierre de sesion | Cubierta | Automatizada | Valida exito, error, bloqueo y logout |
-| HU-03 | Catalogo por sede | Cubierta | Automatizada | Valida catalogo general y filtrado |
-| HU-04 | Reserva de citas | Cubierta | Automatizada | Valida duplicidad y fecha invalida |
-| HU-05 | Mis citas | Cubierta | Automatizada | Valida acceso con y sin sesion |
-| HU-06 | Cancelacion y reprogramacion | Parcial | Manual | Falta automatizacion completa de flujo cliente |
-| HU-07 | Acceso administrativo | Cubierta | Automatizada | Valida 401, 403 y 200 |
-| HU-08 | Gestion de servicios | Parcial | Manual | Existe escenario documental, falta automatizacion UI/API |
-| HU-09 | Gestion de barberos y horarios | Parcial | Manual | Existe escenario documental, falta automatizacion UI/API |
-| HU-10 | Gestion administrativa de citas | Parcial | Manual | Existe escenario documental, falta automatizacion UI/API |
-
-## Metricas y nivel de cumplimiento
-
-| Metrica | Formula | Resultado |
-|---|---|---:|
-| Cobertura por historias de usuario | `HU con al menos una prueba / HU totales` | `10/10 = 100%` |
-| Cobertura automatizada por historias | `HU automatizadas / HU totales` | `5/10 = 50%` |
-| Cobertura automatizada por escenarios | `Escenarios automatizados / escenarios totales` | `12/18 = 66.67%` |
-| Cobertura manual/documental | `Escenarios manuales / escenarios totales` | `6/18 = 33.33%` |
-
-Nivel de cumplimiento propuesto para el Punto 1:
-
-- Alto en funcionalidad critica de autenticacion, reserva, consulta de citas y proteccion administrativa.
-- Medio en funcionalidades administrativas operativas aun no automatizadas.
-- Recomendable complementar con capturas recientes de ejecucion y un anexo de resultados `PASS/FAIL` sobre entorno local y cloud.
+| Referencia | Estado | Tipo | Observacion |
+|---|---|---|---|
+| HU-01 | Parcial | Manual | Supabase free limita automatizacion del registro completo |
+| HU-02 | Cubierta | Automatizada | Login, error, rate limit y logout |
+| HU-03 | Cubierta | Automatizada | Catalogo general y filtrado |
+| HU-04 | Cubierta | Mixta | BDD cubre reglas criticas y manual cubre pago simulado visible |
+| HU-05 | Cubierta | Automatizada | Acceso con y sin sesion |
+| HU-06 | Backlog | No aplica MVP | No forma parte del cierre actual |
+| HU-07 | Backlog | No aplica MVP | CRUD completo de sedes no implementado en esta fase |
+| HU-08 | Parcial | Manual | Operativo en panel admin, falta automatizacion UI |
+| HU-09 | Parcial | Manual | Operativo en panel admin, falta automatizacion UI |
+| HU-10 | Parcial | Manual | Operativo en panel admin, falta automatizacion UI |
+| SEC-01 | Cubierta | Automatizada | Control transversal de acceso administrativo |
 
 ## Observaciones
 
-- La matriz refleja el estado real del repositorio y evita declarar automatizacion donde todavia no existe.
-- Las pruebas funcionales automatizadas estan centradas en flujos criticos del negocio y controles de acceso.
-- Para cerrar el criterio con mayor fortaleza academica, se recomienda anexar:
-  - captura de `npm run bdd:test:client`
-  - captura de `npm run bdd:test:admin`
-  - captura de `npm run bdd:test:manual`
-  - tabla de resultados ejecutados con fecha, entorno y porcentaje de exito
-
-## Comandos de reproduccion
-
-```bash
-npm run bdd:test:client
-npm run bdd:test:admin
-npm run bdd:test:manual
-npm run bdd:test
-```
+- El MVP no incluye cancelacion/reprogramacion como flujo final de cliente.
+- El MVP no incluye CRUD completo de sedes.
+- La reserva usa pago simulado con validacion ficticia interna; no se declara pasarela real.
+- La cobertura automatizada se concentra en autenticacion, catalogo, reservas, mis citas y control de acceso.

@@ -396,7 +396,7 @@ function ReservarPageContent() {
     if (paymentMethod !== "card") return true;
 
     if (!/^\d{4} \d{4} \d{4} \d{4}$/.test(cardNumber)) {
-      toast("Tarjeta inválida. Debe tener 16 dígitos", "error");
+      toast("Tarjeta invalida. Debe tener 16 digitos", "error");
       return false;
     }
     if (!cardHolder.trim()) {
@@ -404,11 +404,11 @@ function ReservarPageContent() {
       return false;
     }
     if (!/^(0[1-9]|1[0-2])\/(\d{2})$/.test(cardExpiry)) {
-      toast("Fecha inválida. Usa MM/AA", "error");
+      toast("Fecha invalida. Usa MM/AA", "error");
       return false;
     }
     if (!/^\d{3}$/.test(cardCvv)) {
-      toast("CVV inválido. Debe tener 3 dígitos", "error");
+      toast("CVV invalido. Debe tener 3 digitos", "error");
       return false;
     }
 
@@ -419,7 +419,7 @@ function ReservarPageContent() {
       cardCvv === DEMO_CARD.cvv;
 
     if (!isDemoValid) {
-      const message = "Tarjeta demo inválida. Usa las credenciales ficticias mostradas abajo.";
+      const message = "Tarjeta demo invalida. Usa las credenciales ficticias mostradas abajo.";
       setValidationModalMessage(message);
       toast(message, "error");
       return false;
@@ -1417,7 +1417,7 @@ function ReservarPageContent() {
                     )}
                   </button>
                   <p className="text-[10px] text-[var(--text-muted)] text-center italic">
-                    Se registrará en Supabase con estado inicial cancelada (modo pruebas).
+                    Se registrara en Supabase con estado inicial pending. El pago es simulado y usa una validacion ficticia interna.
                   </p>
                 </div>
               </section>
@@ -1443,9 +1443,9 @@ function ReservarPageContent() {
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-fade-in">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAuthModal(false)} />
           <div className="relative w-full max-w-md rounded-2xl p-8 text-center animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)" }}>
-            <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>Inicia sesión para reservar</h3>
+            <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>Inicia sesion para reservar</h3>
             <div className="mt-6 space-y-3">
-              <Link href="/login" className="btn-gold w-full !py-3">Iniciar Sesión</Link>
+              <Link href="/login" className="btn-gold w-full !py-3">Iniciar sesion</Link>
               <Link href="/register" className="btn-outline w-full !py-3">Crear Cuenta</Link>
             </div>
           </div>

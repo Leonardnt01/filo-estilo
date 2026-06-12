@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { canManageBranch, isGlobalAdmin } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const createMembershipSchema = z.object({
@@ -14,15 +15,6 @@ const createMembershipSchema = z.object({
   message: "user_id or email is required",
   path: ["user_id"],
 });
-
-function canManageBranch(
-  actorRole: "admin" | "client" | null,
-  actorMemberships: Array<{ branch_id: string; role: "owner" | "admin" | "barber" }>,
-  branchId: string,
-) {
-  if (actorRole === "admin") return true;
-  return actorMemberships.some((m) => m.branch_id === branchId && (m.role === "owner" || m.role === "admin"));
-}
 
 function isOwnerInBranch(
   actorRole: "admin" | "client" | null,
@@ -67,7 +59,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
 
   let allowedBranchIds: string[] = [];
-  if (role === "admin") {
+  if (isGlobalAdmin(role)) {
     if (branchId) {
       allowedBranchIds = [branchId];
     } else {

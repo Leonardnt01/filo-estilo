@@ -12,6 +12,40 @@ export type BranchMembership = {
 
 const STAFF_ROLES: BranchRole[] = ["owner", "admin", "barber"];
 
+export function isGlobalAdmin(role: ProfileRole | null) {
+  return role === "admin";
+}
+
+export function getManageableBranchIds(
+  role: ProfileRole | null,
+  memberships: BranchMembership[],
+) {
+  if (isGlobalAdmin(role)) {
+    return null;
+  }
+
+  return [...new Set(
+    memberships
+      .filter((m) => m.role === "owner" || m.role === "admin")
+      .map((m) => m.branch_id),
+  )];
+}
+
+export function canManageBranch(
+  role: ProfileRole | null,
+  memberships: BranchMembership[],
+  branchId: string | null | undefined,
+) {
+  if (!branchId) return false;
+  if (isGlobalAdmin(role)) return true;
+
+  return memberships.some(
+    (m) =>
+      m.branch_id === branchId &&
+      (m.role === "owner" || m.role === "admin"),
+  );
+}
+
 export async function getBranchMemberships(userId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
