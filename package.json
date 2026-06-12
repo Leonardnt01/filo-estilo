@@ -7,13 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:unit": "vitest run",
-    "test:unit:watch": "vitest",
     "bdd:test": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@automated\"",
     "bdd:test:all": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\"",
     "bdd:test:manual": "cucumber-js \"bdd/features/manual-backlog.feature\" --import \"bdd/**/*.mjs\" --tags \"@manual\"",
     "bdd:test:client": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@client and @automated\"",
-    "bdd:test:admin": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@admin and @automated\""
+    "bdd:test:admin": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@admin and @automated\"",
+    "test:unit": "vitest run",
+"test:unit:watch": "vitest"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
