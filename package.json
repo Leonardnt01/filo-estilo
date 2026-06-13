@@ -13,7 +13,9 @@
     "bdd:test:client": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@client and @automated\"",
     "bdd:test:admin": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@admin and @automated\"",
     "test:unit": "vitest run",
-"test:unit:watch": "vitest"
+    "test:unit:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

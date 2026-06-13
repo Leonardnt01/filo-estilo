@@ -4,12 +4,12 @@ test.describe('Módulo Administrativo - Filo y Estilo', () => {
 
   test('Debería navegar por el Dashboard interactivo revisando todas las sedes con scrolls', async ({ page }) => {
     // =========================================================================
-    // 1. INICIO DE SESIÓN COMPLETO
+    // 1. INICIO DE SESIÓN
     // =========================================================================
     await page.goto('/login');
     await page.getByPlaceholder('tu@email.com').fill('jgonzalezchaca@gmail.com');
-    await page.getByPlaceholder('••••••••').fill('Jefferson159753');
-    await page.getByRole('button', { name: 'Iniciar Sesión', exact: true }).click();
+    await page.locator('input[type="password"]').fill('Jefferson159753');
+    await page.getByRole('button', { name: /Iniciar sesion/i }).click();
     
     // Esperamos la redirección al panel de control
     await page.waitForURL('**/admin');

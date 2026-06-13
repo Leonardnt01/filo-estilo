@@ -9,8 +9,8 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     // =========================================================================
     await page.goto('/login');
     await page.getByPlaceholder('tu@email.com').fill('pmlc171peru@gmail.com');
-    await page.getByPlaceholder('••••••••').fill('123456789');
-    await page.getByRole('button', { name: 'Iniciar Sesión', exact: true }).click();
+    await page.locator('input[type="password"]').fill('123456789');
+    await page.getByRole('button', { name: /Iniciar sesion/i }).click();
     await page.waitForURL('**/mis-citas');
 
     await page.goto('/reservar');
@@ -104,7 +104,7 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     await page.getByRole('button', { name: 'Efectivo' }).click();
 
     // Verificar que aparezca el bloque informativo del pago físico
-    // await expect(page.locator('h4:has-text("Pago Físico en Establecimiento")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('h4:has-text("Pago Físico en Establecimiento")')).toBeVisible({ timeout: 5000 });
 
     // Confirmar la reserva
     await page.getByRole('button', { name: 'Confirmar y Registrar Cita' }).click();
