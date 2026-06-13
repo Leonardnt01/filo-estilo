@@ -1,9 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { env } from "@/lib/env";
+import { getEnv } from "@/lib/env";
 
 export async function updateSession(request: NextRequest) {
+  const env = getEnv();
   let response = NextResponse.next({
     request,
   });

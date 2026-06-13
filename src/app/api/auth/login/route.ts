@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 
-import { env } from "@/lib/env";
+import { getEnv } from "@/lib/env";
 import { logSecurityEvent } from "@/lib/security/audit-log";
 import { checkRateLimit, getClientIdentifier } from "@/lib/security/rate-limit";
 
@@ -12,9 +12,8 @@ const loginSchema = z.object({
   password: z.string().min(8),
 });
 
-//sdadadsada
-
 export async function POST(request: Request) {
+  const env = getEnv();
   const clientId = getClientIdentifier(request);
   const rateLimit = checkRateLimit(`auth:login:${clientId}`, {
     maxAttempts: 5,
