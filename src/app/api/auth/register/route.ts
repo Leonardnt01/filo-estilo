@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     const isConflict = /already|exists|registered/i.test(error.message);
     return NextResponse.json({ error: error.message }, { status: isConflict ? 409 : 400 });
   }
-
+     
   if (!data.user) {
     console.log("[auth/register] signUp returned no user", {
       clientId,

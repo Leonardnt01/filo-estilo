@@ -12,7 +12,6 @@ type SecurityEvent = {
   message?: string;
   metadata?: Record<string, unknown>;
 };
-
 export function logSecurityEvent(payload: SecurityEvent) {
   const entry = {
     ts: new Date().toISOString(),
