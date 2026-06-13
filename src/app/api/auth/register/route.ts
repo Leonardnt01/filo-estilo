@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 
-import { env } from "@/lib/env";
+import { getEnv } from "@/lib/env";
 import { logSecurityEvent } from "@/lib/security/audit-log";
 import { checkRateLimit, getClientIdentifier } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -15,6 +15,7 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const env = getEnv();
   const clientId = getClientIdentifier(request);
   console.log("[auth/register] request received", { clientId });
   const rateLimit = checkRateLimit(`auth:register:${clientId}`, {

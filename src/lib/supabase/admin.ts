@@ -2,9 +2,10 @@ import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { env } from "@/lib/env";
+import { getEnv } from "@/lib/env";
 
 export function createAdminClient() {
+  const env = getEnv();
   if (!env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY for admin operations");
   }
