@@ -9,9 +9,6 @@ export default defineConfig({
   reporter: 'html',
   
   use: {
-    /* 1. DESCOMENTA Y CONFIGURA LA BASE URL */
-    // Esto evita que tengas que escribir "http://localhost:3000/login" en cada test. 
-    // Ahora solo escribirás "/login".
     baseURL: 'http://localhost:3000', 
 
     trace: 'on-first-retry',
@@ -32,9 +29,6 @@ export default defineConfig({
     },
   ],
 
-  /* 2. DESCOMENTA Y ADAPTA EL WEBSERVER PARA NEXT.JS */
-  // Cambiamos 'npm run start' por 'npm run dev' para que Playwright levante tu 
-  // servidor de desarrollo de Next.js automáticamente cuando lances las pruebas.
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',

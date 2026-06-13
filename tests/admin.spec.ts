@@ -11,7 +11,7 @@ test.describe('Módulo Administrativo - Filo y Estilo', () => {
     await page.getByPlaceholder('••••••••').fill('Jefferson159753');
     await page.getByRole('button', { name: 'Iniciar Sesión', exact: true }).click();
     
-    // Esperamos la redirección nativa al panel de control
+    // Esperamos la redirección al panel de control
     await page.waitForURL('**/admin');
 
     // Validar que el encabezado del panel esté visible en pantalla
@@ -22,7 +22,7 @@ test.describe('Módulo Administrativo - Filo y Estilo', () => {
     await expect(tarjetaPendientes).not.toContainText('--', { timeout: 10000 });
 
     // =========================================================================
-    // 2. LOGICA DE SCROLL COMPLETO (Utilidad interna segura para Playwright)
+    // 2. LOGICA DE SCROLL COMPLETO (Utilidad interna)
     // =========================================================================
     // Ejecutamos scripts directos en el navegador para bajar y subir limpiamente
     const ejecutarScrollCompleto = async () => {
@@ -38,9 +38,8 @@ test.describe('Módulo Administrativo - Filo y Estilo', () => {
     // =========================================================================
     // 3. INTERACCIÓN Y REVISIÓN DE LAS 3 SEDES (Flujo solicitado)
     // =========================================================================
-
-    // --- SEDE 1: Vista General / Todas las Sedes ---
-    // Ubicamos el botón global usando el texto exacto de tus pestañas premium
+    // --- 1. Todas las Sedes ---
+    // Ubicamos el botón global usando el texto Todas las sedes
     const botonTodasLasSedes = page.locator('button:has-text("Todas las Sedes"), button:has-text("Vista General")').first();
     await botonTodasLasSedes.click();
     await expect(page.locator('span:has-text("Global")').first()).toBeVisible({ timeout: 4000 });
@@ -49,7 +48,7 @@ test.describe('Módulo Administrativo - Filo y Estilo', () => {
     await ejecutarScrollCompleto();
 
 
-    // --- SEDE 2: Sede Principal ---
+    // --- 2. Sede Principal ---
     // Ubicamos la pestaña que contiene el texto de la Sede Principal
     const botonSedePrincipal = page.locator('button:has-text("Sede Principal")').first();
     await botonSedePrincipal.click();
@@ -61,8 +60,8 @@ test.describe('Módulo Administrativo - Filo y Estilo', () => {
     await ejecutarScrollCompleto();
 
 
-    // --- SEDE 3: Sede Norte ---
-    // Ubicamos la pestaña que contiene el texto de la Sede Norte (bien nombrado sin errores de tipeo)
+    // --- 3. Sede Norte ---
+    // Ubicamos la pestaña que contiene el texto de la Sede Norte
     const botonSedeNorte = page.locator('button:has-text("Sede Norte")').first();
     await botonSedeNorte.click();
     

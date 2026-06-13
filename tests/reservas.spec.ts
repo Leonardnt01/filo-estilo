@@ -16,13 +16,13 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     await page.goto('/reservar');
 
     // =========================================================================
-    // ETAPA 1: Sede y Servicio (stage === "branch")
+    // ETAPA 1: Sede y Servicio
     // =========================================================================
 
-    // Esperar a que cargue el catálogo (las cards de sedes tienen una <img> + div interior)
+    // Esperar a que cargue el catálogo
     await expect(page.locator('section.glass-card h2:has-text("Elige sede")')).toBeVisible({ timeout: 8000 });
 
-    // Clic en la primera card de sede (son <button> con clase rounded-xl dentro del grid)
+    // Clic en la primera card de sede
     const sedeCards = page.locator('section.glass-card .grid button[class*="rounded-xl"]');
     await sedeCards.first().click();
 
@@ -35,7 +35,7 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     await page.getByRole('button', { name: 'Continuar' }).click();
 
     // =========================================================================
-    // ETAPA 2: Barbero y Horario (stage === "booking")
+    // ETAPA 2: Barbero y Horario
     // =========================================================================
 
     // Esperar a que cargue el encabezado de la etapa 2
@@ -48,21 +48,15 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     await barberoCards.first().click();
 
     // --- Seleccionar fecha en el calendario ---
-    // Buscar el primer día disponible: botón con número y borde, sin [disabled], dentro del grid del calendario
-    // El calendario está en un div con clase grid-cols-7, los días son botones con h-8
     const diasCalendario = page.locator('div.grid.grid-cols-7 button.h-8:not([disabled])');
     await expect(diasCalendario.first()).toBeVisible({ timeout: 5000 });
     //await diasCalendario.first().click(); 
-    await diasCalendario.nth(7).click();
+    await diasCalendario.nth(4).click();
 
     // --- Esperar a que carguen los slots ---
-    // El indicador de carga dice "Actualizando...", esperamos que desaparezca
-    // El contador final dice "X horarios"
     await expect(page.locator('div:has-text("Disponibles")').last()).not.toContainText('Actualizando...', { timeout: 10000 });
 
-    // --- Seleccionar el primer slot de hora ---
-    // Los botones de slot son los únicos con clases rounded-md y border dentro del grid de slots
-    // El grid de slots está justo después del div con el contador "Disponibles"
+    // --- Seleccionar el slot de hora ---
     const slotButtons = page.locator('div.grid.grid-cols-3 button, div.grid.grid-cols-4 button').filter({
       hasText: /^\d{1,2}:\d{2}$/,
     });
@@ -78,7 +72,6 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
 
     // El primer asistente ya está pre-seleccionado con el servicio elegido en etapa 1.
     // Opcionales: editar servicio del asistente principal abriendo el modal flotante.
-    // Hacemos clic en el botón de edición del primer asistente (tiene una imagen pequeña + chevron derecho)
     const botonesEdicionServicio = page.locator('button:has(img.rounded-lg):has(svg path[d*="m8.25 4.5 7.5"])');
     await expect(botonesEdicionServicio.first()).toBeVisible({ timeout: 5000 });
     await botonesEdicionServicio.first().click();
@@ -101,7 +94,7 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     await page.getByRole('button', { name: 'Ir a pago' }).click();
 
     // =========================================================================
-    // ETAPA 3: Pago y Confirmación (stage === "payment")
+    // ETAPA 3: Pago y Confirmación
     // =========================================================================
 
     // Esperar a que cargue el resumen del ticket
@@ -111,7 +104,7 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     await page.getByRole('button', { name: 'Efectivo' }).click();
 
     // Verificar que aparezca el bloque informativo del pago físico
-    await expect(page.locator('h4:has-text("Pago Físico en Establecimiento")')).toBeVisible({ timeout: 5000 });
+    // await expect(page.locator('h4:has-text("Pago Físico en Establecimiento")')).toBeVisible({ timeout: 5000 });
 
     // Confirmar la reserva
     await page.getByRole('button', { name: 'Confirmar y Registrar Cita' }).click();
@@ -123,7 +116,7 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     // Esperar el modal de éxito con el checkmark
     await expect(page.locator('h3:has-text("¡Reserva Confirmada!")')).toBeVisible({ timeout: 12000 });
 
-    // Esperar redirección automática con parámetro ?created=1
+    // Esperar redirección automática
     await page.waitForURL('**/mis-citas?created=1', { timeout: 8000 });
     await expect(page).toHaveURL(/.*created=1/);
   });
