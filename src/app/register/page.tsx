@@ -35,15 +35,16 @@ export default function RegisterPage() {
 
     if (!res.ok) {
       const messageByStatus: Record<number, string> = {
-        400: "Datos inválidos. Revisa email, contraseña (mínimo 8) y nombre.",
-        409: "Ese correo ya está registrado. Intenta iniciar sesión.",
+        400: "Datos invalidos. Revisa correo, contrasena minima de 8 caracteres y nombre.",
+        409: "Ese correo ya esta registrado. Intenta iniciar sesion.",
+        429: "Demasiados intentos. Espera un momento antes de volver a registrarte.",
         500: "No pudimos completar tu registro por un error interno. Intenta de nuevo.",
       };
       setError(messageByStatus[res.status] ?? json.error ?? "No se pudo registrar usuario");
       return;
     }
 
-    setSuccess("¡Cuenta creada correctamente! Redirigiendo al login...");
+    setSuccess("Cuenta creada correctamente. Redirigiendo al login...");
     setTimeout(() => router.push("/login"), 1200);
   }
 
@@ -52,7 +53,6 @@ export default function RegisterPage() {
       <Navbar />
       <main className="flex-1 flex items-center justify-center px-6 py-32">
         <div className="w-full max-w-md animate-fade-in-up">
-          {/* Header */}
           <div className="text-center mb-8">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent-soft)] border border-[var(--accent-border)] mb-4">
               <svg className="h-8 w-8 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -66,11 +66,10 @@ export default function RegisterPage() {
               Crea tu <span className="text-[var(--accent)]">cuenta</span>
             </h1>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              Regístrate para reservar tus citas en la barbería
+              Registrate para reservar tus citas en la barberia
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={onSubmit} className="glass-card p-8 space-y-5">
             <div>
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
@@ -91,7 +90,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
-                Correo electrónico
+                Correo electronico
               </label>
               <div className="input-icon-wrap with-left-icon">
                 <svg className="input-icon-left h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206" strokeWidth="2.5" /></svg>
@@ -108,7 +107,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
-                Contraseña
+                Contrasena
               </label>
               <div className="input-icon-wrap with-left-icon with-right-icon">
                 <svg className="input-icon-left h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
@@ -119,13 +118,13 @@ export default function RegisterPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input-dark"
-                  placeholder="Mínimo 8 caracteres"
+                  placeholder="Minimo 8 caracteres"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="input-icon-right"
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-label={showPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
                 >
                   {showPassword ? (
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -149,7 +148,7 @@ export default function RegisterPage() {
                 <span className="text-xs text-[var(--text-muted)]">{password.length}/8</span>
               </div>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Recomendado: 8+ caracteres con mayúscula y número.
+                Recomendado: 8+ caracteres con mayuscula y numero.
               </p>
             </div>
 
@@ -181,9 +180,9 @@ export default function RegisterPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-[var(--text-muted)]">
-            ¿Ya tienes cuenta?{" "}
+            Ya tienes cuenta?{" "}
             <Link href="/login" className="font-semibold text-[var(--accent)] hover:underline">
-              Inicia sesión
+              Inicia sesion
             </Link>
           </p>
         </div>

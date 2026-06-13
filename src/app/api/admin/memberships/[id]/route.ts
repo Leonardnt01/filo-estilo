@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { canManageBranch } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const patchMembershipSchema = z
@@ -9,15 +10,6 @@ const patchMembershipSchema = z
     is_active: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, "At least one field is required");
-
-function canManageBranch(
-  actorRole: "admin" | "client" | null,
-  actorMemberships: Array<{ branch_id: string; role: "owner" | "admin" | "barber" }>,
-  branchId: string,
-) {
-  if (actorRole === "admin") return true;
-  return actorMemberships.some((m) => m.branch_id === branchId && (m.role === "owner" || m.role === "admin"));
-}
 
 function isOwnerInBranch(
   actorRole: "admin" | "client" | null,

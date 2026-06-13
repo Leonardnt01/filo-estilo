@@ -71,11 +71,19 @@ npm run start
 - `npm run build`: Genera build optimizado de produccion
 - `npm run start`: Sirve la build de produccion
 - `npm run lint`: Ejecuta validaciones con ESLint
+- `npm run test:unit`: Ejecuta pruebas unitarias con Vitest
+- `npm run test:unit:watch`: Ejecuta Vitest en modo observacion
+- `npm run bdd:test`: Ejecuta escenarios BDD automatizados
+- `npm run bdd:test:client`: Ejecuta BDD del flujo cliente
+- `npm run bdd:test:admin`: Ejecuta BDD del flujo admin
 
 ## Documentacion QA y pruebas API
 
 - Checklist QA: [docs/QA_CHECKLIST.md](docs/QA_CHECKLIST.md)
-- Guia Bruno/Postman: [API_DOCUMENTATION.MD](API_DOCUMENTATION.MD)
+- Guia Bruno/Postman: [docs/API_TESTING_BRUNO.md](docs/API_TESTING_BRUNO.md)
+- Contrato tecnico de endpoints: [API_DOCUMENTATION.MD](API_DOCUMENTATION.MD)
+- BDD con Cucumber y Gherkin: [docs/BDD_GHERKIN.md](docs/BDD_GHERKIN.md)
+- TDD con Vitest: [docs/TDD_VITEST.md](docs/TDD_VITEST.md)
 
 ## Roadmap funcional
 

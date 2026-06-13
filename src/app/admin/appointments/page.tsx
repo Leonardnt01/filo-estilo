@@ -1,9 +1,10 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { AdminAppointmentsSkeleton, AdminHeaderSkeleton } from "@/components/admin-skeletons";
-import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/admin-client-cache";
+import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/cache/admin-client-cache";
 
 type Appointment = {
   id: string;
@@ -809,7 +810,7 @@ export default function AdminAppointmentsPage() {
                       className="text-xs italic pl-3 border-l-2 py-1 rounded-r bg-[var(--bg-secondary)]/20"
                       style={{ borderLeftColor: "var(--accent)" }}
                     >
-                      "{userNote}"
+                      &quot;{userNote}&quot;
                     </blockquote>
                   </div>
                 )}

@@ -18,6 +18,23 @@ type MyAppointment = {
   service_id?: string | null;
 };
 
+type CatalogService = {
+  id: string;
+  name: string;
+  price: number;
+  branch_id: string | null;
+};
+
+type CatalogBarber = {
+  id: string;
+  full_name: string;
+};
+
+type CatalogBranch = {
+  id: string;
+  name: string;
+};
+
 interface ParsedNotes {
   isPagoFicticio: boolean;
   method: string | null;
@@ -97,10 +114,9 @@ function MyAppointmentsContent() {
   const searchParams = useSearchParams();
   const [items, setItems] = useState<MyAppointment[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [creatingDemo, setCreatingDemo] = useState(false);
-  const [services, setServices] = useState<any[]>([]);
-  const [barbers, setBarbers] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [services, setServices] = useState<CatalogService[]>([]);
+  const [barbers, setBarbers] = useState<CatalogBarber[]>([]);
+  const [branches, setBranches] = useState<CatalogBranch[]>([]);
 
   async function load() {
     try {
@@ -124,7 +140,7 @@ function MyAppointmentsContent() {
         setBarbers(catalogJson.barbers ?? []);
         setBranches(catalogJson.branches ?? []);
       }
-    } catch (err) {
+    } catch {
       setError("No se pudo conectar con el servidor para cargar tus citas.");
     }
   }
@@ -136,19 +152,6 @@ function MyAppointmentsContent() {
       toast("Tu cita fue registrada y ya aparece en tu historial.");
     }
   }, [searchParams, toast]);
-
-  async function createDemoAppointments() {
-    setCreatingDemo(true);
-    setError(null);
-    const res = await fetch("/api/my/appointments/demo", { method: "POST" });
-    const json = await res.json().catch(() => ({}));
-    setCreatingDemo(false);
-    if (!res.ok) {
-      setError(json.error ?? "No se pudieron crear citas demo");
-      return;
-    }
-    await load();
-  }
 
   return (
     <main className="flex-1 pt-28 pb-20">
@@ -194,14 +197,6 @@ function MyAppointmentsContent() {
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <a href="/reservar" className="btn-gold inline-flex">Reservar ahora</a>
-                <button
-                  onClick={() => void createDemoAppointments()}
-                  disabled={creatingDemo}
-                  className="admin-btn"
-                  type="button"
-                >
-                  {creatingDemo ? "Creando demo..." : "Generar citas demo"}
-                </button>
               </div>
             </div>
           ) : (
@@ -382,7 +377,7 @@ function MyAppointmentsContent() {
                               <div className="flex-1">
                                 <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Nota adicional del cliente</p>
                                 <p className="text-xs text-[var(--text-secondary)] italic leading-relaxed mt-0.5">
-                                  "{parsed.userNotes}"
+                                  &quot;{parsed.userNotes}&quot;
                                 </p>
                               </div>
                             </div>

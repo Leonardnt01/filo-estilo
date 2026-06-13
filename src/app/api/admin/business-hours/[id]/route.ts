@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { canManageBranch } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { hhmmString, isStartBeforeEnd } from "@/lib/validators";
 
@@ -17,6 +18,7 @@ const updateBusinessHoursSchema = z
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) return adminCheck.response;
+  const { role, memberships } = adminCheck;
 
   const { id } = await context.params;
   const payload = await request.json().catch(() => null);
@@ -33,7 +35,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const { data: existing, error: existingError } = await supabase
     .from("business_hours")
-    .select("id, start_time, end_time")
+    .select("id, branch_id, start_time, end_time")
     .eq("id", id)
     .maybeSingle();
 
@@ -43,6 +45,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   if (!existing) {
     return NextResponse.json({ error: "Business hours not found" }, { status: 404 });
+  }
+  if (!canManageBranch(role, memberships, existing.branch_id)) {
+    return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
   }
 
   const nextStart = parsed.data.start_time ?? existing.start_time;
@@ -72,9 +77,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 export async function DELETE(_: Request, context: { params: Promise<{ id: string }> }) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) return adminCheck.response;
+  const { role, memberships } = adminCheck;
 
   const { id } = await context.params;
   const supabase = await createClient();
+  const { data: existing, error: existingError } = await supabase
+    .from("business_hours")
+    .select("id, branch_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (existingError) {
+    return NextResponse.json({ error: existingError.message }, { status: 500 });
+  }
+  if (!existing) {
+    return NextResponse.json({ error: "Business hours not found" }, { status: 404 });
+  }
+  if (!canManageBranch(role, memberships, existing.branch_id)) {
+    return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
+  }
 
   const { data, error } = await supabase
     .from("business_hours")

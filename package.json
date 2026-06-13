@@ -11,7 +11,11 @@
     "bdd:test:all": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\"",
     "bdd:test:manual": "cucumber-js \"bdd/features/manual-backlog.feature\" --import \"bdd/**/*.mjs\" --tags \"@manual\"",
     "bdd:test:client": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@client and @automated\"",
-    "bdd:test:admin": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@admin and @automated\""
+    "bdd:test:admin": "cucumber-js \"bdd/features/**/*.feature\" --import \"bdd/**/*.mjs\" --tags \"@admin and @automated\"",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@scalar/nextjs-api-reference": "^0.11.3",
@@ -28,6 +32,7 @@
   },
   "devDependencies": {
     "@cucumber/cucumber": "^12.2.0",
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -35,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }

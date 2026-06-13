@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
-import { fetchCachedJson } from "@/lib/admin-client-cache";
+import { fetchCachedJson } from "@/lib/cache/admin-client-cache";
 import * as d3 from "d3";
 
 type Stats = {

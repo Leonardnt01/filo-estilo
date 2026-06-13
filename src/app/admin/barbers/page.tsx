@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { useToast } from "@/components/toast";
 import { useConfirm } from "@/components/confirm-modal";
 import { AdminCardsSkeleton, AdminHeaderSkeleton } from "@/components/admin-skeletons";
-import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/admin-client-cache";
+import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/cache/admin-client-cache";
 
 type Barber = { id: string; full_name: string; specialty: string | null; image_url: string | null; is_active: boolean };
 type Branch = { id: string; name: string };

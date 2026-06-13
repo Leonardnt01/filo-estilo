@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { canManageBranch, getManageableBranchIds, isGlobalAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 const imageUrlSchema = z
@@ -22,15 +23,20 @@ const createBarberSchema = z.object({
 export async function GET(request: Request) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) return adminCheck.response;
+  const { role, memberships } = adminCheck;
 
   const { searchParams } = new URL(request.url);
   const onlyActive = searchParams.get("only_active") === "true";
   const branchId = searchParams.get("branch_id");
 
+  if (branchId && !canManageBranch(role, memberships, branchId)) {
+    return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
+  }
+
   const supabase = await createClient();
   let query = supabase
     .from("barbers")
-    .select("id, full_name, specialty, image_url, is_active, created_at, updated_at")
+    .select("id, branch_id, full_name, specialty, image_url, is_active, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (onlyActive) {
@@ -38,6 +44,12 @@ export async function GET(request: Request) {
   }
   if (branchId) {
     query = query.eq("branch_id", branchId);
+  } else if (!isGlobalAdmin(role)) {
+    const allowedBranchIds = getManageableBranchIds(role, memberships);
+    if (!allowedBranchIds || allowedBranchIds.length === 0) {
+      return NextResponse.json({ ok: true, count: 0, items: [] });
+    }
+    query = query.in("branch_id", allowedBranchIds);
   }
 
   const { data, error } = await query;
@@ -52,6 +64,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) return adminCheck.response;
+  const { role, memberships } = adminCheck;
 
   const payload = await request.json().catch(() => null);
   const parsed = createBarberSchema.safeParse(payload);
@@ -61,6 +74,10 @@ export async function POST(request: Request) {
       { error: "Invalid payload", details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  if (!canManageBranch(role, memberships, parsed.data.branch_id)) {
+    return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
   }
 
   const supabase = await createClient();
