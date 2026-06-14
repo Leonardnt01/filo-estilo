@@ -50,8 +50,8 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     // --- Seleccionar fecha en el calendario ---
     const diasCalendario = page.locator('div.grid.grid-cols-7 button.h-8:not([disabled])');
     await expect(diasCalendario.first()).toBeVisible({ timeout: 5000 });
-    //await diasCalendario.first().click(); 
-    await diasCalendario.nth(4).click();
+    await diasCalendario.first().click(); 
+    //await diasCalendario.nth(4).click();
 
     // --- Esperar a que carguen los slots ---
     await expect(page.locator('div:has-text("Disponibles")').last()).not.toContainText('Actualizando...', { timeout: 10000 });

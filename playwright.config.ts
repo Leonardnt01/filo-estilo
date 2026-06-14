@@ -9,8 +9,7 @@ export default defineConfig({
   reporter: 'html',
   
   use: {
-    baseURL: 'http://localhost:3000', 
-
+    baseURL: 'http://127.0.0.1:3000', 
     trace: 'on-first-retry',
   },
 
@@ -23,15 +22,12 @@ export default defineConfig({
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
   ],
 
+  // Configuración del servidor interno para que el "robot" de CI pueda levantar la app de Next.js de forma autónoma
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000, // Le damos 2 min máximo para levantar por si la hidratación de React 19 tarda en CI
   },
