@@ -34,7 +34,7 @@ export default defineConfig({
 
   // Configuración del servidor interno para que el "robot" de CI pueda levantar la app de Next.js de forma autónoma
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run start',
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000, // Le damos 2 min máximo para levantar por si la hidratación de React 19 tarda en CI
