@@ -1,25 +1,47 @@
-name: Playwright Tests
+name: Playwright Tests (CI)
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, feat/avanc3 ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, feat/avanc3 ]
+
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - name: 1. Descargar código del repositorio
+      uses: actions/checkout@v4
+
+    - name: 2. Configurar entorno de Node.js
+      uses: actions/setup-node@v4
       with:
-        node-version: lts/*
-    - name: Install dependencies
+        node-version: 20
+        cache: 'npm'
+
+    - name: 3. Instalar dependencias del proyecto
       run: npm ci
-    - name: Install Playwright Browsers
+
+    - name: 4. Instalar Navegadores de Playwright
       run: npx playwright install --with-deps
-    - name: Run Playwright tests
+
+    - name: 5. Construir la aplicación Next.js
+      run: npm run build
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    - name: 6. Ejecutar pruebas automáticas de Playwright
       run: npx playwright test
-    - uses: actions/upload-artifact@v4
+      env:
+        # Variables de entorno para que los tests se conecten e interactúen con Supabase en la nube
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    - name: 7. Guardar Reporte de Errores (Si algo falla)
+      uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
         name: playwright-report
