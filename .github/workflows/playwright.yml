@@ -16,7 +16,7 @@ jobs:
     - name: 2. Configurar entorno de Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 20
         cache: 'npm'
 
     - name: 3. Instalar dependencias del proyecto
@@ -29,7 +29,7 @@ jobs:
       run: npm run build
       env:
         # Inyección de secretos de GitHub mapeados con las variables reales de tu .env.local
-        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}c
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
