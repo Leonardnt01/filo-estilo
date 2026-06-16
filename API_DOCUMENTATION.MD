@@ -93,7 +93,7 @@ Request:
   "service_id": "uuid",
   "appointment_date": "2026-06-10",
   "start_time": "15:00",
-  "notes": "[PAGO FICTICIO] metodo:QR tx:TX-123",
+  "notes": "[PAGO FICTICIO] metodo:EFECTIVO tx:TX-123",
   "initial_status": "pending"
 }
 ```
@@ -101,8 +101,8 @@ Request:
 Reglas:
 
 - el estado real inicial es `pending`
-- el pago es simulado
-- no existe pasarela real integrada
+- efectivo sigue como pago simulado
+- Yape y tarjeta se procesan via Culqi desde `/api/payments/culqi/charge`
 - se bloquean reservas activas duplicadas
 
 ### GET `/api/booking/catalog`

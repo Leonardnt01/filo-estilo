@@ -21,13 +21,30 @@ type Branch = {
 type Slot = { start_time: string; end_time: string };
 type CalendarCell = { iso: string; day: number; inMonth: boolean; disabled: boolean; isToday: boolean };
 type Stage = "branch" | "booking" | "payment";
-type PayMethod = "qr" | "cash" | "card";
-const DEMO_CARD = {
-  number: "4242 4242 4242 4242",
-  holder: "CLIENTE DEMO",
-  expiry: "12/30",
-  cvv: "123",
+type PayMethod = "yape" | "cash" | "card";
+type AuthMeResponse = {
+  authenticated?: boolean;
+  user?: {
+    email?: string | null;
+  } | null;
 };
+
+type CulqiToken = { id: string };
+type CulqiCheckoutError = { user_message?: string; merchant_message?: string };
+type CulqiCheckoutInstance = {
+  open: () => void;
+  close: () => void;
+  token?: CulqiToken;
+  error?: CulqiCheckoutError;
+  culqi?: () => void | Promise<void>;
+};
+
+declare global {
+  interface Window {
+    CulqiCheckout?: new (publicKey: string, config: Record<string, unknown>) => CulqiCheckoutInstance;
+    __filoCulqiCheckoutPromise?: Promise<void>;
+  }
+}
 
 const BRANCH_IMAGE_MAP: Record<string, string> = {
   "sede-principal": "https://www.businessempresarial.com.pe/wp-content/uploads/2025/09/Montalvo-For-Men-780x470.jpeg",
@@ -66,26 +83,40 @@ function getBarberImage(fullName: string) {
   return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop";
 }
 
-function formatCardNumber(input: string) {
-  return input
-    .replace(/\D/g, "")
-    .slice(0, 16)
-    .replace(/(\d{4})(?=\d)/g, "$1 ");
-}
+function loadCulqiCheckoutScript() {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Culqi checkout is only available in the browser"));
+  }
 
-function formatExpiry(input: string) {
-  const digits = input.replace(/\D/g, "").slice(0, 4);
-  if (digits.length < 3) return digits;
-  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-}
+  if (window.CulqiCheckout) {
+    return Promise.resolve();
+  }
 
-function normalizeCardText(input: string) {
-  return input
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toUpperCase();
+  if (window.__filoCulqiCheckoutPromise) {
+    return window.__filoCulqiCheckoutPromise;
+  }
+
+  window.__filoCulqiCheckoutPromise = new Promise<void>((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://js.culqi.com/checkout-js"]');
+    if (existingScript) {
+      if (window.CulqiCheckout) {
+        resolve();
+        return;
+      }
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("No se pudo cargar Culqi Checkout")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://js.culqi.com/checkout-js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("No se pudo cargar Culqi Checkout"));
+    document.body.appendChild(script);
+  });
+
+  return window.__filoCulqiCheckoutPromise;
 }
 
 function ReservarPageContent() {
@@ -110,12 +141,7 @@ function ReservarPageContent() {
   const [validationModalMessage, setValidationModalMessage] = useState<string | null>(null);
   const [serviceSelectionModalIdx, setServiceSelectionModalIdx] = useState<number | null>(null);
 
-  const [paymentMethod, setPaymentMethod] = useState<PayMethod>("qr");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardHolder, setCardHolder] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
-  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PayMethod>("yape");
 
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -132,6 +158,7 @@ function ReservarPageContent() {
   const [currentBookingIndex, setCurrentBookingIndex] = useState(0);
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [requestedServiceId, setRequestedServiceId] = useState("");
 
@@ -215,11 +242,13 @@ function ReservarPageContent() {
     async function checkAuth() {
       try {
         const res = await fetch("/api/auth/me");
-        const json = await res.json().catch(() => ({}));
+        const json = await res.json().catch(() => ({})) as AuthMeResponse;
         setIsAuthenticated(!!json.authenticated);
+        setAuthEmail(json.user?.email ?? "");
         if (!json.authenticated) setShowAuthModal(true);
       } catch {
         setIsAuthenticated(false);
+        setAuthEmail("");
         setShowAuthModal(true);
       }
     }
@@ -392,55 +421,7 @@ function ReservarPageContent() {
     setSelectedSlots((prev) => [...prev, slotTime]);
   }
 
-  function validatePayment() {
-    if (paymentMethod !== "card") return true;
-
-    if (!/^\d{4} \d{4} \d{4} \d{4}$/.test(cardNumber)) {
-      toast("Tarjeta invalida. Debe tener 16 digitos", "error");
-      return false;
-    }
-    if (!cardHolder.trim()) {
-      toast("Ingresa el nombre del titular", "error");
-      return false;
-    }
-    if (!/^(0[1-9]|1[0-2])\/(\d{2})$/.test(cardExpiry)) {
-      toast("Fecha invalida. Usa MM/AA", "error");
-      return false;
-    }
-    if (!/^\d{3}$/.test(cardCvv)) {
-      toast("CVV invalido. Debe tener 3 digitos", "error");
-      return false;
-    }
-
-    const isDemoValid =
-      cardNumber === DEMO_CARD.number &&
-      normalizeCardText(cardHolder) === DEMO_CARD.holder &&
-      cardExpiry === DEMO_CARD.expiry &&
-      cardCvv === DEMO_CARD.cvv;
-
-    if (!isDemoValid) {
-      const message = "Tarjeta demo invalida. Usa las credenciales ficticias mostradas abajo.";
-      setValidationModalMessage(message);
-      toast(message, "error");
-      return false;
-    }
-    return true;
-  }
-
-  async function book(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!isAuthenticated) {
-      setShowAuthModal(true);
-      return;
-    }
-    const groupValidationError = validateGroupSelections();
-    if (groupValidationError) {
-      setValidationModalMessage(groupValidationError);
-      toast(groupValidationError, "error");
-      return;
-    }
-    if (!validatePayment()) return;
-
+  async function submitCashBooking() {
     setLoading(true);
     setError(null);
     setBookingStatus("loading");
@@ -451,12 +432,7 @@ function ReservarPageContent() {
       for (const [index, slot] of selectedSlots.entries()) {
         setCurrentBookingIndex(index);
         const txId = `TX-${Date.now().toString(36).toUpperCase()}`;
-        const paymentMeta =
-          paymentMethod === "qr"
-            ? `[PAGO FICTICIO] metodo:QR tx:${txId}`
-            : paymentMethod === "cash"
-              ? `[PAGO FICTICIO] metodo:EFECTIVO tx:${txId}`
-              : `[PAGO FICTICIO] metodo:TARJETA tx:${txId} card:${cardNumber.slice(-4)}`;
+        const paymentMeta = `[PAGO FICTICIO] metodo:EFECTIVO tx:${txId}`;
 
         const res = await fetch("/api/my/appointments", {
           method: "POST",
@@ -491,6 +467,150 @@ function ReservarPageContent() {
       setBookingErrorMsg(message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function finalizeCulqiBooking(tokenId: string) {
+    setLoading(true);
+    setError(null);
+    setBookingStatus("loading");
+    setBookingErrorMsg(null);
+    setCurrentBookingIndex(0);
+
+    try {
+      const res = await fetch("/api/payments/culqi/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token_id: tokenId,
+          payment_method: paymentMethod,
+          branch_id: branchId,
+          barber_id: barberId,
+          appointment_date: date,
+          selections: selectedSlots.map((slot, index) => ({
+            service_id: normalizedServiceIds[index] ?? serviceId,
+            start_time: slot,
+          })),
+          notes,
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error ?? "No se pudo procesar el pago con Culqi");
+      }
+
+      setBookingStatus("success");
+      toast(`¡Excelente! Se registraron con éxito tus ${selectedSlots.length} citas.`);
+      setTimeout(() => {
+        router.push("/mis-citas?created=1");
+      }, 2200);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "No se pudo crear la cita";
+      toast(message, "error");
+      setError(message);
+      setBookingStatus("error");
+      setBookingErrorMsg(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openCulqiCheckout() {
+    const publicKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY;
+
+    if (!publicKey) {
+      throw new Error("Falta configurar NEXT_PUBLIC_CULQI_PUBLIC_KEY");
+    }
+
+    if (!authEmail) {
+      throw new Error("No se encontró el correo del usuario autenticado para iniciar Culqi");
+    }
+
+    await loadCulqiCheckoutScript();
+
+    if (!window.CulqiCheckout) {
+      throw new Error("Culqi Checkout no está disponible");
+    }
+
+    const paymentMethods = {
+      tarjeta: paymentMethod === "card",
+      yape: paymentMethod === "yape",
+      billetera: false,
+      bancaMovil: false,
+      agente: false,
+      cuotealo: false,
+    };
+
+    const settings: Record<string, unknown> = {
+      title: "Filo Estilo",
+      currency: "PEN",
+      amount: Math.round(totalServicesAmount * 100),
+    };
+
+    if (process.env.NEXT_PUBLIC_CULQI_RSA_ID && process.env.NEXT_PUBLIC_CULQI_RSA_PUBLIC_KEY) {
+      settings.xculqirsaid = process.env.NEXT_PUBLIC_CULQI_RSA_ID;
+      settings.rsapublickey = process.env.NEXT_PUBLIC_CULQI_RSA_PUBLIC_KEY;
+    }
+
+    const culqi = new window.CulqiCheckout(publicKey, {
+      settings,
+      client: {
+        email: authEmail,
+      },
+      options: {
+        lang: "es",
+        modal: true,
+        installments: false,
+        paymentMethods,
+        paymentMethodsSort: Object.entries(paymentMethods)
+          .filter(([, enabled]) => enabled)
+          .map(([key]) => key),
+      },
+    });
+
+    culqi.culqi = () => {
+      if (culqi.token?.id) {
+        culqi.close();
+        void finalizeCulqiBooking(culqi.token.id);
+        return;
+      }
+
+      const message =
+        culqi.error?.user_message ??
+        culqi.error?.merchant_message ??
+        "No se pudo generar el token de pago en Culqi";
+      setError(message);
+      toast(message, "error");
+    };
+
+    culqi.open();
+  }
+
+  async function book(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    const groupValidationError = validateGroupSelections();
+    if (groupValidationError) {
+      setValidationModalMessage(groupValidationError);
+      toast(groupValidationError, "error");
+      return;
+    }
+
+    if (paymentMethod === "cash") {
+      await submitCashBooking();
+      return;
+    }
+
+    try {
+      await openCulqiCheckout();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo iniciar Culqi Checkout";
+      setError(message);
+      toast(message, "error");
     }
   }
 
@@ -1112,21 +1232,21 @@ function ReservarPageContent() {
 
                   {/* Tabs Selector with Icons */}
                   <div className="grid grid-cols-3 gap-2.5">
-                    {/* QR Tab */}
+                    {/* Yape Tab */}
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod("qr")}
+                      onClick={() => setPaymentMethod("yape")}
                       className={`flex flex-col sm:flex-row items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition-all duration-300 cursor-pointer ${
-                        paymentMethod === "qr"
+                        paymentMethod === "yape"
                           ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] shadow-[0_0_12px_rgba(212,168,67,0.15)]"
                           : "border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                       }`}
-                    >
+                      >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75ZM13.5 16.5h.75v.75h-.75v-.75ZM16.5 13.5h.75v.75h-.75v-.75ZM18 15h.75v.75H18V15ZM15 15h.75v.75H15V15ZM13.5 15h.75v.75h-.75V15ZM15 18h.75v.75H15V18ZM18 18h.75v.75H18V18ZM19.5 18h.75v.75h-.75V18ZM19.5 15h.75v.75h-.75V15ZM19.5 13.5h.75v.75h-.75v-.75Z" />
                       </svg>
-                      <span className="text-[10px] sm:text-xs">QR Digital</span>
+                      <span className="text-[10px] sm:text-xs">Yape</span>
                     </button>
 
                     {/* Cash Tab */}
@@ -1163,40 +1283,26 @@ function ReservarPageContent() {
                     </button>
                   </div>
 
-                  {/* QR Method Detail */}
-                  {paymentMethod === "qr" && (
+                  {/* Yape Method Detail */}
+                  {paymentMethod === "yape" && (
                     <div className="space-y-4 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-secondary)]/30 p-5 animate-fade-in">
                       <div className="text-center">
-                        <p className="text-sm font-semibold text-[var(--text-primary)]">Escanea el código QR Oficial</p>
-                        <p className="text-xs text-[var(--text-muted)] mt-0.5">Compatible con Yape, Plin y Banca Móvil</p>
-                      </div>
-                      
-                      <div className="flex justify-center py-2">
-                        <div className="relative p-3 bg-white rounded-2xl border-4 border-[var(--accent)] shadow-2xl flex items-center justify-center group overflow-hidden">
-                          <img
-                            src="/qr-yape-jefferson.png"
-                            alt="QR Yape - Angel Jefferson Gonzalez Chaca"
-                            className="h-36 w-36 rounded transition-all duration-300 group-hover:scale-105"
-                            onError={(e) => {
-                              e.currentTarget.src = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=FiloEstilo-QR-Test";
-                            }}
-                          />
-                        </div>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">Paga con Yape en Culqi</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-0.5">Culqi abrirá su formulario oficial para generar el token de pago</p>
                       </div>
 
-                      {/* Instructions */}
                       <div className="space-y-2.5 border-t border-[var(--border)] pt-4 text-[11px] text-[var(--text-secondary)]">
                         <div className="flex gap-2">
                           <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">1</span>
-                          <p>Escanea el QR y transfiere el monto exacto: <strong className="text-[var(--accent)]">S/ {totalServicesAmount.toFixed(2)}</strong></p>
+                          <p>Presiona el botón final y Culqi te pedirá tu número Yape y el código de aprobación.</p>
                         </div>
                         <div className="flex gap-2">
                           <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">2</span>
-                          <p>Verifica que figure la razón social **Filo & Estilo S.A.C.**</p>
+                          <p>En integración puedes probar con el celular <strong className="text-[var(--accent)]">900000001</strong> y cualquier código de 6 dígitos.</p>
                         </div>
                         <div className="flex gap-2">
                           <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">3</span>
-                          <p>Completa el registro presionando el botón &quot;Confirmar y Registrar Cita&quot;. Validaremos tu transacción en sede.</p>
+                          <p>Si Culqi aprueba el pago por <strong className="text-[var(--accent)]">S/ {totalServicesAmount.toFixed(2)}</strong>, recién registraremos tu cita.</p>
                         </div>
                       </div>
                     </div>
@@ -1228,152 +1334,28 @@ function ReservarPageContent() {
                     </div>
                   )}
 
-                  {/* Card Method Detail with interactive Card Mockup */}
+                  {/* Card Method Detail */}
                   {paymentMethod === "card" && (
-                    <div className="space-y-5 animate-fade-in">
-                      {/* CSS Interactive Metallic Virtual Credit Card */}
-                      <div 
-                        className={`w-full max-w-[310px] mx-auto h-[180px] rounded-2xl relative shadow-2xl overflow-hidden p-5 flex flex-col justify-between transition-all duration-500 transform hover:scale-[1.03] border bg-gradient-to-br from-[#1d1e26] via-[#13141a] to-[#0a0a0f] ${
-                          focusedField === "cvv" ? "border-red-400/30" : "border-amber-500/25"
-                        }`}
-                      >
-                        {/* Shimmer overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none rounded-2xl shimmer-card"></div>
-                        
-                        {/* Card Header */}
-                        <div className="flex justify-between items-start z-10">
-                          <div className="text-left">
-                            <p className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-widest font-display" style={{ fontFamily: "var(--font-playfair), serif" }}>
-                              Filo Estilo
-                            </p>
-                            <p className="text-[7px] text-[var(--text-muted)] tracking-wider uppercase font-mono">Barbería Premium</p>
-                          </div>
-                          {/* Secure Card Shield Symbol */}
-                          <div className="text-[var(--accent)] font-semibold flex items-center gap-1">
-                            <span className="text-[8px] uppercase tracking-wider font-mono opacity-80">VIP</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                              <path fillRule="evenodd" d="M12.516 2.185a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.97a.75.75 0 0 0-.722-.515 11.24 11.24 0 0 1-7.877-3.08Z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-
-                        {/* Card Chip & Wi-Fi */}
-                        <div className="flex justify-between items-center z-10">
-                          {/* Electronic Chip */}
-                          <div className="w-9 h-7 bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-500 rounded-md opacity-85 shadow-md flex flex-col justify-around p-1">
-                            <div className="border-b border-black/10 w-full h-px"></div>
-                            <div className="border-b border-black/10 w-full h-px"></div>
-                            <div className="border-b border-black/10 w-full h-px"></div>
-                          </div>
-                          {/* Wi-Fi contactless wave */}
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white/50 rotate-90">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.375 9a3.75 3.75 0 1 1 0 7.5" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.625 5.625a8.75 8.75 0 1 1 0 12.75" />
+                    <div className="space-y-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 animate-fade-in text-sm text-[var(--text-secondary)]">
+                      <div className="flex gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M3 10.5h18m-16.5 6h3.75m-3.75-3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
                           </svg>
                         </div>
-
-                        {/* Card Number display */}
-                        <div className="text-center z-10">
-                          <p className="text-sm font-mono tracking-widest text-stone-100 font-semibold drop-shadow-md">
-                            {cardNumber || "•••• •••• •••• ••••"}
-                          </p>
-                        </div>
-
-                        {/* Card Footer details */}
-                        <div className="flex justify-between items-end z-10">
-                          <div className="text-left max-w-[70%]">
-                            <p className="text-[7px] text-[var(--text-muted)] uppercase tracking-wider font-mono">Titular de Tarjeta</p>
-                            <p className="text-[10px] font-mono tracking-wider text-stone-200 font-semibold truncate uppercase">
-                              {cardHolder || "NOMBRE COMPLETO"}
-                            </p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-[7px] text-[var(--text-muted)] uppercase tracking-wider font-mono">Expiración</p>
-                            <p className="text-[10px] font-mono text-stone-200 font-semibold">{cardExpiry || "MM/AA"}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[7px] text-[var(--text-muted)] uppercase tracking-wider font-mono">CVV</p>
-                            <p className={`text-[10px] font-mono text-stone-200 font-semibold bg-black/30 px-1.5 py-0.5 rounded border ${focusedField === "cvv" ? "border-red-400 bg-red-950/20 text-red-300" : "border-transparent"}`}>
-                              {cardCvv || "•••"}
-                            </p>
-                          </div>
+                        <div>
+                          <h4 className="font-semibold text-[var(--text-primary)]">Tarjeta vía Culqi</h4>
+                          <p className="text-xs text-[var(--text-muted)] mt-0.5">Tus datos se capturan en la pasarela oficial de Culqi, no en este formulario</p>
                         </div>
                       </div>
 
-                      {/* Card Input Fields Form */}
-                      <div className="space-y-3.5 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-secondary)]/30 p-4 sm:p-5">
-                        {/* Card Number Input */}
-                        <div className="input-icon-wrap with-left-icon">
-                          <input
-                            value={cardNumber}
-                            onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                            onFocus={() => setFocusedField("number")}
-                            onBlur={() => setFocusedField(null)}
-                            placeholder="Número de Tarjeta (16 dígitos)"
-                            className="input-dark text-sm"
-                            maxLength={19}
-                          />
-                          <div className="input-icon-left">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-19.5 5.25h19.5m-19.5 0h19.5M2.25 12h19.5m-19.5 0h19.5M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
-                            </svg>
-                          </div>
-                        </div>
-
-                        {/* Cardholder Input */}
-                        <div className="input-icon-wrap with-left-icon">
-                          <input
-                            value={cardHolder}
-                            onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
-                            onFocus={() => setFocusedField("holder")}
-                            onBlur={() => setFocusedField(null)}
-                            placeholder="Nombre del Titular (en Tarjeta)"
-                            className="input-dark text-sm"
-                          />
-                          <div className="input-icon-left">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                            </svg>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3.5">
-                          {/* Card Expiry */}
-                          <div className="input-icon-wrap with-left-icon">
-                            <input
-                              value={cardExpiry}
-                              onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
-                              onFocus={() => setFocusedField("expiry")}
-                              onBlur={() => setFocusedField(null)}
-                              placeholder="MM/AA"
-                              className="input-dark text-sm"
-                              maxLength={5}
-                            />
-                            <div className="input-icon-left">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75" />
-                              </svg>
-                            </div>
-                          </div>
-
-                          {/* Card CVV */}
-                          <div className="input-icon-wrap with-left-icon">
-                            <input
-                              value={cardCvv}
-                              onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                              onFocus={() => setFocusedField("cvv")}
-                              onBlur={() => setFocusedField(null)}
-                              placeholder="CVV"
-                              className="input-dark text-sm"
-                              maxLength={3}
-                            />
-                            <div className="input-icon-left">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0V10.5m-2.25 0h13.5c.621 0 1.125.504 1.125 1.125v7.497c0 .621-.504 1.125-1.125 1.125H5.25a1.125 1.125 0 0 1-1.125-1.125v-7.497c0-.621.504-1.125 1.125-1.125Z" />
-                              </svg>
-                            </div>
-                          </div>
-                        </div>
+                      <div className="space-y-3 text-xs text-[var(--text-secondary)] border-t border-[var(--border)] pt-4">
+                        <p>
+                          Al confirmar, abriremos el checkout de Culqi para cobrar <strong className="text-blue-300">S/ {totalServicesAmount.toFixed(2)}</strong>.
+                        </p>
+                        <p>
+                          Para pruebas, usa las credenciales del entorno de integración configuradas en tu cuenta Culqi.
+                        </p>
                         <p className="text-[10px] text-[var(--text-muted)] flex items-center gap-1 bg-black/10 px-2.5 py-1.5 rounded-lg border border-[var(--border)]">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-emerald-400 shrink-0">
                             <path fillRule="evenodd" d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm3 4.25a.75.75 0 0 0-1.06-.02L7 8.67 6.06 7.73a.75.75 0 0 0-1.06 1.06l1.5 1.5a.75.75 0 0 0 1.08-.02l3.5-3.75a.75.75 0 0 0-.08-1.07Z" clipRule="evenodd" />
@@ -1381,8 +1363,6 @@ function ReservarPageContent() {
                           Conexión segura SSL. Encriptación de datos de extremo a extremo.
                         </p>
                       </div>
-
-                      
                     </div>
                   )}
                  
@@ -1417,7 +1397,7 @@ function ReservarPageContent() {
                     )}
                   </button>
                   <p className="text-[10px] text-[var(--text-muted)] text-center italic">
-                    Se registrara en Supabase con estado inicial pending. El pago es simulado y usa una validacion ficticia interna.
+                    Efectivo mantiene el flujo simulado actual. Yape y tarjeta ahora procesan el cobro real en Culqi antes de registrar la cita.
                   </p>
                 </div>
               </section>

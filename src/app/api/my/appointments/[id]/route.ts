@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { isFutureAppointment, resolveAvailability, validateBookingWindow } from "@/lib/booking";
+import { appendAuditNote, isFutureAppointment, resolveAvailability, validateBookingWindow } from "@/lib/booking";
 import { getAuthContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,10 +20,6 @@ const rescheduleSchema = z.object({
 });
 
 const updateAppointmentSchema = z.union([cancelSchema, rescheduleSchema]);
-
-function appendAuditNote(currentNotes: string | null, entry: string) {
-  return currentNotes ? `${currentNotes} | ${entry}` : entry;
-}
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const { user } = await getAuthContext();

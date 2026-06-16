@@ -21,8 +21,8 @@ Checklist de validacion funcional para cierre de MVP y predeploy.
 
 ## 3) Reserva
 
-- [ ] Flujo `/reservar`: sede -> servicio -> barbero -> fecha -> horario -> pago simulado -> confirmacion.
-- [ ] El texto visible menciona "pago simulado" o "validacion ficticia interna".
+- [ ] Flujo `/reservar`: sede -> servicio -> barbero -> fecha -> horario -> Culqi (Yape/tarjeta) o efectivo -> confirmacion.
+- [ ] El texto visible diferencia entre efectivo simulado y Culqi real para Yape/tarjeta.
 - [ ] `POST /api/my/appointments` crea cita `pending`.
 - [ ] La API rechaza reservas duplicadas activas.
 - [ ] Al reservar, redirige a `/mis-citas?created=1`.
@@ -62,5 +62,5 @@ Checklist de validacion funcional para cierre de MVP y predeploy.
 
 - [ ] Captura de BDD cliente
 - [ ] Captura de BDD admin
-- [ ] Captura del flujo de reserva con pago simulado
+- [ ] Captura del flujo de reserva con pago Culqi
 - [ ] Captura del panel admin restringido por sede
