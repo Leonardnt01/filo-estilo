@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 
 type Branch = {
@@ -71,7 +70,6 @@ export default function SedeDetallePageClient({
 
   return (
     <>
-      <Navbar />
       <main className="pt-28 pb-20">
         <div className="mx-auto max-w-7xl px-6">
           {loading ? (

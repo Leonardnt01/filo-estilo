@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { useToast } from "@/components/toast";
 
@@ -1643,7 +1642,6 @@ export default function ReservarPageClient({
 }) {
   return (
     <>
-      <Navbar />
       <Suspense
         fallback={
           <main className="flex-1 pt-28 pb-20">

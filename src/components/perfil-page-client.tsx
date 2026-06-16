@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { useToast } from "@/components/toast";
 
@@ -98,7 +97,6 @@ export default function PerfilPageClient({
 
   return (
     <>
-      <Navbar />
       <main className="flex-1 pt-28 pb-20">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mb-8">

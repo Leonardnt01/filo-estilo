@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { SiWhatsapp } from "react-icons/si";
 
@@ -257,8 +256,6 @@ export default function HomePageClient({ initialData }: { initialData: HomePageD
 
   return (
     <>
-      <Navbar />
-
       <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <Image

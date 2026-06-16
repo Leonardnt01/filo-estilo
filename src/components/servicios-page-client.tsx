@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 
 type Service = {
@@ -276,7 +275,6 @@ export default function ServiciosPageClient({
 
   return (
     <>
-      <Navbar />
       <main className="pt-28 pb-20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-8 text-center">

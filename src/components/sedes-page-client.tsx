@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { SiGooglemaps, SiInstagram, SiWhatsapp } from "react-icons/si";
 
@@ -23,7 +22,6 @@ export default function SedesPageClient({ initialBranches }: { initialBranches: 
 
   return (
     <>
-      <Navbar />
       <main className="pt-28 pb-20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-12 text-center">

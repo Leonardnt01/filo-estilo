@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 
 export default function RegisterPage() {
@@ -50,7 +49,6 @@ export default function RegisterPage() {
 
   return (
     <>
-      <Navbar />
       <main className="flex-1 flex items-center justify-center px-6 py-32">
         <div className="w-full max-w-md animate-fade-in-up">
           <div className="text-center mb-8">
