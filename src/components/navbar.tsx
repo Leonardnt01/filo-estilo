@@ -4,20 +4,19 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthModal } from "./auth-modal";
+import { useAuthSession } from "./auth-session-provider";
 import { ThemeToggle } from "./theme-toggle";
 import { broadcastLogoutEvent } from "@/lib/auth/session-sync";
-
-type UserInfo = { email: string; role: string; is_staff?: boolean };
 
 export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { open } = useAuthModal();
+  const { user, setUser } = useAuthSession();
 
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [user, setUser] = useState<UserInfo | null>(null);
   const [activeSection, setActiveSection] = useState("inicio");
 
   useEffect(() => {
@@ -36,13 +35,6 @@ export function Navbar() {
       document.body.style.overflow = "";
     };
   }, [menuOpen]);
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((d) => setUser(d.authenticated ? d.user : null))
-      .catch(() => setUser(null));
-  }, []);
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -78,6 +70,7 @@ export function Navbar() {
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    setUser(null);
     broadcastLogoutEvent();
     setProfileOpen(false);
     setMenuOpen(false);

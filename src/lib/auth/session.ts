@@ -1,4 +1,4 @@
-import type { User } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -46,8 +46,11 @@ export function canManageBranch(
   );
 }
 
-export async function getBranchMemberships(userId: string) {
-  const supabase = await createClient();
+export async function getBranchMemberships(
+  userId: string,
+  supabaseClient?: SupabaseClient,
+) {
+  const supabase = supabaseClient ?? await createClient();
   const { data, error } = await supabase
     .from("memberships")
     .select("branch_id, role, is_active")
@@ -79,18 +82,20 @@ export async function getAuthContext() {
     };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  const [{ data: profile }, memberships] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle(),
+    getBranchMemberships(user.id, supabase),
+  ]);
 
   const role =
     profile?.role === "admin" || profile?.role === "client"
       ? (profile.role as ProfileRole)
       : null;
 
-  const memberships = await getBranchMemberships(user.id);
   const isStaff = memberships.length > 0 || role === "admin";
 
   return { user, role, memberships, is_staff: isStaff };

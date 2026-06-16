@@ -2,13 +2,16 @@
 
 import { useRouter } from "next/navigation";
 
+import { useAuthSession } from "@/components/auth-session-provider";
 import { broadcastLogoutEvent } from "@/lib/auth/session-sync";
 
 export function LogoutButton() {
   const router = useRouter();
+  const { setUser } = useAuthSession();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    setUser(null);
     broadcastLogoutEvent();
     router.push("/");
     router.refresh();

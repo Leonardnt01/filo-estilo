@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthSession } from "@/components/auth-session-provider";
 import { useToast } from "@/components/toast";
 
 type Mode = "login" | "register";
@@ -51,6 +52,7 @@ function AuthModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { setUser } = useAuthSession();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -86,6 +88,7 @@ function AuthModal({
         setError(json.error ?? "No se pudo iniciar sesión.");
         return;
       }
+      setUser(json.user ?? null);
       toast("Sesión iniciada correctamente");
       onClose();
       if (json.user?.role === "admin" || json.user?.is_staff) {

@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/toast";
 import { ConfirmProvider } from "@/components/confirm-modal";
 import { AuthModalProvider } from "@/components/auth-modal";
+import { AuthSessionProvider } from "@/components/auth-session-provider";
 import { SessionSyncGuard } from "@/components/session-sync-guard";
 import "./globals.css";
 
@@ -40,16 +41,18 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider>
-          <ToastProvider>
-            <ConfirmProvider>
-              <AuthModalProvider>
-                <SessionSyncGuard />
-                {children}
-              </AuthModalProvider>
-            </ConfirmProvider>
-          </ToastProvider>
-        </ThemeProvider>
+        <AuthSessionProvider initialUser={null}>
+          <ThemeProvider>
+            <ToastProvider>
+              <ConfirmProvider>
+                <AuthModalProvider>
+                  <SessionSyncGuard />
+                  {children}
+                </AuthModalProvider>
+              </ConfirmProvider>
+            </ToastProvider>
+          </ThemeProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );
