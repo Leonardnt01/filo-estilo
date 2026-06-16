@@ -33,6 +33,34 @@ const scalarCsp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "www.businessempresarial.com.pe",
+      },
+      {
+        protocol: "https",
+        hostname: "montalvoformen.com.pe",
+      },
+      {
+        protocol: "https",
+        hostname: "kingschair.ca",
+      },
+      {
+        protocol: "https",
+        hostname: "raorbarberstudio.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.supabase.co",
+      },
+    ],
+  },
   async headers() {
     return [
       {

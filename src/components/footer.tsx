@@ -19,11 +19,20 @@ type BranchContact = {
   whatsapp?: string | null;
 };
 
-export function Footer() {
-  const [settings, setSettings] = useState<FooterSettings>({});
-  const [branchContact, setBranchContact] = useState<BranchContact | null>(null);
+type FooterProps = {
+  initialSettings?: FooterSettings;
+  initialBranchContact?: BranchContact | null;
+};
+
+export function Footer({ initialSettings, initialBranchContact = null }: FooterProps) {
+  const [settings, setSettings] = useState<FooterSettings>(initialSettings ?? {});
+  const [branchContact, setBranchContact] = useState<BranchContact | null>(initialBranchContact);
 
   useEffect(() => {
+    if (initialSettings || initialBranchContact) {
+      return;
+    }
+
     fetch("/api/home")
       .then((r) => r.json())
       .then((d) => {
@@ -34,7 +43,7 @@ export function Footer() {
         setSettings({});
         setBranchContact(null);
       });
-  }, []);
+  }, [initialBranchContact, initialSettings]);
 
   const brandName = settings.brand_name?.trim() || "Filo Estilo";
   const [brandMain, ...rest] = brandName.split(" ");
