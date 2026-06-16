@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { subscribeToLogoutEvent } from "@/lib/auth/session-sync";
 
-const SESSION_CHECK_INTERVAL_MS = 15000;
+const SESSION_CHECK_INTERVAL_MS = 60000;
 const PROTECTED_PREFIXES = ["/admin", "/mis-citas", "/perfil"];
 
 function isProtectedPath(pathname: string) {
@@ -15,6 +15,7 @@ function isProtectedPath(pathname: string) {
 export function SessionSyncGuard() {
   const router = useRouter();
   const pathname = usePathname();
+  const protectedPath = isProtectedPath(pathname);
 
   useEffect(() => {
     const forceSignOutView = () => {
@@ -23,6 +24,10 @@ export function SessionSyncGuard() {
       }
       router.refresh();
     };
+
+    if (!protectedPath) {
+      return subscribeToLogoutEvent(forceSignOutView);
+    }
 
     const checkSession = async () => {
       try {
@@ -60,7 +65,7 @@ export function SessionSyncGuard() {
       window.removeEventListener("focus", onVisibilityOrFocus);
       document.removeEventListener("visibilitychange", onVisibilityOrFocus);
     };
-  }, [pathname, router]);
+  }, [pathname, protectedPath, router]);
 
   return null;
 }
