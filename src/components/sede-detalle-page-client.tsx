@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Footer } from "@/components/footer";
@@ -128,11 +129,15 @@ export default function SedeDetallePageClient({
                 </Link>
               </div>
               <div className="mb-10 glass-card overflow-hidden">
-                <img
-                  src={branch.hero_image_url || branch.cover_image_url || SERVICE_FALLBACK_IMAGE}
-                  alt={branch.name}
-                  className="h-64 w-full object-cover"
-                />
+                <div className="relative h-64 w-full">
+                  <Image
+                    src={branch.hero_image_url || branch.cover_image_url || SERVICE_FALLBACK_IMAGE}
+                    alt={branch.name}
+                    fill
+                    sizes="100vw"
+                    className="object-cover"
+                  />
+                </div>
                 <div className="grid gap-6 p-6 md:grid-cols-2 md:p-8">
                   <div>
                     <span className="section-label">Sede</span>
@@ -233,10 +238,12 @@ export default function SedeDetallePageClient({
                     <div key={s.id} className="glass-card overflow-hidden group flex flex-col justify-between transition-all duration-300 hover:border-[var(--accent-border)] hover:-translate-y-1">
                       <div>
                         <div className="h-44 w-full overflow-hidden relative">
-                          <img
+                          <Image
                             src={s.image_url || getServiceImageByName(s.name) || SERVICE_FALLBACK_IMAGE}
                             alt={s.name}
-                            className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105"
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            className="object-cover transition-all duration-500 group-hover:scale-105"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
                           <span className="absolute bottom-3 right-3 text-xs bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] px-2.5 py-1 rounded-full font-bold">
@@ -287,10 +294,12 @@ export default function SedeDetallePageClient({
                     return (
                       <div key={b.id} className="glass-card overflow-hidden group transition-all duration-300 hover:border-[var(--accent-border)] hover:-translate-y-1 flex flex-col">
                         <div className="h-60 w-full overflow-hidden relative">
-                          <img
+                          <Image
                             src={barberImage}
                             alt={b.full_name}
-                            className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105 filter grayscale group-hover:grayscale-0"
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            className="object-cover transition-all duration-500 group-hover:scale-105 filter grayscale group-hover:grayscale-0"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
 

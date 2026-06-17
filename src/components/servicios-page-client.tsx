@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Footer } from "@/components/footer";
@@ -414,10 +415,12 @@ export default function ServiciosPageClient({
                     const branch = service.branch_id ? branchMap.get(service.branch_id) : null;
                     return (
                       <article key={service.id} className="group relative overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] min-h-[290px]">
-                        <img
+                        <Image
                           src={CARD_IMAGES[idx % CARD_IMAGES.length]}
                           alt={service.name}
-                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                          className="absolute inset-0 object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
                         <div className="relative z-10 flex h-full flex-col justify-end p-4">

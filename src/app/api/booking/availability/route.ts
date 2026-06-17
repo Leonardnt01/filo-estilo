@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { resolveAvailability } from "@/lib/booking";
+import { resolveAvailability, validateBookingWindow } from "@/lib/booking";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const availabilitySchema = z.object({
@@ -20,7 +21,20 @@ export async function POST(request: Request) {
   }
 
   const { branch_id, barber_id, service_id, appointment_date } = parsed.data;
-  const supabase = await createClient();
+  const bookingWindowError = validateBookingWindow(appointment_date);
+
+  if (bookingWindowError) {
+    return NextResponse.json({ error: bookingWindowError }, { status: 400 });
+  }
+
+  let supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
+
+  try {
+    supabase = createAdminClient();
+  } catch {
+    supabase = await createClient();
+  }
+
   const availability = await resolveAvailability(supabase, {
     branchId: branch_id,
     barberId: barber_id,

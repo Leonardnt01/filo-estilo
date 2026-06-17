@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuthSession } from "@/components/auth-session-provider";
 import { Footer } from "@/components/footer";
 import { useToast } from "@/components/toast";
 
@@ -21,12 +23,6 @@ type Slot = { start_time: string; end_time: string };
 type CalendarCell = { iso: string; day: number; inMonth: boolean; disabled: boolean; isToday: boolean };
 type Stage = "branch" | "booking" | "payment";
 type PayMethod = "yape" | "cash" | "card";
-type AuthMeResponse = {
-  authenticated?: boolean;
-  user?: {
-    email?: string | null;
-  } | null;
-};
 type FooterSettings = {
   brand_name?: string;
   instagram?: string;
@@ -143,11 +139,9 @@ function ReservarPageContent({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { user } = useAuthSession();
 
   const [stage, setStage] = useState<Stage>("branch");
-  const [branches] = useState<Branch[]>(initialBranches);
-  const [allServices] = useState<Service[]>(initialServices);
-  const [allBarbers] = useState<Barber[]>(initialBarbers);
   const [slots, setSlots] = useState<Slot[]>([]);
 
   const [branchId, setBranchId] = useState("");
@@ -177,10 +171,11 @@ function ReservarPageContent({
   const [bookingErrorMsg, setBookingErrorMsg] = useState<string | null>(null);
   const [currentBookingIndex, setCurrentBookingIndex] = useState(0);
 
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [authEmail, setAuthEmail] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [requestedServiceId, setRequestedServiceId] = useState("");
+
+  const authEmail = user?.email ?? "";
+  const isAuthenticated = !!user;
 
   const minDate = useMemo(() => {
     const now = new Date();
@@ -198,8 +193,65 @@ function ReservarPageContent({
     [calendarMonth],
   );
 
-  const services = useMemo(() => allServices.filter((s) => s.branch_id === branchId), [allServices, branchId]);
-  const barbers = useMemo(() => allBarbers.filter((b) => b.branch_id === branchId), [allBarbers, branchId]);
+  const branchById = useMemo(
+    () => new Map(initialBranches.map((branch) => [branch.id, branch])),
+    [initialBranches],
+  );
+
+  const servicesByBranchId = useMemo(() => {
+    const map = new Map<string, Service[]>();
+
+    for (const service of initialServices) {
+      if (!service.branch_id) continue;
+      const branchServices = map.get(service.branch_id);
+      if (branchServices) {
+        branchServices.push(service);
+      } else {
+        map.set(service.branch_id, [service]);
+      }
+    }
+
+    return map;
+  }, [initialServices]);
+
+  const barbersByBranchId = useMemo(() => {
+    const map = new Map<string, Barber[]>();
+
+    for (const barber of initialBarbers) {
+      if (!barber.branch_id) continue;
+      const branchBarbers = map.get(barber.branch_id);
+      if (branchBarbers) {
+        branchBarbers.push(barber);
+      } else {
+        map.set(barber.branch_id, [barber]);
+      }
+    }
+
+    return map;
+  }, [initialBarbers]);
+
+  const serviceById = useMemo(
+    () => new Map(initialServices.map((service) => [service.id, service])),
+    [initialServices],
+  );
+
+  const serviceImagesById = useMemo(
+    () => new Map(initialServices.map((service, idx) => [service.id, getServiceImage(service.name, idx)])),
+    [initialServices],
+  );
+
+  const services = useMemo(
+    () => servicesByBranchId.get(branchId) ?? [],
+    [servicesByBranchId, branchId],
+  );
+  const barbers = useMemo(
+    () => barbersByBranchId.get(branchId) ?? [],
+    [barbersByBranchId, branchId],
+  );
+  const branchServiceIds = useMemo(
+    () => new Set(services.map((service) => service.id)),
+    [services],
+  );
 
   const monthMatrix = useMemo(() => {
     const start = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
@@ -234,53 +286,37 @@ function ReservarPageContent({
       const requestedService = searchParams.get("service_id");
       const requestedBranch = searchParams.get("branch_id");
 
-      if (requestedService && allServices.some((s) => s.id === requestedService)) {
+      if (requestedService && serviceById.has(requestedService)) {
         setRequestedServiceId(requestedService);
         setServiceId(requestedService);
-        const serviceBranch = allServices.find((s) => s.id === requestedService)?.branch_id;
+        const serviceBranch = serviceById.get(requestedService)?.branch_id;
         if (serviceBranch) setBranchId(serviceBranch);
       }
 
-      if (requestedBranch && initialBranches.some((b) => b.id === requestedBranch)) {
+      if (requestedBranch && branchById.has(requestedBranch)) {
         setBranchId(requestedBranch);
       } else if (!requestedService && initialBranches[0]?.id) {
         setBranchId(initialBranches[0].id);
       }
     }
 
-    async function checkAuth() {
-      try {
-        const res = await fetch("/api/auth/me");
-        const json = await res.json().catch(() => ({})) as AuthMeResponse;
-        setIsAuthenticated(!!json.authenticated);
-        setAuthEmail(json.user?.email ?? "");
-        if (!json.authenticated) setShowAuthModal(true);
-      } catch {
-        setIsAuthenticated(false);
-        setAuthEmail("");
-        setShowAuthModal(true);
-      }
-    }
-
     syncInitialCatalogState();
-    void checkAuth();
-  }, [allServices, initialBranches, searchParams]);
+  }, [branchById, initialBranches, searchParams, serviceById]);
 
   useEffect(() => {
     if (!branchId) return;
-    const branchServices = allServices.filter((s) => s.branch_id === branchId);
-    if (!branchServices.find((s) => s.id === serviceId)) {
-      if (requestedServiceId && branchServices.find((s) => s.id === requestedServiceId)) {
+    if (!branchServiceIds.has(serviceId)) {
+      if (requestedServiceId && branchServiceIds.has(requestedServiceId)) {
         setTimeout(() => setServiceId(requestedServiceId), 0);
         return;
       }
-      const nextServiceId = branchServices?.[0]?.id ?? "";
+      const nextServiceId = services[0]?.id ?? "";
       setTimeout(() => setServiceId(nextServiceId), 0);
     }
     setBarberId((prev) => (barbers.some((b) => b.id === prev) ? prev : (barbers[0]?.id ?? "")));
     setSelectedSlots([]);
     setSlots([]);
-  }, [allServices, barbers, branchId, serviceId, requestedServiceId]);
+  }, [barbers, branchId, branchServiceIds, requestedServiceId, serviceId, services]);
 
   const loadSlots = useCallback(async () => {
     setError(null);
@@ -319,14 +355,14 @@ function ReservarPageContent({
   }, [stage, branchId, serviceId, barberId, date, loadSlots]);
 
   const selectedBarber = useMemo(() => barbers.find((b) => b.id === barberId) ?? null, [barbers, barberId]);
-  const selectedBranch = useMemo(() => branches.find((b) => b.id === branchId) ?? null, [branches, branchId]);
+  const selectedBranch = useMemo(() => branchById.get(branchId) ?? null, [branchById, branchId]);
   const normalizedServiceIds = useMemo(
-    () => selectedServiceIds.filter((id) => services.some((s) => s.id === id)).slice(0, people),
-    [selectedServiceIds, services, people],
+    () => selectedServiceIds.filter((id) => branchServiceIds.has(id)).slice(0, people),
+    [branchServiceIds, selectedServiceIds, people],
   );
   const selectedServices = useMemo(
-    () => normalizedServiceIds.map((id) => services.find((s) => s.id === id)).filter((s): s is Service => !!s),
-    [normalizedServiceIds, services],
+    () => normalizedServiceIds.map((id) => serviceById.get(id)).filter((s): s is Service => !!s),
+    [normalizedServiceIds, serviceById],
   );
   const totalServicesAmount = useMemo(
     () => selectedServices.reduce((acc, s) => acc + s.price, 0),
@@ -659,8 +695,8 @@ function ReservarPageContent({
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {branches.map((b) => {
-                  const branchServices = allServices.filter((s) => s.branch_id === b.id).slice(0, 4);
+                {initialBranches.map((b) => {
+                  const branchServices = (servicesByBranchId.get(b.id) ?? []).slice(0, 4);
                   const isActive = b.id === branchId;
                   const branchImage =
                     BRANCH_IMAGE_MAP[b.slug] ||
@@ -674,7 +710,9 @@ function ReservarPageContent({
                       onClick={() => setBranchId(b.id)}
                       className={`text-left rounded-xl border overflow-hidden transition-all ${isActive ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"}`}
                     >
-                      <img src={branchImage} alt={b.name} className="h-32 w-full object-cover" />
+                      <div className="relative h-32 w-full">
+                        <Image src={branchImage} alt={b.name} fill sizes="(max-width: 640px) 100vw, 50vw" className="object-cover" />
+                      </div>
                       <div className="p-4">
                         <p className="font-semibold text-lg">{b.name}</p>
                         <p className="text-xs text-[var(--text-muted)] mt-1">{b.address ?? "Dirección por confirmar"}</p>
@@ -941,7 +979,7 @@ function ReservarPageContent({
                     <div className="space-y-3">
                       {normalizedServiceIds.map((serviceSelectionId, idx) => {
                         const isMainUser = idx === 0;
-                        const currentService = services.find(s => s.id === serviceSelectionId);
+                        const currentService = serviceById.get(serviceSelectionId);
                         
                         return (
                           <div 
@@ -971,11 +1009,15 @@ function ReservarPageContent({
                                 className="flex-1 sm:w-auto inline-flex items-center justify-between gap-3.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-2 text-xs font-semibold cursor-pointer hover:border-[var(--accent)] hover:bg-[var(--bg-secondary)] transition-all group min-w-0 sm:min-w-[200px] text-left active:scale-[0.98]"
                               >
                                 <div className="flex items-center gap-2.5 min-w-0">
-                                  <img 
-                                    src={getServiceImage(currentService?.name ?? "", services.findIndex(s => s.id === serviceSelectionId))} 
-                                    alt={currentService?.name} 
-                                    className="w-8 h-8 rounded-lg object-cover border border-[var(--border-strong)] group-hover:border-[var(--accent-border)] shrink-0 transition-transform group-hover:scale-105"
-                                  />
+                                  <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-[var(--border-strong)] group-hover:border-[var(--accent-border)]">
+                                    <Image
+                                      src={serviceImagesById.get(serviceSelectionId) ?? getServiceImage(currentService?.name ?? "", idx)}
+                                      alt={currentService?.name ?? "Servicio"}
+                                      fill
+                                      sizes="32px"
+                                      className="object-cover transition-transform group-hover:scale-105"
+                                    />
+                                  </div>
                                   <div className="min-w-0">
                                     <p className="text-[11px] text-[var(--text-primary)] font-bold truncate group-hover:text-[var(--accent)] transition-colors">
                                       {currentService?.name ?? "Elegir Servicio"}
@@ -1479,10 +1521,12 @@ function ReservarPageContent({
                     >
                       {/* Image Container with Hover zoom */}
                       <div className="w-24 h-20 sm:w-28 sm:h-22 rounded-lg overflow-hidden shrink-0 border border-[var(--border-strong)] relative">
-                        <img 
-                          src={serviceImage} 
-                          alt={s.name} 
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                        <Image
+                          src={serviceImage}
+                          alt={s.name}
+                          fill
+                          sizes="(max-width: 640px) 96px, 112px"
+                          className="object-cover transition-transform duration-500 group-hover:scale-110"
                         />
                         {isSelected && (
                           <div className="absolute inset-0 bg-[var(--accent)]/15 backdrop-blur-[1px] flex items-center justify-center animate-fade-in">

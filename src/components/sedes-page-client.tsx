@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Footer } from "@/components/footer";
@@ -67,17 +68,21 @@ export default function SedesPageClient({ initialBranches }: { initialBranches: 
                   }}
                   className="glass-card overflow-hidden group hover:border-[var(--accent-border)] transition-colors cursor-pointer"
                 >
-                  <img
-                    src={
+                  <div className="relative h-44 w-full overflow-hidden">
+                    <Image
+                      src={
                       b.slug === "sede-principal"
                         ? "https://www.businessempresarial.com.pe/wp-content/uploads/2025/09/Montalvo-For-Men-780x470.jpeg"
                         : b.slug === "sede-norte"
                         ? "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop"
                         : "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=1200&auto=format&fit=crop"
-                    }
-                    alt={b.name}
-                    className="h-44 w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
+                      }
+                      alt={b.name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </div>
                   <div className="p-6">
                     <h2 className="text-lg font-semibold">{b.name}</h2>
                     <p className="mt-2 text-sm text-[var(--text-muted)]">{b.address ?? "Dirección por confirmar"}</p>

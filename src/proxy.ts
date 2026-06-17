@@ -13,7 +13,7 @@ function getRequestIp(request: NextRequest) {
   return request.headers.get("x-real-ip") ?? "unknown";
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { response, supabase, user } = await updateSession(request);
   const ip = getRequestIp(request);
 
