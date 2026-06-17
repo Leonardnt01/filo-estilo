@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -6,7 +8,7 @@ type SiteSettingsRow = {
   value: Record<string, unknown>;
 };
 
-export async function getPublicHomeData() {
+const getPublicHomeDataImpl = cache(async () => {
   let supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
 
   try {
@@ -76,4 +78,8 @@ export async function getPublicHomeData() {
       public_home: settingsMap.get("public_home") ?? {},
     },
   };
+});
+
+export async function getPublicHomeData() {
+  return getPublicHomeDataImpl();
 }

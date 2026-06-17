@@ -17,6 +17,12 @@ type Branch = {
   cover_image_url?: string | null;
 };
 
+type FooterBranchContact = {
+  address?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+};
+
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number; image_url?: string | null };
 type Barber = { id: string; full_name: string; specialty: string | null; image_url?: string | null };
 
@@ -45,13 +51,15 @@ export default function SedeDetallePageClient({
   branch,
   initialServices,
   initialBarbers,
+  footerBranchContact,
 }: {
   branch: Branch | null;
   initialServices: Service[];
   initialBarbers: Barber[];
+  footerBranchContact?: FooterBranchContact | null;
 }) {
-  const [services] = useState<Service[]>(initialServices);
-  const [barbers] = useState<Barber[]>(initialBarbers);
+  const services = initialServices;
+  const barbers = initialBarbers;
   const [loading] = useState(false);
 
   const googleMapsLink = useMemo(() => {
@@ -339,7 +347,7 @@ export default function SedeDetallePageClient({
           )}
         </div>
       </main>
-      <Footer />
+      <Footer initialBranchContact={footerBranchContact ?? null} />
     </>
   );
 }

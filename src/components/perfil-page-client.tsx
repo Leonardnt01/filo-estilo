@@ -28,15 +28,34 @@ type Promotion = {
   discount_percent: number | null;
 };
 
+type FooterSettings = {
+  brand_name?: string;
+  instagram?: string;
+  facebook?: string;
+  whatsapp?: string;
+  phone?: string;
+  address?: string;
+};
+
+type BranchContact = {
+  address?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+};
+
 export default function PerfilPageClient({
   initialProfile,
   initialStats,
   initialPromotions,
+  footerSettings,
+  footerBranchContact,
   initialError,
 }: {
   initialProfile: ProfileData | null;
   initialStats: Stats | null;
   initialPromotions: Promotion[];
+  footerSettings?: FooterSettings;
+  footerBranchContact?: BranchContact | null;
   initialError: string | null;
 }) {
   const { toast } = useToast();
@@ -235,7 +254,7 @@ export default function PerfilPageClient({
           )}
         </div>
       </main>
-      <Footer />
+      <Footer initialSettings={footerSettings} initialBranchContact={footerBranchContact ?? null} />
     </>
   );
 }

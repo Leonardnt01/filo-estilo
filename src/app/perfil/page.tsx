@@ -9,6 +9,8 @@ export default async function PerfilPage() {
       initialProfile={data.profile}
       initialStats={data.stats}
       initialPromotions={data.promotions}
+      footerSettings={data.footerSettings}
+      footerBranchContact={data.footerBranchContact}
       initialError={data.error}
     />
   );

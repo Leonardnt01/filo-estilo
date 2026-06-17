@@ -4,5 +4,10 @@ import { getPublicCatalogData } from "@/lib/public-catalog";
 export default async function SedesPage() {
   const data = await getPublicCatalogData();
 
-  return <SedesPageClient initialBranches={data.branches ?? []} />;
+  return (
+    <SedesPageClient
+      initialBranches={data.branches ?? []}
+      footerBranchContact={data.branches?.[0] ?? null}
+    />
+  );
 }

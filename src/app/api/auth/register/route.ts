@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { getEnv } from "@/lib/env";
+import { splitFullName } from "@/lib/schema-compat";
 import { logSecurityEvent } from "@/lib/security/audit-log";
 import { checkRateLimit, getClientIdentifier } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
   }
 
   const maskedEmail = bodyResult.data.email.replace(/(.{2}).*(@.*)/, "$1***$2");
+  const { nombre, apellido } = splitFullName(bodyResult.data.full_name);
   console.log("[auth/register] payload validated", {
     clientId,
     email: maskedEmail,
@@ -172,7 +174,10 @@ export async function POST(request: Request) {
 
   const profilePayload = {
     id: data.user.id,
-    full_name: bodyResult.data.full_name,
+    nombre,
+    apellido,
+    correo: bodyResult.data.email,
+    activo: true,
     role: "client",
   };
 

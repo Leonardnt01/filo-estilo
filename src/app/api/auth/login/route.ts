@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { getEnv } from "@/lib/env";
+import { buildFullName } from "@/lib/schema-compat";
 import { logSecurityEvent } from "@/lib/security/audit-log";
 import { checkRateLimit, getClientIdentifier } from "@/lib/security/rate-limit";
 
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
     error: profileError,
   } = await supabase
     .from("profiles")
-    .select("role, full_name")
+    .select("role, nombre, apellido")
     .eq("id", userId)
     .maybeSingle();
 
@@ -166,7 +167,7 @@ export async function POST(request: Request) {
       id: userId,
       email: data.user.email,
       role,
-      full_name: profile?.full_name ?? null,
+      full_name: buildFullName(profile, data.user.email ?? "Usuario sin nombre"),
       is_staff: isStaff,
       memberships: safeMemberships,
     },

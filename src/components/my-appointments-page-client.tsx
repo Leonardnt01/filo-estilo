@@ -34,6 +34,12 @@ type CatalogBranch = {
   name: string;
 };
 
+type FooterBranchContact = {
+  address?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+};
+
 interface ParsedNotes {
   isPagoFicticio: boolean;
   method: string | null;
@@ -106,12 +112,14 @@ export default function MyAppointmentsPageClient({
   initialServices,
   initialBarbers,
   initialBranches,
+  footerBranchContact,
   initialError,
 }: {
   initialItems: MyAppointment[];
   initialServices: CatalogService[];
   initialBarbers: CatalogBarber[];
   initialBranches: CatalogBranch[];
+  footerBranchContact?: FooterBranchContact | null;
   initialError: string | null;
 }) {
   const { toast } = useToast();
@@ -355,7 +363,7 @@ export default function MyAppointmentsPageClient({
             )}
         </div>
       </main>
-      <Footer />
+      <Footer initialBranchContact={footerBranchContact ?? null} />
     </>
   );
 }

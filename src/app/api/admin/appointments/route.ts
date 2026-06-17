@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { canManageBranch, getManageableBranchIds, isGlobalAdmin } from "@/lib/auth/session";
+import { normalizeAppointmentForClient } from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
 
 const appointmentStatus = z.enum([
@@ -45,25 +46,25 @@ export async function GET(request: Request) {
 
   const selectVariants: string[] = [
     `
-      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      id, profile_id, barber_id, service_id, branch_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
       barber:barbers(full_name, image_url),
       service:services(name, price, image_url),
       branch:branches(name)
     `,
     `
-      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      id, profile_id, barber_id, service_id, branch_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
       barber:barbers(full_name, image_url),
       service:services(name, price),
       branch:branches(name)
     `,
     `
-      id, client_id, barber_id, service_id, branch_id, customer_name, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      id, profile_id, barber_id, service_id, branch_id, customer_name, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
       barber:barbers(full_name),
       service:services(name, price),
       branch:branches(name)
     `,
     `
-      id, client_id, barber_id, service_id, branch_id, appointment_date, start_time, end_time, status, notes, created_at, updated_at
+      id, profile_id, barber_id, service_id, branch_id, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price
     `,
   ];
 
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
       .from("appointments")
       .select(select)
       .order("appointment_date", { ascending: false })
-      .order("start_time", { ascending: false })
+      .order("appointment_time", { ascending: false })
       .limit(limit);
 
     if (statusParam) query = query.eq("status", statusParam);
@@ -106,5 +107,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, count: data ? data.length : 0, items: data });
+  const items = (data ?? []).map((item) =>
+    normalizeAppointmentForClient(item as Record<string, unknown>),
+  );
+
+  return NextResponse.json({ ok: true, count: items.length, items });
 }

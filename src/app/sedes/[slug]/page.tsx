@@ -11,7 +11,14 @@ export default async function SedeDetallePage({
   const branch = (catalog.branches ?? []).find((item) => item.slug === slug) ?? null;
 
   if (!branch) {
-    return <SedeDetallePageClient branch={null} initialServices={[]} initialBarbers={[]} />;
+    return (
+      <SedeDetallePageClient
+        branch={null}
+        initialServices={[]}
+        initialBarbers={[]}
+        footerBranchContact={catalog.branches?.[0] ?? null}
+      />
+    );
   }
 
   const byBranch = await getPublicCatalogData(branch.id);
@@ -21,6 +28,7 @@ export default async function SedeDetallePage({
       branch={branch}
       initialServices={byBranch.services ?? []}
       initialBarbers={byBranch.barbers ?? []}
+      footerBranchContact={branch}
     />
   );
 }

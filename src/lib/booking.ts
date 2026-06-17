@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { normalizeAppointmentForClient } from "@/lib/schema-compat";
+
 export const APPOINTMENT_STATUSES = [
   "pending",
   "confirmed",
@@ -65,23 +67,7 @@ type CreateAppointmentsInput = {
 
 type CreateAppointmentsSuccess = {
   ok: true;
-  items: Array<{
-    id: string;
-    client_id: string;
-    branch_id: string;
-    barber_id: string;
-    service_id: string;
-    customer_name: string | null;
-    customer_phone: string | null;
-    customer_email: string | null;
-    appointment_date: string;
-    start_time: string;
-    end_time: string;
-    status: AppointmentStatus;
-    notes: string | null;
-    created_at: string;
-    updated_at: string;
-  }>;
+  items: Array<ReturnType<typeof normalizeAppointmentForClient>>;
 };
 
 type CreateAppointmentsFailure = {
@@ -144,17 +130,19 @@ export async function createAppointmentsForSelections(
   const { client, branchId, barberId, appointmentDate, selections, notes, initialStatus = "pending" } = input;
 
   const rows: Array<{
-    client_id: string;
+    profile_id: string;
     branch_id: string;
     barber_id: string;
     service_id: string;
     customer_name: string;
     customer_phone: string | null;
-    customer_email: string | null;
     appointment_date: string;
-    start_time: string;
-    end_time: string;
+    appointment_time: string;
+    people: number;
+    payment_method: string;
+    payment_status: string;
     status: AppointmentStatus;
+    total_price?: number;
     notes: string | null;
   }> = [];
 
@@ -176,16 +164,17 @@ export async function createAppointmentsForSelections(
     }
 
     rows.push({
-      client_id: client.clientId,
+      profile_id: client.clientId,
       branch_id: branchId,
       barber_id: barberId,
       service_id: selection.serviceId,
       customer_name: client.customerName,
       customer_phone: client.customerPhone,
-      customer_email: client.customerEmail,
       appointment_date: appointmentDate,
-      start_time: selection.startTime,
-      end_time: selectedSlot.end_time,
+      appointment_time: selection.startTime,
+      people: 1,
+      payment_method: "pending",
+      payment_status: "pending",
       status: initialStatus,
       notes: notes ?? null,
     });
@@ -195,7 +184,7 @@ export async function createAppointmentsForSelections(
     .from("appointments")
     .insert(rows)
     .select(
-      "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+      "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
     );
 
   if (error) {
@@ -207,7 +196,7 @@ export async function createAppointmentsForSelections(
 
   return {
     ok: true,
-    items: (data ?? []) as CreateAppointmentsSuccess["items"],
+    items: (data ?? []).map((item) => normalizeAppointmentForClient(item)),
   };
 }
 
@@ -247,11 +236,11 @@ export async function resolveAvailability(
       .maybeSingle(),
     (() => {
       let query = supabase
-        .from("appointments")
-        .select("id, start_time")
-        .eq("branch_id", branchId)
-        .eq("barber_id", barberId)
-        .eq("appointment_date", appointmentDate)
+      .from("appointments")
+      .select("id, appointment_time")
+      .eq("branch_id", branchId)
+      .eq("barber_id", barberId)
+      .eq("appointment_date", appointmentDate)
         .in("status", [...APPOINTMENT_ACTIVE_STATUSES]);
 
       if (excludeAppointmentId) {
@@ -282,7 +271,7 @@ export async function resolveAvailability(
     return { ok: false, status: 400, error: "Barber not found or inactive for this branch" };
   }
 
-  const busySet = new Set((busy ?? []).map((item) => item.start_time.slice(0, 5)));
+  const busySet = new Set((busy ?? []).map((item) => item.appointment_time.slice(0, 5)));
   const slots: Slot[] = [];
 
   for (const item of hours ?? []) {

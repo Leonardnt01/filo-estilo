@@ -1,7 +1,9 @@
+import { cache } from "react";
+
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function getPublicCatalogData(branchId?: string) {
+const getPublicCatalogDataImpl = cache(async (branchId?: string) => {
   let supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
 
   try {
@@ -90,4 +92,8 @@ export async function getPublicCatalogData(branchId?: string) {
     services: servicesRes.data ?? [],
     barbers: barbersRes.data ?? [],
   };
+});
+
+export async function getPublicCatalogData(branchId?: string) {
+  return getPublicCatalogDataImpl(branchId);
 }

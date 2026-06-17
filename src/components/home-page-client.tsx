@@ -137,11 +137,11 @@ export default function HomePageClient({ initialData }: { initialData: HomePageD
   const initialHomeSettings = initialData.site_settings?.public_home ?? {};
   const initialFooterSettings = initialData.site_settings?.public_footer ?? {};
 
-  const [services] = useState<Service[]>(initialServices);
+  const services = initialServices;
   const [loadingHome] = useState(false);
-  const [branches] = useState<Branch[]>(initialBranches);
-  const [featuredServices] = useState<FeaturedService[]>(initialFeaturedServices);
-  const [testimonials] = useState<Testimonial[]>(initialTestimonials);
+  const branches = initialBranches;
+  const featuredServices = initialFeaturedServices;
+  const testimonials = initialTestimonials;
   const [activeService, setActiveService] = useState(0);
   const [activeStory, setActiveStory] = useState(0);
   const [mobileServiceIndex, setMobileServiceIndex] = useState(0);
@@ -178,14 +178,6 @@ export default function HomePageClient({ initialData }: { initialData: HomePageD
       : [];
     return dbSlides.length > 0 ? dbSlides : (configuredSlides.length > 0 ? configuredSlides : DEFAULT_HOME_SETTINGS.service_slide_images);
   }, [featuredServices, homeSettings.service_slide_images]);
-
-  useEffect(() => {
-    console.log("[HomeData] serviceSlides", serviceSlides);
-    const suspicious = serviceSlides.filter((url) => typeof url === "string" && url.includes("vecteezy.com"));
-    if (suspicious.length > 0) {
-      console.warn("[HomeData] suspicious slide urls found", suspicious);
-    }
-  }, [serviceSlides]);
 
   useEffect(() => {
     if (keyServices.length <= 1) return;
@@ -498,9 +490,11 @@ export default function HomePageClient({ initialData }: { initialData: HomePageD
                         key={service.id}
                         className="group relative w-full shrink-0 overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] min-h-[280px]"
                       >
-                        <img
+                        <Image
                           src={serviceSlides[idx % serviceSlides.length]}
                           alt={service.name}
+                          fill
+                          sizes="100vw"
                           className="absolute inset-0 h-full w-full object-cover"
                           onError={(e) =>
                             logImageError("mobile-service-card", e.currentTarget.src, {
@@ -565,9 +559,11 @@ export default function HomePageClient({ initialData }: { initialData: HomePageD
                     key={service.id}
                     className="group relative overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] min-h-[260px]"
                   >
-                    <img
+                    <Image
                       src={serviceSlides[idx % serviceSlides.length]}
                       alt={service.name}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                       onError={(e) =>
                         logImageError("desktop-service-card", e.currentTarget.src, {

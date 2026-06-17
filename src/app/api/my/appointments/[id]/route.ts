@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { appendAuditNote, isFutureAppointment, resolveAvailability, validateBookingWindow } from "@/lib/booking";
 import { getAuthContext } from "@/lib/auth/session";
+import { normalizeAppointmentForClient } from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
 
 const cancelSchema = z.object({
@@ -38,9 +39,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const supabase = await createClient();
   const { data: appointment, error: appointmentError } = await supabase
     .from("appointments")
-    .select("id, client_id, branch_id, barber_id, service_id, appointment_date, start_time, end_time, status, notes")
+    .select("id, profile_id, branch_id, barber_id, service_id, appointment_date, appointment_time, status, notes, people, payment_method, payment_status, total_price, customer_name, customer_phone, created_at, updated_at")
     .eq("id", id)
-    .eq("client_id", user.id)
+    .eq("profile_id", user.id)
     .maybeSingle();
 
   if (appointmentError) {
@@ -52,7 +53,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!["pending", "confirmed"].includes(appointment.status)) {
     return NextResponse.json({ error: "Only pending or confirmed appointments can be modified by the client" }, { status: 400 });
   }
-  if (!isFutureAppointment(appointment.appointment_date, appointment.start_time)) {
+  if (!isFutureAppointment(appointment.appointment_date, appointment.appointment_time.slice(0, 5))) {
     return NextResponse.json({ error: "This appointment can no longer be modified" }, { status: 400 });
   }
 
@@ -72,15 +73,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         notes: appendAuditNote(appointment.notes, noteEntry),
       })
       .eq("id", id)
-      .eq("client_id", user.id)
-      .select("id, appointment_date, start_time, end_time, status, notes")
+      .eq("profile_id", user.id)
+      .select("id, profile_id, branch_id, barber_id, service_id, appointment_date, appointment_time, status, notes, people, payment_method, payment_status, total_price, customer_name, customer_phone, created_at, updated_at")
       .single();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, item: data });
+    return NextResponse.json({ ok: true, item: normalizeAppointmentForClient(data) });
   }
 
   const rescheduleData = actionData;
@@ -106,7 +107,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Selected slot is not available" }, { status: 409 });
   }
 
-  const noteEntry = `[CLIENT_RESCHEDULED ${new Date().toISOString()}] ${appointment.appointment_date} ${appointment.start_time} -> ${rescheduleData.appointment_date} ${rescheduleData.start_time}`;
+  const noteEntry = `[CLIENT_RESCHEDULED ${new Date().toISOString()}] ${appointment.appointment_date} ${appointment.appointment_time.slice(0, 5)} -> ${rescheduleData.appointment_date} ${rescheduleData.start_time}`;
   const { data, error } = await supabase
     .from("appointments")
     .update({
@@ -114,14 +115,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       barber_id: rescheduleData.barber_id,
       service_id: rescheduleData.service_id,
       appointment_date: rescheduleData.appointment_date,
-      start_time: rescheduleData.start_time,
-      end_time: selectedSlot.end_time,
+      appointment_time: rescheduleData.start_time,
       status: "pending",
       notes: appendAuditNote(appointment.notes, noteEntry),
     })
     .eq("id", id)
-    .eq("client_id", user.id)
-    .select("id, branch_id, barber_id, service_id, appointment_date, start_time, end_time, status, notes")
+    .eq("profile_id", user.id)
+    .select("id, profile_id, branch_id, barber_id, service_id, appointment_date, appointment_time, status, notes, people, payment_method, payment_status, total_price, customer_name, customer_phone, created_at, updated_at")
     .single();
 
   if (error) {
@@ -131,5 +131,5 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, item: data });
+  return NextResponse.json({ ok: true, item: normalizeAppointmentForClient(data) });
 }

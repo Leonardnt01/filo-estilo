@@ -8,6 +8,7 @@ import {
 } from "@/lib/booking";
 import { getAuthContext } from "@/lib/auth/session";
 import { createCulqiCharge, toCulqiAmount } from "@/lib/payments/culqi";
+import { buildFullName } from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
 
 const selectionSchema = z.object({
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
 
   const supabase = await createClient();
   const [{ data: profile, error: profileError }, { data: services, error: servicesError }] = await Promise.all([
-    supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("nombre, apellido").eq("id", user.id).maybeSingle(),
     supabase
       .from("services")
       .select("id, name, price, branch_id")
@@ -88,8 +89,8 @@ export async function POST(request: Request) {
   const bookingResult = await createAppointmentsForSelections(supabase, {
     client: {
       clientId: user.id,
-      customerName: profile?.full_name ?? user.email ?? "Cliente",
-      customerPhone: profile?.phone ?? null,
+      customerName: buildFullName(profile, user.email ?? "Cliente"),
+      customerPhone: null,
       customerEmail: user.email ?? null,
     },
     branchId: branch_id,
@@ -127,9 +128,11 @@ export async function POST(request: Request) {
       .from("appointments")
       .update({
         notes: `${paidNote} | Personas:${selections.length} | Horarios del grupo: [${selections.map((selection) => selection.start_time).join(", ")}]${baseUserNote}`,
+        payment_method: paymentMethodLabel,
+        payment_status: "paid",
       })
       .in("id", bookingResult.items.map((item) => item.id))
-      .eq("client_id", user.id);
+      .eq("profile_id", user.id);
 
     if (updateError) {
       return NextResponse.json({
@@ -154,9 +157,10 @@ export async function POST(request: Request) {
       .update({
         status: "cancelled",
         notes: appendAuditNote(pendingNote, failureNote),
+        payment_status: "failed",
       })
       .in("id", bookingResult.items.map((item) => item.id))
-      .eq("client_id", user.id);
+      .eq("profile_id", user.id);
 
     return NextResponse.json({ error: failureMessage }, { status: 402 });
   }

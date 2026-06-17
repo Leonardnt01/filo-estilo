@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { normalizeProfileForClient, splitFullName } from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
 
 const updateProfileSchema = z.object({
@@ -20,7 +21,7 @@ export async function GET() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, role, created_at, updated_at")
+    .select("id, nombre, apellido, correo, role, created_at, updated_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -31,7 +32,7 @@ export async function GET() {
   const { data: appointments, error: appointmentsError } = await supabase
     .from("appointments")
     .select("status, appointment_date")
-    .eq("client_id", user.id);
+    .eq("profile_id", user.id);
 
   if (appointmentsError) {
     return NextResponse.json({ error: appointmentsError.message }, { status: 500 });
@@ -49,15 +50,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    profile: {
-      id: user.id,
-      email: user.email,
-      full_name: profile?.full_name ?? "Usuario sin nombre",
-      phone: profile?.phone ?? null,
-      role: profile?.role ?? "client",
-      created_at: profile?.created_at ?? null,
-      updated_at: profile?.updated_at ?? null,
-    },
+    profile: normalizeProfileForClient(profile, user),
     stats,
   });
 }
@@ -82,9 +75,12 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const updateData: { full_name?: string; phone?: string | null } = {};
-  if (typeof parsed.data.full_name !== "undefined") updateData.full_name = parsed.data.full_name;
-  if (typeof parsed.data.phone !== "undefined") updateData.phone = parsed.data.phone;
+  const updateData: { nombre?: string; apellido?: string } = {};
+  if (typeof parsed.data.full_name !== "undefined") {
+    const { nombre, apellido } = splitFullName(parsed.data.full_name);
+    updateData.nombre = nombre;
+    updateData.apellido = apellido;
+  }
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: "At least one field is required" }, { status: 400 });
@@ -94,13 +90,13 @@ export async function PATCH(request: Request) {
     .from("profiles")
     .update(updateData)
     .eq("id", user.id)
-    .select("id, full_name, phone, role, updated_at")
+    .select("id, nombre, apellido, correo, role, created_at, updated_at")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, profile: data });
+  return NextResponse.json({ ok: true, profile: normalizeProfileForClient(data, user) });
 }
 

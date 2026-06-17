@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAuthContext } from "@/lib/auth/session";
+import { buildFullName } from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
 
 function addMinutes(time: string, minutes: number) {
@@ -24,11 +25,11 @@ export async function POST() {
   const supabase = await createClient();
 
   const [{ data: profile }, { data: barber }, { data: services, error: servicesError }] = await Promise.all([
-    supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("nombre, apellido").eq("id", user.id).maybeSingle(),
     supabase.from("barbers").select("id, full_name").eq("is_active", true).order("created_at", { ascending: true }).limit(1).maybeSingle(),
     supabase
       .from("services")
-      .select("id, duration_minutes")
+      .select("id, duration_minutes, price, branch_id")
       .eq("is_active", true)
       .order("created_at", { ascending: true })
       .limit(3),
@@ -70,7 +71,7 @@ export async function POST() {
 
       const { data: busy, error: busyError } = await supabase
         .from("appointments")
-        .select("start_time")
+        .select("appointment_time")
         .eq("barber_id", barber.id)
         .eq("appointment_date", appointmentDate)
         .in("status", ["pending", "confirmed", "in_progress"]);
@@ -79,7 +80,7 @@ export async function POST() {
         return NextResponse.json({ error: busyError.message }, { status: 500 });
       }
 
-      const busySet = new Set((busy ?? []).map((b) => b.start_time.slice(0, 5)));
+      const busySet = new Set((busy ?? []).map((b) => b.appointment_time.slice(0, 5)));
 
       for (const h of dayHours) {
         let cursor = h.start_time.slice(0, 5);
@@ -92,23 +93,30 @@ export async function POST() {
             const { data: inserted, error: insertError } = await supabase
               .from("appointments")
               .insert({
-                client_id: user.id,
+                profile_id: user.id,
+                branch_id: service.branch_id,
                 barber_id: barber.id,
                 service_id: service.id,
-                customer_name: profile?.full_name ?? user.email ?? "Cliente",
-                customer_phone: profile?.phone ?? null,
-                customer_email: user.email ?? null,
+                customer_name: buildFullName(profile, user.email ?? "Cliente"),
+                customer_phone: null,
                 appointment_date: appointmentDate,
-                start_time: cursor,
-                end_time: endTime,
+                appointment_time: cursor,
+                people: 1,
+                payment_method: "pending",
+                payment_status: "pending",
+                total_price: service.price ?? null,
                 status: "pending",
                 notes: "Cita demo",
               })
-              .select("id, appointment_date, start_time")
+              .select("id, appointment_date, appointment_time")
               .single();
 
             if (!insertError && inserted) {
-              created.push(inserted);
+              created.push({
+                id: inserted.id,
+                appointment_date: inserted.appointment_date,
+                start_time: inserted.appointment_time.slice(0, 5),
+              });
               booked = true;
             }
             break;

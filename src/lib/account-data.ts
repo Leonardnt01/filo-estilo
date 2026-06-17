@@ -1,6 +1,10 @@
 import { getAuthContext } from "@/lib/auth/session";
 import { getPublicHomeData } from "@/lib/public-home";
 import { getPublicCatalogData } from "@/lib/public-catalog";
+import {
+  normalizeAppointmentForClient,
+  normalizeProfileForClient,
+} from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
 
 export async function getProfilePageData() {
@@ -20,13 +24,13 @@ export async function getProfilePageData() {
   const [{ data: profile, error: profileError }, { data: appointments, error: appointmentsError }, homeData] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, full_name, phone, role, created_at, updated_at")
+      .select("id, nombre, apellido, correo, role, created_at, updated_at")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
       .from("appointments")
       .select("status, appointment_date")
-      .eq("client_id", user.id),
+      .eq("profile_id", user.id),
     getPublicHomeData().catch(() => null),
   ]);
 
@@ -51,17 +55,11 @@ export async function getProfilePageData() {
   return {
     ok: true,
     error: null,
-    profile: {
-      id: user.id,
-      email: user.email ?? "",
-      full_name: profile?.full_name ?? "Usuario sin nombre",
-      phone: profile?.phone ?? null,
-      role: profile?.role ?? "client",
-      created_at: profile?.created_at ?? null,
-      updated_at: profile?.updated_at ?? null,
-    },
+    profile: normalizeProfileForClient(profile, user),
     stats,
     promotions: homeData?.promotions ?? [],
+    footerSettings: homeData?.site_settings?.public_footer ?? {},
+    footerBranchContact: homeData?.branches?.[0] ?? null,
   };
 }
 
@@ -84,11 +82,11 @@ export async function getMyAppointmentsPageData() {
     supabase
       .from("appointments")
       .select(
-        "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+        "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
       )
-      .eq("client_id", user.id)
+      .eq("profile_id", user.id)
       .order("appointment_date", { ascending: false })
-      .order("start_time", { ascending: false })
+      .order("appointment_time", { ascending: false })
       .limit(20),
     getPublicCatalogData().catch(() => null),
   ]);
@@ -107,9 +105,10 @@ export async function getMyAppointmentsPageData() {
   return {
     ok: true,
     error: null,
-    items: data ?? [],
+    items: (data ?? []).map((item) => normalizeAppointmentForClient(item)),
     services: catalog?.services ?? [],
     barbers: catalog?.barbers ?? [],
     branches: catalog?.branches ?? [],
+    footerBranchContact: catalog?.branches?.[0] ?? null,
   };
 }

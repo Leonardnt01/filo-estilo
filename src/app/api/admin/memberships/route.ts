@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { canManageBranch, isGlobalAdmin } from "@/lib/auth/session";
+import { buildFullName } from "@/lib/schema-compat";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const createMembershipSchema = z.object({
@@ -94,7 +95,7 @@ export async function GET(request: Request) {
 
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, full_name, phone")
+    .select("id, nombre, apellido, correo")
     .in("id", userIds);
 
   let usersById = new Map<string, string | null>();
@@ -112,12 +113,14 @@ export async function GET(request: Request) {
   const profileById = new Map((profiles ?? []).map((p) => [p.id as string, p]));
 
   const enriched = membershipRows.map((m) => {
-    const p = profileById.get(m.user_id as string) as { full_name?: string | null; phone?: string | null } | undefined;
+    const p = profileById.get(m.user_id as string) as
+      | { nombre?: string | null; apellido?: string | null; correo?: string | null }
+      | undefined;
     return {
       ...m,
-      user_email: usersById.get(m.user_id as string) ?? null,
-      full_name: p?.full_name ?? null,
-      phone: p?.phone ?? null,
+      user_email: usersById.get(m.user_id as string) ?? p?.correo ?? null,
+      full_name: p ? buildFullName(p, "Usuario sin nombre") : null,
+      phone: null,
     };
   });
 

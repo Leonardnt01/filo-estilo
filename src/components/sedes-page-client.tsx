@@ -16,9 +16,21 @@ type Branch = {
   whatsapp?: string | null;
 };
 
-export default function SedesPageClient({ initialBranches }: { initialBranches: Branch[] }) {
+type FooterBranchContact = {
+  address?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+};
+
+export default function SedesPageClient({
+  initialBranches,
+  footerBranchContact,
+}: {
+  initialBranches: Branch[];
+  footerBranchContact?: FooterBranchContact | null;
+}) {
   const router = useRouter();
-  const [branches] = useState<Branch[]>(initialBranches);
+  const branches = initialBranches;
   const [loading] = useState(false);
 
   return (
@@ -134,7 +146,7 @@ export default function SedesPageClient({ initialBranches }: { initialBranches: 
           )}
         </div>
       </main>
-      <Footer />
+      <Footer initialBranchContact={footerBranchContact ?? null} />
     </>
   );
 }

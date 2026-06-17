@@ -3,6 +3,10 @@ import { z } from "zod";
 
 import { resolveAvailability, validateBookingWindow } from "@/lib/booking";
 import { getAuthContext } from "@/lib/auth/session";
+import {
+  buildFullName,
+  normalizeAppointmentForClient,
+} from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
 
 const appointmentStatus = z.enum(["pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"]);
@@ -42,11 +46,11 @@ export async function GET(request: Request) {
   let query = supabase
     .from("appointments")
     .select(
-      "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+      "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
     )
-    .eq("client_id", user.id)
+    .eq("profile_id", user.id)
     .order("appointment_date", { ascending: false })
-    .order("start_time", { ascending: false })
+    .order("appointment_time", { ascending: false })
     .limit(limit);
 
   if (statusParam) query = query.eq("status", statusParam);
@@ -59,7 +63,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, count: data.length, items: data });
+  const items = (data ?? []).map((item) => normalizeAppointmentForClient(item));
+
+  return NextResponse.json({ ok: true, count: items.length, items });
 }
 
 export async function POST(request: Request) {
@@ -85,7 +91,7 @@ export async function POST(request: Request) {
   const supabase = await createClient();
 
   const [{ data: profile, error: profileError }, availability] = await Promise.all([
-    supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("nombre, apellido").eq("id", user.id).maybeSingle(),
     resolveAvailability(supabase, {
       branchId: branch_id,
       barberId: barber_id,
@@ -108,21 +114,22 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("appointments")
     .insert({
-      client_id: user.id,
+      profile_id: user.id,
       branch_id,
       barber_id,
       service_id,
-      customer_name: profile?.full_name ?? user.email ?? "Cliente",
-      customer_phone: profile?.phone ?? null,
-      customer_email: user.email ?? null,
+      customer_name: buildFullName(profile, user.email ?? "Cliente"),
+      customer_phone: null,
       appointment_date,
-      start_time,
-      end_time: selectedSlot.end_time,
+      appointment_time: start_time,
+      people: 1,
+      payment_method: "pending",
+      payment_status: "pending",
       status: initial_status ?? "pending",
       notes: notes ?? null,
     })
     .select(
-      "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+      "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
     )
     .single();
 
@@ -133,5 +140,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, item: data }, { status: 201 });
+  return NextResponse.json({ ok: true, item: normalizeAppointmentForClient(data) }, { status: 201 });
 }
