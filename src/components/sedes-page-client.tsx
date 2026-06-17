@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { Footer } from "@/components/footer";
 import { SiGooglemaps, SiInstagram, SiWhatsapp } from "react-icons/si";
 
@@ -31,7 +30,7 @@ export default function SedesPageClient({
 }) {
   const router = useRouter();
   const branches = initialBranches;
-  const [loading] = useState(false);
+  const loading = false;
 
   return (
     <>

@@ -41,18 +41,26 @@ type FooterSettings = {
   address?: string;
 };
 
+type FooterBranchContact = {
+  address?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+};
+
 export default function ServiciosPageClient({
   initialServices,
   initialBranches,
   footerSettings,
+  footerBranchContact,
 }: {
   initialServices: Service[];
   initialBranches: Branch[];
   footerSettings?: FooterSettings;
+  footerBranchContact?: FooterBranchContact | null;
 }) {
-  const [services] = useState<Service[]>(initialServices);
-  const [branches] = useState<Branch[]>(initialBranches);
-  const [loading] = useState(false);
+  const services = initialServices;
+  const branches = initialBranches;
+  const loading = false;
 
   const [search, setSearch] = useState("");
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
@@ -599,7 +607,7 @@ export default function ServiciosPageClient({
           </div>
         </div>
       )}
-      <Footer initialSettings={footerSettings} />
+      <Footer initialSettings={footerSettings} initialBranchContact={footerBranchContact ?? null} />
     </>
   );
 }

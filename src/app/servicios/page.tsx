@@ -9,6 +9,7 @@ export default async function ServiciosPage() {
       initialServices={data.services ?? []}
       initialBranches={data.branches ?? []}
       footerSettings={data.site_settings?.public_footer ?? {}}
+      footerBranchContact={data.branches?.[0] ?? null}
     />
   );
 }

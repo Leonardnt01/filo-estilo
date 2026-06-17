@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Footer } from "@/components/footer";
 
 type Branch = {
@@ -60,7 +60,7 @@ export default function SedeDetallePageClient({
 }) {
   const services = initialServices;
   const barbers = initialBarbers;
-  const [loading] = useState(false);
+  const loading = false;
 
   const googleMapsLink = useMemo(() => {
     if (!branch) return "#";

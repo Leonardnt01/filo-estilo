@@ -1,8 +1,6 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 
 type FooterSettings = {
   brand_name?: string;
@@ -25,25 +23,8 @@ type FooterProps = {
 };
 
 export function Footer({ initialSettings, initialBranchContact = null }: FooterProps) {
-  const [settings, setSettings] = useState<FooterSettings>(initialSettings ?? {});
-  const [branchContact, setBranchContact] = useState<BranchContact | null>(initialBranchContact);
-
-  useEffect(() => {
-    if (initialSettings || initialBranchContact) {
-      return;
-    }
-
-    fetch("/api/home")
-      .then((r) => r.json())
-      .then((d) => {
-        setSettings(d?.site_settings?.public_footer ?? {});
-        setBranchContact((d?.branches ?? [])[0] ?? null);
-      })
-      .catch(() => {
-        setSettings({});
-        setBranchContact(null);
-      });
-  }, [initialBranchContact, initialSettings]);
+  const settings = initialSettings ?? {};
+  const branchContact = initialBranchContact;
 
   const brandName = settings.brand_name?.trim() || "Filo Estilo";
   const [brandMain, ...rest] = brandName.split(" ");
@@ -53,14 +34,11 @@ export function Footer({ initialSettings, initialBranchContact = null }: FooterP
   const mainWa = settings.whatsapp?.trim() || branchContact?.whatsapp?.trim() || "+51 999 999 999";
   const mainAddress = settings.address?.trim() || branchContact?.address?.trim() || "Presencia en múltiples sedes";
 
-  const links = useMemo(
-    () => ({
-      Instagram: settings.instagram || "https://instagram.com",
-      Facebook: settings.facebook || "https://facebook.com",
-      WhatsApp: `https://wa.me/${mainWa.replace(/\D/g, "") || "51999999999"}`,
-    }),
-    [settings.instagram, settings.facebook, mainWa],
-  );
+  const links = {
+    Instagram: settings.instagram || "https://instagram.com",
+    Facebook: settings.facebook || "https://facebook.com",
+    WhatsApp: `https://wa.me/${mainWa.replace(/\D/g, "") || "51999999999"}`,
+  };
 
   return (
     <footer className="bg-[var(--bg-secondary)] border-t border-[var(--border)]">
