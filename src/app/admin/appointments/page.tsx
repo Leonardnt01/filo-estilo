@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
 import { AdminAppointmentsSkeleton, AdminHeaderSkeleton } from "@/components/admin-skeletons";
@@ -645,10 +646,12 @@ export default function AdminAppointmentsPage() {
                       <div className="flex items-center gap-3">
                         <div className="relative h-12 w-12 shrink-0 rounded-xl border border-white/10 overflow-hidden bg-[var(--bg-secondary)] flex items-center justify-center shadow-md">
                           {item.service?.image_url ? (
-                            <img 
+                            <Image
                               src={item.service.image_url} 
                               alt={item.service.name} 
-                              className="h-full w-full object-cover" 
+                              fill
+                              sizes="48px"
+                              className="object-cover" 
                             />
                           ) : (
                             <span className="text-sm font-black text-[var(--accent)] font-serif">
@@ -672,10 +675,12 @@ export default function AdminAppointmentsPage() {
                       <div className="flex items-center gap-3 pt-1">
                         <div className="relative h-10 w-10 shrink-0 rounded-full border border-[var(--accent-border)]/40 overflow-hidden bg-[var(--bg-secondary)] flex items-center justify-center shadow-inner">
                           {item.barber?.image_url ? (
-                            <img 
+                            <Image
                               src={item.barber.image_url} 
                               alt={item.barber.full_name} 
-                              className="h-full w-full object-cover" 
+                              fill
+                              sizes="40px"
+                              className="object-cover" 
                             />
                           ) : (
                             <span className="text-xs font-black text-[var(--accent)]">

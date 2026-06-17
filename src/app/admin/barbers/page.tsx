@@ -1,7 +1,8 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
 import { useConfirm } from "@/components/confirm-modal";
 import { AdminCardsSkeleton, AdminHeaderSkeleton } from "@/components/admin-skeletons";
@@ -23,6 +24,10 @@ export default function AdminBarbersPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<Barber | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const branchNameById = useMemo(
+    () => new Map(branches.map((branch) => [branch.id, branch.name])),
+    [branches],
+  );
 
   async function load() {
     if (!branchId) return;
@@ -249,7 +254,7 @@ export default function AdminBarbersPage() {
         {items.map((item, i) => {
           const initials = item.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2);
           const hue = hues[i % hues.length];
-          const branchName = branches.find(b => b.id === branchId)?.name ?? "Sede";
+          const branchName = branchNameById.get(branchId) ?? "Sede";
           return (
             <div key={item.id} className="admin-card flex flex-col items-center text-center relative pt-8">
               <div className="absolute top-3 right-3 rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
@@ -257,7 +262,15 @@ export default function AdminBarbersPage() {
                 {branchName}
               </div>
               {item.image_url ? (
-                <img src={item.image_url} alt={item.full_name} className="h-20 w-20 rounded-full object-cover border-2" style={{ borderColor: "var(--accent-border)" }} />
+                <div className="relative h-20 w-20 overflow-hidden rounded-full border-2" style={{ borderColor: "var(--accent-border)" }}>
+                  <Image
+                    src={item.image_url}
+                    alt={item.full_name}
+                    fill
+                    sizes="80px"
+                    className="object-cover"
+                  />
+                </div>
               ) : (
                 <div
                   className="h-20 w-20 rounded-full flex items-center justify-center text-2xl font-bold border-2"
