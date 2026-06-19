@@ -26,6 +26,97 @@ const chargeBookingSchema = z.object({
   notes: z.string().trim().max(2000).optional().nullable(),
 });
 
+async function updateAppointmentNotesAfterCharge(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  appointmentIds: string[],
+  userId: string,
+  notes: string,
+  paymentMethodLabel: string,
+) {
+  const attempts = [
+    () =>
+      supabase
+        .from("appointments")
+        .update({ notes, status: "confirmed" })
+        .in("id", appointmentIds)
+        .eq("client_id", userId),
+    () =>
+      supabase
+        .from("appointments")
+        .update({ notes, status: "confirmed" })
+        .in("id", appointmentIds)
+        .eq("profile_id", userId),
+    () =>
+      supabase
+        .from("appointments")
+        .update({
+          notes,
+          status: "confirmed",
+          payment_method: paymentMethodLabel,
+          payment_status: "paid",
+        })
+        .in("id", appointmentIds)
+        .eq("profile_id", userId),
+  ] as const;
+
+  let lastError: { message: string } | null = null;
+
+  for (const attempt of attempts) {
+    const result = await attempt();
+    if (!result.error) {
+      return null;
+    }
+    lastError = { message: result.error.message };
+  }
+
+  return lastError;
+}
+
+async function rollbackFailedCharge(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  appointmentIds: string[],
+  userId: string,
+  notes: string,
+) {
+  const attempts = [
+    () =>
+      supabase
+        .from("appointments")
+        .update({
+          status: "cancelled",
+          notes,
+        })
+        .in("id", appointmentIds)
+        .eq("client_id", userId),
+    () =>
+      supabase
+        .from("appointments")
+        .update({
+          status: "cancelled",
+          notes,
+        })
+        .in("id", appointmentIds)
+        .eq("profile_id", userId),
+    () =>
+      supabase
+        .from("appointments")
+        .update({
+          status: "cancelled",
+          notes,
+          payment_status: "failed",
+        })
+        .in("id", appointmentIds)
+        .eq("profile_id", userId),
+  ] as const;
+
+  for (const attempt of attempts) {
+    const result = await attempt();
+    if (!result.error) {
+      return;
+    }
+  }
+}
+
 export async function POST(request: Request) {
   const { user } = await getAuthContext();
 
@@ -53,7 +144,7 @@ export async function POST(request: Request) {
 
   const supabase = await createClient();
   const [{ data: profile, error: profileError }, { data: services, error: servicesError }] = await Promise.all([
-    supabase.from("profiles").select("nombre, apellido").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
     supabase
       .from("services")
       .select("id, name, price, branch_id")
@@ -90,7 +181,7 @@ export async function POST(request: Request) {
     client: {
       clientId: user.id,
       customerName: buildFullName(profile, user.email ?? "Cliente"),
-      customerPhone: null,
+      customerPhone: profile?.phone ?? null,
       customerEmail: user.email ?? null,
     },
     branchId: branch_id,
@@ -123,16 +214,15 @@ export async function POST(request: Request) {
 
     const paymentMethodLabel = payment_method === "yape" ? "YAPE" : "TARJETA";
     const paidNote = `[PAGO CULQI] metodo:${paymentMethodLabel} tx:${charge.id}`;
-
-    const { error: updateError } = await supabase
-      .from("appointments")
-      .update({
-        notes: `${paidNote} | Personas:${selections.length} | Horarios del grupo: [${selections.map((selection) => selection.start_time).join(", ")}]${baseUserNote}`,
-        payment_method: paymentMethodLabel,
-        payment_status: "paid",
-      })
-      .in("id", bookingResult.items.map((item) => item.id))
-      .eq("profile_id", user.id);
+    const finalNotes = `${paidNote} | Personas:${selections.length} | Horarios del grupo: [${selections.map((selection) => selection.start_time).join(", ")}]${baseUserNote}`;
+    const appointmentIds = bookingResult.items.map((item) => item.id);
+    const updateError = await updateAppointmentNotesAfterCharge(
+      supabase,
+      appointmentIds,
+      user.id,
+      finalNotes,
+      paymentMethodLabel,
+    );
 
     if (updateError) {
       return NextResponse.json({
@@ -145,22 +235,15 @@ export async function POST(request: Request) {
       charge_id: charge.id,
       items: bookingResult.items.map((item) => ({
         ...item,
-        notes: `${paidNote} | Personas:${selections.length} | Horarios del grupo: [${selections.map((selection) => selection.start_time).join(", ")}]${baseUserNote}`,
+        notes: finalNotes,
       })),
     }, { status: 201 });
   } catch (error) {
     const failureMessage = error instanceof Error ? error.message : "Culqi payment could not be processed";
     const failureNote = `[PAGO CULQI FALLIDO ${new Date().toISOString()}] ${failureMessage}`;
-
-    await supabase
-      .from("appointments")
-      .update({
-        status: "cancelled",
-        notes: appendAuditNote(pendingNote, failureNote),
-        payment_status: "failed",
-      })
-      .in("id", bookingResult.items.map((item) => item.id))
-      .eq("profile_id", user.id);
+    const rollbackNotes = appendAuditNote(pendingNote, failureNote);
+    const appointmentIds = bookingResult.items.map((item) => item.id);
+    await rollbackFailedCharge(supabase, appointmentIds, user.id, rollbackNotes);
 
     return NextResponse.json({ error: failureMessage }, { status: 402 });
   }

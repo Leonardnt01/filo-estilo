@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   const supabase = await createClient();
 
   const [{ data: profile, error: profileError }, availability] = await Promise.all([
-    supabase.from("profiles").select("nombre, apellido").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
     resolveAvailability(supabase, {
       branchId: branch_id,
       barberId: barber_id,
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
       barber_id,
       service_id,
       customer_name: buildFullName(profile, user.email ?? "Cliente"),
-      customer_phone: null,
+      customer_phone: profile?.phone ?? null,
       appointment_date,
       appointment_time: start_time,
       people: 1,

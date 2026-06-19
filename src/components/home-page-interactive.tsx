@@ -134,6 +134,7 @@ export default function HomePageInteractive({
                     alt={keyServices[activeService].name}
                     width={1200}
                     height={880}
+                    priority={activeService === 0}
                     sizes="(max-width: 1024px) 100vw, 50vw"
                     className="h-64 w-full object-cover object-center md:h-80 lg:h-[440px]"
                     onError={(e) =>

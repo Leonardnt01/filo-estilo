@@ -46,6 +46,27 @@ export async function GET(request: Request) {
 
   const selectVariants: string[] = [
     `
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      barber:barbers(full_name, image_url),
+      service:services(name, price, image_url),
+      branch:branches(name)
+    `,
+    `
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      barber:barbers(full_name, image_url),
+      service:services(name, price),
+      branch:branches(name)
+    `,
+    `
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      barber:barbers(full_name),
+      service:services(name, price),
+      branch:branches(name)
+    `,
+    `
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at
+    `,
+    `
       id, profile_id, barber_id, service_id, branch_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
       barber:barbers(full_name, image_url),
       service:services(name, price, image_url),
@@ -76,8 +97,10 @@ export async function GET(request: Request) {
       .from("appointments")
       .select(select)
       .order("appointment_date", { ascending: false })
-      .order("appointment_time", { ascending: false })
       .limit(limit);
+
+    const usesModernTimeField = select.includes("start_time");
+    query = query.order(usesModernTimeField ? "start_time" : "appointment_time", { ascending: false });
 
     if (statusParam) query = query.eq("status", statusParam);
     if (barberId) query = query.eq("barber_id", barberId);

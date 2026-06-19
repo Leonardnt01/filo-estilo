@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { normalizeProfileForClient, splitFullName } from "@/lib/schema-compat";
+import { normalizeProfileForClient } from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
 
 const updateProfileSchema = z.object({
@@ -21,7 +21,7 @@ export async function GET() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, nombre, apellido, correo, role, created_at, updated_at")
+    .select("id, full_name, phone, role, created_at, updated_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -75,11 +75,12 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const updateData: { nombre?: string; apellido?: string } = {};
+  const updateData: { full_name?: string; phone?: string | null } = {};
   if (typeof parsed.data.full_name !== "undefined") {
-    const { nombre, apellido } = splitFullName(parsed.data.full_name);
-    updateData.nombre = nombre;
-    updateData.apellido = apellido;
+    updateData.full_name = parsed.data.full_name;
+  }
+  if (typeof parsed.data.phone !== "undefined") {
+    updateData.phone = parsed.data.phone;
   }
 
   if (Object.keys(updateData).length === 0) {
@@ -90,7 +91,7 @@ export async function PATCH(request: Request) {
     .from("profiles")
     .update(updateData)
     .eq("id", user.id)
-    .select("id, nombre, apellido, correo, role, created_at, updated_at")
+    .select("id, full_name, phone, role, created_at, updated_at")
     .single();
 
   if (error) {

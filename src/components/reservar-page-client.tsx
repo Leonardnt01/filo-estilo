@@ -313,9 +313,13 @@ function ReservarPageContent({
       const nextServiceId = services[0]?.id ?? "";
       setTimeout(() => setServiceId(nextServiceId), 0);
     }
-    setBarberId((prev) => (barbers.some((b) => b.id === prev) ? prev : (barbers[0]?.id ?? "")));
-    setSelectedSlots([]);
-    setSlots([]);
+    const syncTimer = setTimeout(() => {
+      setBarberId((prev) => (barbers.some((b) => b.id === prev) ? prev : (barbers[0]?.id ?? "")));
+      setSelectedSlots([]);
+      setSlots([]);
+    }, 0);
+
+    return () => clearTimeout(syncTimer);
   }, [barbers, branchId, branchServiceIds, requestedServiceId, serviceId, services]);
 
   const loadSlots = useCallback(async () => {

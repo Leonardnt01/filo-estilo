@@ -129,7 +129,22 @@ export async function createAppointmentsForSelections(
 ): Promise<CreateAppointmentsResult> {
   const { client, branchId, barberId, appointmentDate, selections, notes, initialStatus = "pending" } = input;
 
-  const rows: Array<{
+  const modernRows: Array<{
+    client_id: string;
+    branch_id: string;
+    barber_id: string;
+    service_id: string;
+    customer_name: string;
+    customer_phone: string | null;
+    customer_email: string | null;
+    appointment_date: string;
+    start_time: string;
+    end_time: string;
+    status: AppointmentStatus;
+    notes: string | null;
+  }> = [];
+
+  const legacyRows: Array<{
     profile_id: string;
     branch_id: string;
     barber_id: string;
@@ -163,7 +178,22 @@ export async function createAppointmentsForSelections(
       return { ok: false, status: 409, error: "Selected slot is not available" };
     }
 
-    rows.push({
+    modernRows.push({
+      client_id: client.clientId,
+      branch_id: branchId,
+      barber_id: barberId,
+      service_id: selection.serviceId,
+      customer_name: client.customerName,
+      customer_phone: client.customerPhone,
+      customer_email: client.customerEmail,
+      appointment_date: appointmentDate,
+      start_time: selection.startTime,
+      end_time: selectedSlot.end_time,
+      status: initialStatus,
+      notes: notes ?? null,
+    });
+
+    legacyRows.push({
       profile_id: client.clientId,
       branch_id: branchId,
       barber_id: barberId,
@@ -180,23 +210,63 @@ export async function createAppointmentsForSelections(
     });
   }
 
-  const { data, error } = await supabase
-    .from("appointments")
-    .insert(rows)
-    .select(
-      "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
-    );
+  const modernRowsWithoutEmail = modernRows.map((row) => {
+    const { customer_email: _customerEmail, ...rest } = row;
+    return rest;
+  });
 
-  if (error) {
-    if (error.code === "23505") {
+  const modernRowsMinimal = modernRows.map((row) => {
+    const { customer_email: _customerEmail, ...rest } = row;
+    return rest;
+  });
+
+  const insertAttempts: Array<{ rows: unknown[]; select: string }> = [
+    {
+      rows: modernRows,
+      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+    },
+    {
+      rows: modernRowsWithoutEmail,
+      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+    },
+    {
+      rows: modernRowsMinimal,
+      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+    },
+    {
+      rows: legacyRows,
+      select: "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
+    },
+  ];
+
+  let insertedData: Record<string, unknown>[] | null = null;
+  let insertError: { code?: string; message: string } | null = null;
+
+  for (const attempt of insertAttempts) {
+    const { data, error } = await supabase
+      .from("appointments")
+      .insert(attempt.rows as never)
+      .select(attempt.select);
+
+    if (!error) {
+      insertedData = (data ?? []) as unknown as Record<string, unknown>[];
+      insertError = null;
+      break;
+    }
+
+    insertError = { code: error.code, message: error.message };
+  }
+
+  if (insertError) {
+    if (insertError.code === "23505") {
       return { ok: false, status: 409, error: "Selected slot is already taken" };
     }
-    return { ok: false, status: 500, error: error.message };
+    return { ok: false, status: 500, error: insertError.message };
   }
 
   return {
     ok: true,
-    items: (data ?? []).map((item) => normalizeAppointmentForClient(item)),
+    items: (insertedData ?? []).map((item) => normalizeAppointmentForClient(item)),
   };
 }
 
@@ -211,7 +281,6 @@ export async function resolveAvailability(
     { data: service, error: serviceError },
     { data: hours, error: hoursError },
     { data: barber, error: barberError },
-    { data: busy, error: busyError },
   ] = await Promise.all([
     supabase
       .from("services")
@@ -234,21 +303,6 @@ export async function resolveAvailability(
       .eq("branch_id", branchId)
       .eq("is_active", true)
       .maybeSingle(),
-    (() => {
-      let query = supabase
-      .from("appointments")
-      .select("id, appointment_time")
-      .eq("branch_id", branchId)
-      .eq("barber_id", barberId)
-      .eq("appointment_date", appointmentDate)
-        .in("status", [...APPOINTMENT_ACTIVE_STATUSES]);
-
-      if (excludeAppointmentId) {
-        query = query.neq("id", excludeAppointmentId);
-      }
-
-      return query;
-    })(),
   ]);
 
   if (serviceError) {
@@ -260,10 +314,6 @@ export async function resolveAvailability(
   if (barberError) {
     return { ok: false, status: 500, error: barberError.message };
   }
-  if (busyError) {
-    return { ok: false, status: 500, error: busyError.message };
-  }
-
   if (!service) {
     return { ok: false, status: 400, error: "Service not found or inactive" };
   }
@@ -271,7 +321,45 @@ export async function resolveAvailability(
     return { ok: false, status: 400, error: "Barber not found or inactive for this branch" };
   }
 
-  const busySet = new Set((busy ?? []).map((item) => item.appointment_time.slice(0, 5)));
+  const busySelects = ["id, start_time", "id, appointment_time"] as const;
+  let busyItems: Array<{ slot: string }> = [];
+  let busyError: { message: string } | null = null;
+
+  for (const busySelect of busySelects) {
+    let query = supabase
+      .from("appointments")
+      .select(busySelect)
+      .eq("branch_id", branchId)
+      .eq("barber_id", barberId)
+      .eq("appointment_date", appointmentDate)
+      .in("status", [...APPOINTMENT_ACTIVE_STATUSES]);
+
+    if (excludeAppointmentId) {
+      query = query.neq("id", excludeAppointmentId);
+    }
+
+    const res = await query;
+    if (!res.error) {
+      busyItems = ((res.data ?? []) as Array<Record<string, unknown>>).map((item) => ({
+        slot:
+          typeof item.start_time === "string"
+            ? item.start_time.slice(0, 5)
+            : typeof item.appointment_time === "string"
+            ? item.appointment_time.slice(0, 5)
+            : "",
+      })).filter((item) => item.slot);
+      busyError = null;
+      break;
+    }
+
+    busyError = { message: res.error.message };
+  }
+
+  if (busyError) {
+    return { ok: false, status: 500, error: busyError.message };
+  }
+
+  const busySet = new Set(busyItems.map((item) => item.slot));
   const slots: Slot[] = [];
 
   for (const item of hours ?? []) {

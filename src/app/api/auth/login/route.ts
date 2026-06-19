@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     error: profileError,
   } = await supabase
     .from("profiles")
-    .select("role, nombre, apellido")
+    .select("role, full_name, phone")
     .eq("id", userId)
     .maybeSingle();
 

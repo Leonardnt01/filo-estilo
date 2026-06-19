@@ -24,13 +24,13 @@ export async function getProfilePageData() {
   const [{ data: profile, error: profileError }, { data: appointments, error: appointmentsError }, homeData] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, nombre, apellido, correo, role, created_at, updated_at")
+      .select("id, full_name, phone, role, created_at, updated_at")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
       .from("appointments")
       .select("status, appointment_date")
-      .eq("profile_id", user.id),
+      .eq("client_id", user.id),
     getPublicHomeData().catch(() => null),
   ]);
 
@@ -78,18 +78,37 @@ export async function getMyAppointmentsPageData() {
   }
 
   const supabase = await createClient();
-  const [{ data, error }, catalog] = await Promise.all([
-    supabase
+  const selectVariants = [
+    "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+    "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
+  ];
+
+  let data: Record<string, unknown>[] | null = null;
+  let error: { message: string } | null = null;
+
+  for (const select of selectVariants) {
+    let query = supabase
       .from("appointments")
-      .select(
-        "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
-      )
-      .eq("profile_id", user.id)
+      .select(select)
       .order("appointment_date", { ascending: false })
-      .order("appointment_time", { ascending: false })
-      .limit(20),
-    getPublicCatalogData().catch(() => null),
-  ]);
+      .limit(20);
+
+    if (select.includes("client_id")) {
+      query = query.eq("client_id", user.id).order("start_time", { ascending: false });
+    } else {
+      query = query.eq("profile_id", user.id).order("appointment_time", { ascending: false });
+    }
+
+    const res = await query;
+    if (!res.error) {
+      data = (res.data ?? []) as unknown as Record<string, unknown>[];
+      error = null;
+      break;
+    }
+    error = { message: res.error.message };
+  }
+
+  const catalog = await getPublicCatalogData().catch(() => null);
 
   if (error) {
     return {

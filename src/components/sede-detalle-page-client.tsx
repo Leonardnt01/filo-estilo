@@ -142,7 +142,8 @@ export default function SedeDetallePageClient({
                     src={branch.hero_image_url || branch.cover_image_url || SERVICE_FALLBACK_IMAGE}
                     alt={branch.name}
                     fill
-                    sizes="100vw"
+                    priority
+                    sizes="(max-width: 1280px) 100vw, 1280px"
                     className="object-cover"
                   />
                 </div>
@@ -250,6 +251,7 @@ export default function SedeDetallePageClient({
                             src={s.image_url || getServiceImageByName(s.name) || SERVICE_FALLBACK_IMAGE}
                             alt={s.name}
                             fill
+                            loading="eager"
                             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                             className="object-cover transition-all duration-500 group-hover:scale-105"
                           />

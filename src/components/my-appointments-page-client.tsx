@@ -41,9 +41,10 @@ type FooterBranchContact = {
 };
 
 interface ParsedNotes {
-  isPagoFicticio: boolean;
+  paymentState: "confirmed" | "processing" | null;
   method: string | null;
   tx: string | null;
+  ref: string | null;
   card: string | null;
   personas: number | null;
   horarios: string[] | null;
@@ -52,9 +53,10 @@ interface ParsedNotes {
 
 function parseNotes(notesStr: string | null): ParsedNotes {
   const result: ParsedNotes = {
-    isPagoFicticio: false,
+    paymentState: null,
     method: null,
     tx: null,
+    ref: null,
     card: null,
     personas: null,
     horarios: null,
@@ -71,14 +73,28 @@ function parseNotes(notesStr: string | null): ParsedNotes {
   const parts = notesStr.split("|").map((p) => p.trim());
 
   for (const part of parts) {
-    if (part.includes("[PAGO FICTICIO]")) {
-      result.isPagoFicticio = true;
+    if (part.includes("[PAGO FICTICIO]") || part.includes("[PAGO CULQI]")) {
+      result.paymentState = "confirmed";
+    } else if (part.includes("[PAGO CULQI EN PROCESO]")) {
+      result.paymentState = "processing";
+    }
 
+    if (
+      part.includes("[PAGO FICTICIO]") ||
+      part.includes("[PAGO CULQI]") ||
+      part.includes("[PAGO CULQI EN PROCESO]")
+    ) {
       const methodMatch = part.match(/metodo:(\S+)/);
       if (methodMatch) result.method = methodMatch[1];
 
+      const channelMatch = part.match(/canal:(\S+)/);
+      if (!result.method && channelMatch) result.method = channelMatch[1];
+
       const txMatch = part.match(/tx:(\S+)/);
       if (txMatch) result.tx = txMatch[1];
+
+      const refMatch = part.match(/ref:(\S+)/);
+      if (refMatch) result.ref = refMatch[1];
 
       const cardMatch = part.match(/card:(\S+)/);
       if (cardMatch) result.card = cardMatch[1];
@@ -212,11 +228,15 @@ export default function MyAppointmentsPageClient({
             ) : (
               <div className="space-y-4">
                 {items.map((item) => {
-                  const st = statusConfig[item.status] ?? statusConfig.pending;
+                  const parsed = parseNotes(item.notes);
+                  const effectiveStatus =
+                    item.status === "pending" && parsed.paymentState === "confirmed"
+                      ? "confirmed"
+                      : item.status;
+                  const st = statusConfig[effectiveStatus] ?? statusConfig.pending;
                   const service = services.find((s) => s.id === item.service_id);
                   const barber = barbers.find((b) => b.id === item.barber_id);
                   const branch = service ? branches.find((br) => br.id === service.branch_id) : null;
-                  const parsed = parseNotes(item.notes);
 
                   const serviceName = service?.name ?? "Servicio de Barbería";
                   const servicePrice = service ? `S/. ${service.price.toFixed(2)}` : null;
@@ -281,22 +301,26 @@ export default function MyAppointmentsPageClient({
                             Hora de Cita: <span className="font-bold text-[var(--accent)]">{item.start_time.slice(0, 5)}</span>
                           </span>
 
-                          {!parsed.isPagoFicticio && !parsed.userNotes && item.notes && (
+                          {!parsed.paymentState && !parsed.userNotes && item.notes && (
                             <span className="text-xs text-[var(--text-secondary)] italic">
                               Nota: {item.notes}
                             </span>
                           )}
                         </div>
 
-                        {(parsed.isPagoFicticio || parsed.personas || parsed.userNotes) && (
+                        {(parsed.paymentState || parsed.personas || parsed.userNotes) && (
                           <div className="rounded-2xl border border-white/5 bg-[#14141d]/40 p-3 sm:p-4 space-y-3">
-                            {parsed.isPagoFicticio && (
+                            {parsed.paymentState && (
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                                 {parsed.method === "TARJETA" && <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] text-emerald-300 font-semibold shadow-sm">Tarjeta **** {parsed.card ?? "4242"}</span>}
                                 {parsed.method === "QR" && <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[11px] text-amber-300 font-semibold shadow-sm">Pago Móvil QR</span>}
+                                {parsed.method === "YAPE" && <span className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 px-2.5 py-1 text-[11px] text-fuchsia-300 font-semibold shadow-sm">Yape</span>}
                                 {parsed.method === "EFECTIVO" && <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 text-[11px] text-blue-300 font-semibold shadow-sm">Efectivo en Local</span>}
                                 {parsed.tx && <span className="font-mono text-[10px] text-[var(--text-muted)] bg-white/5 border border-white/5 rounded px-2 py-0.5">ID: {parsed.tx}</span>}
-                                <span className="text-[9px] font-bold text-amber-500/60 uppercase tracking-widest">Pago Simulado</span>
+                                {!parsed.tx && parsed.ref && <span className="font-mono text-[10px] text-[var(--text-muted)] bg-white/5 border border-white/5 rounded px-2 py-0.5">REF: {parsed.ref}</span>}
+                                <span className={`text-[9px] font-bold uppercase tracking-widest ${parsed.paymentState === "confirmed" ? "text-emerald-400/80" : "text-amber-500/70"}`}>
+                                  {parsed.paymentState === "confirmed" ? "Pago confirmado" : "Pago en validación"}
+                                </span>
                               </div>
                             )}
 

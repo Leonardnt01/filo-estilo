@@ -25,7 +25,7 @@ export async function POST() {
   const supabase = await createClient();
 
   const [{ data: profile }, { data: barber }, { data: services, error: servicesError }] = await Promise.all([
-    supabase.from("profiles").select("nombre, apellido").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
     supabase.from("barbers").select("id, full_name").eq("is_active", true).order("created_at", { ascending: true }).limit(1).maybeSingle(),
     supabase
       .from("services")
