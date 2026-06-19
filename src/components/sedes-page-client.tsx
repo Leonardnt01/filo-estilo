@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Footer } from "@/components/footer";
-import { SiGooglemaps, SiInstagram, SiWhatsapp } from "react-icons/si";
+import { SiGooglemaps, SiWhatsapp } from "react-icons/si";
 
 type Branch = {
   id: string;
@@ -122,16 +122,6 @@ export default function SedesPageClient({
                       >
                         <SiWhatsapp className="h-3.5 w-3.5 text-[#25D366]" />
                         WhatsApp
-                      </a>
-                      <a
-                        href="https://www.instagram.com/explore/search/keyword/?q=barberia"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[#E1306C]/35 bg-[#E1306C]/12 px-2.5 py-1 text-[11px] text-[#FF91C4] transition-all hover:bg-[#E1306C]/20 hover:brightness-110"
-                      >
-                        <SiInstagram className="h-3.5 w-3.5 text-[#E1306C]" />
-                        Instagram
                       </a>
                     </div>
                     <div className="mt-4 flex items-center justify-between">

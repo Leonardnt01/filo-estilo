@@ -1443,8 +1443,10 @@ function ReservarPageContent({
                     </div>
                     <div>
                       <p className="text-[11px] text-[var(--text-muted)] font-medium uppercase tracking-wider">Fecha y Hora</p>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">{date || "-"} ({selectedSlots.length} horario(s))</p>
-                      <p className="text-[11px] text-[var(--text-secondary)]">Hora local confirmada</p>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">{date || "-"}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">
+                        {selectedSlots.length > 0 ? selectedSlots.join(", ") : "Horario pendiente"}
+                      </p>
                     </div>
                   </div>
 
@@ -1647,7 +1649,22 @@ function ReservarPageContent({
                     )}
                   </button>
                   <p className="text-[10px] text-[var(--text-muted)] text-center italic">
-                    Tu reserva se confirmará automáticamente después de validar el pago con {getPaymentMethodLabel(paymentMethod).toLowerCase()}.
+                    Tu reserva se confirmará automáticamente al completar el pago.
+                  </p>
+                  <p className="text-[10px] text-[var(--text-muted)] text-center leading-5">
+                    Al continuar aceptas nuestros{" "}
+                    <Link href="/terminos-condiciones" className="text-[var(--accent)] underline underline-offset-2">
+                      Términos y Condiciones
+                    </Link>
+                    , la{" "}
+                    <Link href="/politica-cambios-devoluciones" className="text-[var(--accent)] underline underline-offset-2">
+                      Política de Cambios y Devoluciones
+                    </Link>
+                    {" "}y puedes registrar cualquier incidencia en el{" "}
+                    <Link href="/libro-de-reclamaciones" className="text-[var(--accent)] underline underline-offset-2">
+                      Libro de Reclamaciones
+                    </Link>
+                    .
                   </p>
                 </div>
               </section>
