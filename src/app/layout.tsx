@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/toast";
 import { ConfirmProvider } from "@/components/confirm-modal";
@@ -51,6 +53,8 @@ export default function RootLayout({
                   <SessionSyncGuard />
                   <SiteNavbar />
                   {children}
+                  <Analytics />
+                  <SpeedInsights />
                 </AuthModalProvider>
               </ConfirmProvider>
             </ToastProvider>
