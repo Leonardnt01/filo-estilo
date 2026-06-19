@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Footer } from "@/components/footer";
 import { useToast } from "@/components/toast";
@@ -13,6 +13,7 @@ type MyAppointment = {
   start_time: string;
   status: string;
   notes: string | null;
+  created_at?: string | null;
   barber_id?: string | null;
   service_id?: string | null;
 };
@@ -160,12 +161,66 @@ export default function MyAppointmentsPageClient({
   const [services] = useState<CatalogService[]>(initialServices);
   const [barbers] = useState<CatalogBarber[]>(initialBarbers);
   const [branches] = useState<CatalogBranch[]>(initialBranches);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     if (searchParams.get("created") === "1") {
       toast("Tu cita fue registrada y ya aparece en tu historial.");
     }
   }, [searchParams, toast]);
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      const createdA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const createdB = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+      if (createdA !== createdB) {
+        return createdB - createdA;
+      }
+
+      const dateA = new Date(`${a.appointment_date}T${a.start_time.slice(0, 5)}:00`).getTime();
+      const dateB = new Date(`${b.appointment_date}T${b.start_time.slice(0, 5)}:00`).getTime();
+      return dateB - dateA;
+    });
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    return sortedItems.filter((item) => {
+      const parsed = parseNotes(item.notes);
+      const effectiveStatus =
+        item.status === "pending" && parsed.paymentState === "confirmed"
+          ? "confirmed"
+          : item.status;
+
+      if (statusFilter !== "all" && effectiveStatus !== statusFilter) {
+        return false;
+      }
+
+      if (dateFrom && item.appointment_date < dateFrom) {
+        return false;
+      }
+
+      if (dateTo && item.appointment_date > dateTo) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [dateFrom, dateTo, sortedItems, statusFilter]);
+
+  const statusCounts = useMemo(() => {
+    return sortedItems.reduce<Record<string, number>>((acc, item) => {
+      const parsed = parseNotes(item.notes);
+      const effectiveStatus =
+        item.status === "pending" && parsed.paymentState === "confirmed"
+          ? "confirmed"
+          : item.status;
+      acc[effectiveStatus] = (acc[effectiveStatus] ?? 0) + 1;
+      return acc;
+    }, {});
+  }, [sortedItems]);
 
   return (
     <>
@@ -214,8 +269,104 @@ export default function MyAppointmentsPageClient({
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                {items.map((item) => {
+              <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+                <aside className="glass-card h-fit p-4 sm:p-5 border border-white/5 lg:sticky lg:top-28">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">Filtros</p>
+                      <p className="mt-1 text-sm text-[var(--text-secondary)]">Organiza tu actividad</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter("all");
+                        setDateFrom("");
+                        setDateTo("");
+                      }}
+                      className="text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+
+                  <div className="mt-5 space-y-5">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Estado</p>
+                      <div className="mt-3 space-y-2">
+                        {[
+                          { key: "all", label: "Todas", count: sortedItems.length, tone: "text-white" },
+                          { key: "confirmed", label: "Confirmadas", count: statusCounts.confirmed ?? 0, tone: "text-blue-400" },
+                          { key: "in_progress", label: "En atención", count: statusCounts.in_progress ?? 0, tone: "text-purple-400" },
+                          { key: "completed", label: "Completadas", count: statusCounts.completed ?? 0, tone: "text-green-400" },
+                          { key: "cancelled", label: "Canceladas", count: statusCounts.cancelled ?? 0, tone: "text-red-400" },
+                        ].map((filterItem) => (
+                          <button
+                            key={filterItem.key}
+                            type="button"
+                            onClick={() => setStatusFilter(filterItem.key)}
+                            className={`w-full rounded-2xl border px-3 py-2.5 text-left transition-all ${
+                              statusFilter === filterItem.key
+                                ? "border-[var(--accent)] bg-[var(--accent-soft)]/20 shadow-sm"
+                                : "border-white/5 bg-white/[0.02] hover:border-[var(--accent-border)]/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className={`text-sm font-semibold ${statusFilter === filterItem.key ? "text-[var(--accent)]" : filterItem.tone}`}>
+                                {filterItem.label}
+                              </span>
+                              <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-mono text-[var(--text-muted)]">
+                                {filterItem.count}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--text-muted)]">Rango de fechas</p>
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">Desde</label>
+                          <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                            className="w-full rounded-xl border border-white/10 bg-[#14141d]/80 px-3 py-2 text-sm text-white outline-none transition focus:border-[var(--accent-border)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">Hasta</label>
+                          <input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                            className="w-full rounded-xl border border-white/10 bg-[#14141d]/80 px-3 py-2 text-sm text-white outline-none transition focus:border-[var(--accent-border)]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </aside>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3 px-1">
+                    <p className="text-sm text-[var(--text-secondary)]">
+                      {filteredItems.length} {filteredItems.length === 1 ? "reserva visible" : "reservas visibles"}
+                    </p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                      Ordenadas por registro reciente
+                    </p>
+                  </div>
+
+                  {filteredItems.length === 0 ? (
+                    <div className="glass-card p-10 text-center">
+                      <h3 className="text-lg font-semibold">No hay citas con esos filtros</h3>
+                      <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                        Ajusta el estado o el rango de fechas para ver otras reservas.
+                      </p>
+                    </div>
+                  ) : filteredItems.map((item) => {
                   const parsed = parseNotes(item.notes);
                   const effectiveStatus =
                     item.status === "pending" && parsed.paymentState === "confirmed"
@@ -302,7 +453,7 @@ export default function MyAppointmentsPageClient({
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                                 {parsed.method === "TARJETA" && (
                                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] text-emerald-300 font-semibold shadow-sm">
-                                    <Image src="/visa.png" alt="Tarjeta" width={18} height={12} className="h-3 w-[18px] object-contain" />
+                                    <Image src="/visa.svg" alt="Tarjeta" width={18} height={12} className="h-3 w-[18px] object-contain" />
                                     Tarjeta {parsed.cardLabel ?? `**** ${parsed.card ?? "4242"}`}
                                   </span>
                                 )}
@@ -383,6 +534,7 @@ export default function MyAppointmentsPageClient({
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
         </div>

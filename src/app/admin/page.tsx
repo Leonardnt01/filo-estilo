@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { fetchCachedJson } from "@/lib/cache/admin-client-cache";
 import * as d3 from "d3";
+import { FaEarthAmericas, FaLocationDot } from "react-icons/fa6";
 
 type Stats = {
   services: number;
@@ -51,8 +52,9 @@ function HorizontalGradientBars({ items, unit = "" }: { items: BarItem[]; unit?:
         return (
           <div key={idx} className="space-y-2 group">
             <div className="flex justify-between items-center text-xs">
-              <span className="font-bold text-[var(--text-secondary)] group-hover:text-[var(--accent)] transition-colors truncate max-w-[190px]">
-                📍 {item.label}
+              <span className="flex items-center gap-1.5 font-bold text-[var(--text-secondary)] group-hover:text-[var(--accent)] transition-colors truncate max-w-[190px]">
+                <FaLocationDot className="h-3 w-3 shrink-0 text-[var(--accent)]" />
+                <span className="truncate">{item.label}</span>
               </span>
               <span className="font-black text-[var(--text-primary)]">
                 {unit}{item.value.toLocaleString("es-PE", { minimumFractionDigits: unit ? 2 : 0 })}
@@ -988,7 +990,10 @@ export default function AdminDashboardPage() {
                 : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
             }`}
           >
-            Vista General
+            <span className="inline-flex items-center gap-1.5">
+              <FaEarthAmericas className="h-3.5 w-3.5" />
+              Vista General
+            </span>
           </button>
           {branches.map((b) => (
             <button
@@ -1000,7 +1005,10 @@ export default function AdminDashboardPage() {
                   : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
               }`}
             >
-              📍 {b.name}
+              <span className="inline-flex items-center gap-1.5">
+                <FaLocationDot className="h-3.5 w-3.5" />
+                {b.name}
+              </span>
             </button>
           ))}
         </div>

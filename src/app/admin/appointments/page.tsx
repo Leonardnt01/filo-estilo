@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaBan,
   FaCheck,
@@ -32,6 +32,8 @@ type Appointment = {
   appointment_date: string;
   start_time: string;
   end_time?: string;
+  created_at?: string;
+  updated_at?: string;
   status: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show";
   notes: string | null;
   barber_id?: string;
@@ -44,6 +46,7 @@ type Appointment = {
 
 type OptionItem = { id: string; full_name?: string; name?: string };
 type Branch = { id: string; name: string };
+type QuickStatusFilter = "all" | "to_start" | "in_progress" | "finished" | "cancelled";
 
 const STATUSES: Appointment["status"][] = ["pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"];
 const STATUS_CONFIG_SIMPLE: Record<Appointment["status"], { label: string }> = {
@@ -160,7 +163,7 @@ function getPaymentVisual(method: string) {
   }
 
   return {
-    iconSrc: "/visa.png",
+    iconSrc: "/visa.svg",
     iconAlt: "Tarjeta",
     accentClass: "bg-blue-500/5 text-blue-400 border-blue-500/15",
     label: "Pagado con Tarjeta",
@@ -297,6 +300,16 @@ function getWhatsAppUrl(phone: string | null): string {
   return `https://wa.me/${cleaned}`;
 }
 
+function getAppointmentSortTimestamp(item: Appointment) {
+  if (item.created_at) {
+    const createdAtMs = new Date(item.created_at).getTime();
+    if (!Number.isNaN(createdAtMs)) return createdAtMs;
+  }
+
+  const fallbackMs = new Date(`${item.appointment_date}T${item.start_time.slice(0, 5)}:00`).getTime();
+  return Number.isNaN(fallbackMs) ? 0 : fallbackMs;
+}
+
 export default function AdminAppointmentsPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<Appointment[]>([]);
@@ -310,6 +323,7 @@ export default function AdminAppointmentsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [limit, setLimit] = useState("100");
+  const [quickStatusFilter, setQuickStatusFilter] = useState<QuickStatusFilter>("all");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -405,6 +419,47 @@ export default function AdminAppointmentsPage() {
     toast(`Cita marcada como ${config.label}`);
   }
 
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => getAppointmentSortTimestamp(b) - getAppointmentSortTimestamp(a));
+  }, [items]);
+
+  const quickFilterCounts = useMemo(() => {
+    const counts = {
+      all: sortedItems.length,
+      to_start: 0,
+      in_progress: 0,
+      finished: 0,
+      cancelled: 0,
+    };
+
+    for (const item of sortedItems) {
+      const parsedNotes = parseAppointmentNotes(item.notes);
+      const isPrepaid = !!parsedNotes.payment?.isPrepaid;
+      const effectiveStatus = getEffectiveAppointmentStatus(item, isPrepaid);
+
+      if (effectiveStatus === "confirmed") counts.to_start += 1;
+      if (effectiveStatus === "in_progress") counts.in_progress += 1;
+      if (effectiveStatus === "completed") counts.finished += 1;
+      if (effectiveStatus === "cancelled") counts.cancelled += 1;
+    }
+
+    return counts;
+  }, [sortedItems]);
+
+  const visibleItems = useMemo(() => {
+    return sortedItems.filter((item) => {
+      const parsedNotes = parseAppointmentNotes(item.notes);
+      const isPrepaid = !!parsedNotes.payment?.isPrepaid;
+      const effectiveStatus = getEffectiveAppointmentStatus(item, isPrepaid);
+
+      if (quickStatusFilter === "to_start") return effectiveStatus === "confirmed";
+      if (quickStatusFilter === "in_progress") return effectiveStatus === "in_progress";
+      if (quickStatusFilter === "finished") return effectiveStatus === "completed";
+      if (quickStatusFilter === "cancelled") return effectiveStatus === "cancelled";
+      return true;
+    });
+  }, [quickStatusFilter, sortedItems]);
+
   return (
     <section className="space-y-6">
       {branchesLoading ? (
@@ -417,7 +472,7 @@ export default function AdminAppointmentsPage() {
                 Gestión de <span style={{ color: "var(--accent)" }}>Citas</span>
               </h2>
               <p className="mt-1 text-xs sm:text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-                Monitorea y actualiza el estado de las citas en tiempo real. {items.length} {items.length === 1 ? "cita encontrada" : "citas encontradas"}
+                Monitorea y actualiza el estado de las citas en tiempo real. {visibleItems.length} {visibleItems.length === 1 ? "cita encontrada" : "citas encontradas"}
               </p>
             </div>
             <button 
@@ -461,6 +516,51 @@ export default function AdminAppointmentsPage() {
               ))}
             </div>
           )}
+
+          <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
+            {[
+              { key: "all", label: "Todas", count: quickFilterCounts.all },
+              { key: "to_start", label: "Por iniciar", count: quickFilterCounts.to_start },
+              { key: "in_progress", label: "En atención", count: quickFilterCounts.in_progress },
+              { key: "finished", label: "Finalizados", count: quickFilterCounts.finished },
+              { key: "cancelled", label: "Cancelados", count: quickFilterCounts.cancelled },
+            ].map((filterItem) => (
+              <button
+                key={filterItem.key}
+                onClick={() => setQuickStatusFilter(filterItem.key as QuickStatusFilter)}
+                className={`px-3 py-2 text-[11px] sm:text-xs font-bold rounded-xl transition-all whitespace-nowrap border flex items-center gap-2 ${
+                  quickStatusFilter === filterItem.key
+                    ? filterItem.key === "to_start"
+                      ? "bg-amber-500/10 text-amber-300 border-amber-500/40 shadow-md"
+                      : filterItem.key === "in_progress"
+                      ? "bg-purple-500/10 text-purple-300 border-purple-500/40 shadow-md"
+                      : filterItem.key === "finished"
+                      ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/40 shadow-md"
+                      : filterItem.key === "cancelled"
+                      ? "bg-red-500/10 text-red-300 border-red-500/40 shadow-md"
+                      : "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)] shadow-md"
+                    : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent-border)] hover:bg-white/[0.02]"
+                }`}
+              >
+                <span>{filterItem.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] ${
+                  quickStatusFilter === filterItem.key
+                    ? filterItem.key === "to_start"
+                      ? "bg-amber-400 text-[var(--bg-primary)]"
+                      : filterItem.key === "in_progress"
+                      ? "bg-purple-400 text-[var(--bg-primary)]"
+                      : filterItem.key === "finished"
+                      ? "bg-emerald-400 text-[var(--bg-primary)]"
+                      : filterItem.key === "cancelled"
+                      ? "bg-red-400 text-[var(--bg-primary)]"
+                      : "bg-[var(--accent)] text-[var(--bg-primary)]"
+                    : "bg-white/5 text-[var(--text-muted)]"
+                }`}>
+                  {filterItem.count}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -534,7 +634,7 @@ export default function AdminAppointmentsPage() {
 
       {loading ? (
         <AdminAppointmentsSkeleton rows={6} />
-      ) : items.length === 0 ? (
+      ) : visibleItems.length === 0 ? (
         <div className="admin-card p-16 text-center bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl shadow-lg">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl mb-4" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
             <svg className="h-10 w-10 text-[var(--accent)] animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -548,7 +648,7 @@ export default function AdminAppointmentsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {items.map((item) => {
+          {visibleItems.map((item) => {
             const { payment, companions, groupSlots, userNote } = parseAppointmentNotes(item.notes);
             const isPrepaid = !!payment?.isPrepaid;
             const effectiveStatus = getEffectiveAppointmentStatus(item, isPrepaid);

@@ -1528,7 +1528,7 @@ function ReservarPageContent({
                           : "border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                       }`}
                     >
-                      <Image src="/visa.png" alt="Tarjeta" width={20} height={14} className="h-[14px] w-[20px] object-contain" />
+                      <Image src="/visa.svg" alt="Tarjeta" width={20} height={14} className="h-[14px] w-[20px] object-contain" />
                       <span className="text-[10px] sm:text-xs">Tarjeta</span>
                     </button>
                   </div>
@@ -1568,7 +1568,7 @@ function ReservarPageContent({
                     <div className="space-y-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 animate-fade-in text-sm text-[var(--text-secondary)]">
                       <div className="flex gap-3">
                         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 shrink-0">
-                          <Image src="/visa.png" alt="Tarjeta" width={24} height={16} className="h-4 w-6 object-contain" />
+                          <Image src="/visa.svg" alt="Tarjeta" width={24} height={16} className="h-4 w-6 object-contain" />
                         </div>
                         <div>
                           <h4 className="font-semibold text-[var(--text-primary)]">Paga con Tarjeta</h4>

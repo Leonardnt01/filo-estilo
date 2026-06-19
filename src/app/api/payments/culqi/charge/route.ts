@@ -61,6 +61,26 @@ function buildPaidPaymentNote(params: {
   return parts.join(" ");
 }
 
+function resolveChargeReference(charge: unknown, fallbackRef: string) {
+  if (charge && typeof charge === "object") {
+    const candidateMap = charge as Record<string, unknown>;
+    const directId = candidateMap.id;
+    if (typeof directId === "string" && directId.trim()) {
+      return directId;
+    }
+
+    const nestedData = candidateMap.data;
+    if (nestedData && typeof nestedData === "object") {
+      const nestedId = (nestedData as Record<string, unknown>).id;
+      if (typeof nestedId === "string" && nestedId.trim()) {
+        return nestedId;
+      }
+    }
+  }
+
+  return fallbackRef;
+}
+
 async function updateAppointmentNotesAfterCharge(
   supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>,
   appointmentIds: string[],
@@ -267,16 +287,18 @@ export async function POST(request: Request) {
         appointment_date,
       },
     });
+    const chargeReference = resolveChargeReference(charge, pendingRef);
     console.log("[CULQI][API] charge created successfully", {
-      chargeId: charge.id,
+      chargeId: chargeReference,
       payment_method,
       appointmentIds: bookingResult.items.map((item) => item.id),
+      chargeResponse: charge,
     });
 
     const paymentMethodLabel = payment_method === "yape" ? "YAPE" : "TARJETA";
     const paidNote = buildPaidPaymentNote({
       paymentMethod: payment_method,
-      chargeId: charge.id,
+      chargeId: chargeReference,
       amount: totalAmount,
       phone: payment_method === "yape" ? payment_details?.phone ?? null : null,
       cardLast4: payment_method === "card" ? payment_details?.card_last4 ?? null : null,
@@ -303,7 +325,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      charge_id: charge.id,
+      charge_id: chargeReference,
       items: bookingResult.items.map((item) => ({
         ...item,
         notes: finalNotes,

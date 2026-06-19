@@ -96,6 +96,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from("appointments")
       .select(select)
+      .order("created_at", { ascending: false })
       .order("appointment_date", { ascending: false })
       .limit(limit);
 
