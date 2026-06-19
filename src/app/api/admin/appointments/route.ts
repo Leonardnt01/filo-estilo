@@ -21,8 +21,8 @@ export async function GET(request: Request) {
   const { role, memberships } = adminCheck;
 
   const { searchParams } = new URL(request.url);
-  const rawLimit = Number(searchParams.get("limit") ?? "20");
-  const limit = Number.isNaN(rawLimit) ? 20 : Math.min(Math.max(rawLimit, 1), 100);
+  const rawLimit = Number(searchParams.get("limit") ?? "100");
+  const limit = Number.isNaN(rawLimit) ? 100 : Math.min(Math.max(rawLimit, 1), 100);
 
   const statusParam = searchParams.get("status");
   const barberId = searchParams.get("barber_id");

@@ -3,6 +3,23 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import {
+  FaBan,
+  FaCheck,
+  FaClock,
+  FaCreditCard,
+  FaEarthAmericas,
+  FaEnvelope,
+  FaFilter,
+  FaLocationDot,
+  FaPhone,
+  FaRegCircleCheck,
+  FaScissors,
+  FaUser,
+  FaUserGroup,
+  FaUserTie,
+  FaWhatsapp,
+} from "react-icons/fa6";
 import { useToast } from "@/components/toast";
 import { AdminAppointmentsSkeleton, AdminHeaderSkeleton } from "@/components/admin-skeletons";
 import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/cache/admin-client-cache";
@@ -29,7 +46,6 @@ type OptionItem = { id: string; full_name?: string; name?: string };
 type Branch = { id: string; name: string };
 
 const STATUSES: Appointment["status"][] = ["pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"];
-
 const STATUS_CONFIG_SIMPLE: Record<Appointment["status"], { label: string }> = {
   pending: { label: "Pendiente" },
   confirmed: { label: "Confirmada" },
@@ -104,33 +120,108 @@ const getDetailedStatusConfig = (status: Appointment["status"], isPrepaid: boole
   }
 };
 
-const getStepStatus = (step: number, status: Appointment["status"]): "completed" | "active" | "upcoming" => {
-  const statusOrder: Record<Appointment["status"], number> = {
-    pending: 1,
-    confirmed: 2,
-    in_progress: 3,
-    completed: 4,
-    cancelled: 0,
-    no_show: 0,
-  };
-
-  const currentOrder = statusOrder[status] || 0;
-  if (currentOrder === 0) return "upcoming";
-
-  if (step < currentOrder) return "completed";
-  if (step === currentOrder) return "active";
-  return "upcoming";
-};
-
 interface ParsedNotes {
   payment: {
     method: string;
     tx: string;
     isPrepaid: boolean;
+    amount: string | null;
+    currency: string | null;
+    phone: string | null;
+    cardLabel: string | null;
   } | null;
   companions: number | null;
   groupSlots: string[] | null;
   userNote: string | null;
+}
+
+function extractTaggedValue(input: string, key: string) {
+  const match = input.match(new RegExp(`${key}:([^|\\s]+)`, "i"));
+  return match ? match[1].trim() : null;
+}
+
+function getEffectiveAppointmentStatus(item: Appointment, isPrepaid: boolean): Appointment["status"] {
+  if (item.status === "pending" && isPrepaid) {
+    return "confirmed";
+  }
+
+  return item.status;
+}
+
+function getPaymentVisual(method: string) {
+  const normalized = method.toLowerCase();
+  if (normalized.includes("yape")) {
+    return {
+      iconSrc: "/yape.svg",
+      iconAlt: "Yape",
+      accentClass: "bg-[rgba(122,34,110,0.06)] text-[#d946ef] border-[rgba(122,34,110,0.18)]",
+      label: "Pagado con Yape",
+    };
+  }
+
+  return {
+    iconSrc: "/visa.png",
+    iconAlt: "Tarjeta",
+    accentClass: "bg-blue-500/5 text-blue-400 border-blue-500/15",
+    label: "Pagado con Tarjeta",
+  };
+}
+
+function getCustomerInitials(name: string | null) {
+  if (!name) return "CL";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "CL";
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function getAdminActions(status: Appointment["status"]) {
+  if (status === "confirmed") {
+    return [
+      { label: "Iniciar", nextStatus: "in_progress" as const, tone: "primary" as const },
+      { label: "Cancelar", nextStatus: "cancelled" as const, tone: "danger" as const },
+    ];
+  }
+
+  if (status === "in_progress") {
+    return [{ label: "Finalizar", nextStatus: "completed" as const, tone: "primary" as const }];
+  }
+
+  return [];
+}
+
+function getTimelineSteps(status: Appointment["status"]) {
+  if (status === "cancelled") {
+    return [
+      { key: "paid", label: "Pagado", state: "completed" as const },
+      { key: "confirmed", label: "Confirmado", state: "completed" as const },
+      { key: "cancelled", label: "Cancelado", state: "active" as const },
+    ];
+  }
+
+  if (status === "completed") {
+    return [
+      { key: "paid", label: "Pagado", state: "completed" as const },
+      { key: "confirmed", label: "Confirmado", state: "completed" as const },
+      { key: "completed", label: "Finalizado", state: "completed" as const },
+    ];
+  }
+
+  if (status === "in_progress") {
+    return [
+      { key: "paid", label: "Pagado", state: "completed" as const },
+      { key: "progress", label: "En atención", state: "active" as const },
+      { key: "completed", label: "Finalizado", state: "upcoming" as const },
+    ];
+  }
+
+  return [
+    { key: "paid", label: "Pagado", state: "completed" as const },
+    { key: "confirmed", label: "Confirmado", state: "active" as const },
+    { key: "completed", label: "Finalizado", state: "upcoming" as const },
+  ];
 }
 
 
@@ -150,14 +241,16 @@ function parseAppointmentNotes(notesStr: string | null): ParsedNotes {
     if (!trimmed) continue;
 
     if (trimmed.startsWith("[PAGO FICTICIO]") || trimmed.includes("metodo:") || trimmed.includes("tx:")) {
-      const methodMatch = trimmed.match(/metodo:\s*([^\s|]+)/i);
-      const txMatch = trimmed.match(/tx:\s*([^\s|]+)/i);
-      const method = methodMatch ? methodMatch[1] : "QR/Tarjeta";
-      const tx = txMatch ? txMatch[1] : "N/A";
+      const method = extractTaggedValue(trimmed, "metodo") ?? "QR/Tarjeta";
+      const tx = extractTaggedValue(trimmed, "tx") ?? "N/A";
       payment = {
         method,
         tx,
         isPrepaid: true,
+        amount: extractTaggedValue(trimmed, "monto"),
+        currency: extractTaggedValue(trimmed, "moneda"),
+        phone: extractTaggedValue(trimmed, "celular"),
+        cardLabel: extractTaggedValue(trimmed, "tarjeta"),
       };
     } else if (trimmed.startsWith("Personas:")) {
       const match = trimmed.match(/Personas:\s*(\d+)/i);
@@ -178,12 +271,14 @@ function parseAppointmentNotes(notesStr: string | null): ParsedNotes {
 
   
   if (!payment && (notesStr.includes("metodo:") || notesStr.includes("[PAGO FICTICIO]"))) {
-    const methodMatch = notesStr.match(/metodo:\s*([^\s|]+)/i);
-    const txMatch = notesStr.match(/tx:\s*([^\s|]+)/i);
     payment = {
-      method: methodMatch ? methodMatch[1] : "Desconocido",
-      tx: txMatch ? txMatch[1] : "N/A",
+      method: extractTaggedValue(notesStr, "metodo") ?? "Desconocido",
+      tx: extractTaggedValue(notesStr, "tx") ?? "N/A",
       isPrepaid: true,
+      amount: extractTaggedValue(notesStr, "monto"),
+      currency: extractTaggedValue(notesStr, "moneda"),
+      phone: extractTaggedValue(notesStr, "celular"),
+      cardLabel: extractTaggedValue(notesStr, "tarjeta"),
     };
   }
 
@@ -214,7 +309,7 @@ export default function AdminAppointmentsPage() {
   const [serviceFilter, setServiceFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [limit, setLimit] = useState("20");
+  const [limit, setLimit] = useState("100");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -290,7 +385,7 @@ export default function AdminAppointmentsPage() {
   async function applyFilters() { await load(); }
   async function clearFilters() {
     setStatusFilter(""); setBarberFilter(""); setServiceFilter("");
-    setDateFrom(""); setDateTo(""); setLimit("20");
+    setDateFrom(""); setDateTo(""); setLimit("100");
     setTimeout(() => { void load(); }, 0);
   }
 
@@ -305,7 +400,8 @@ export default function AdminAppointmentsPage() {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
     
     const notesParsed = parseAppointmentNotes(items.find(item => item.id === id)?.notes || "");
-    const config = getDetailedStatusConfig(status, !!notesParsed.payment?.isPrepaid);
+    const effectiveStatus = status === "pending" && !!notesParsed.payment?.isPrepaid ? "confirmed" : status;
+    const config = getDetailedStatusConfig(effectiveStatus, !!notesParsed.payment?.isPrepaid);
     toast(`Cita marcada como ${config.label}`);
   }
 
@@ -330,9 +426,7 @@ export default function AdminAppointmentsPage() {
                 showFilters ? "border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-soft)]" : ""
               }`}
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
+              <FaFilter className="h-4 w-4" />
               {showFilters ? "Ocultar Filtros" : "Mostrar Filtros"}
             </button>
           </div>
@@ -348,7 +442,8 @@ export default function AdminAppointmentsPage() {
                     : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent-border)] hover:bg-white/[0.02]"
                 }`}
               >
-                🌍 Todas las Sedes
+                <FaEarthAmericas className="h-3.5 w-3.5" />
+                Todas las Sedes
               </button>
               {branches.map((b) => (
                 <button
@@ -360,7 +455,8 @@ export default function AdminAppointmentsPage() {
                       : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent-border)] hover:bg-white/[0.02]"
                   }`}
                 >
-                  📍 {b.name}
+                  <FaLocationDot className="h-3.5 w-3.5" />
+                  {b.name}
                 </button>
               ))}
             </div>
@@ -455,7 +551,11 @@ export default function AdminAppointmentsPage() {
           {items.map((item) => {
             const { payment, companions, groupSlots, userNote } = parseAppointmentNotes(item.notes);
             const isPrepaid = !!payment?.isPrepaid;
-            const config = getDetailedStatusConfig(item.status, isPrepaid);
+            const effectiveStatus = getEffectiveAppointmentStatus(item, isPrepaid);
+            const config = getDetailedStatusConfig(effectiveStatus, isPrepaid);
+            const actions = getAdminActions(effectiveStatus);
+            const paymentVisual = payment ? getPaymentVisual(payment.method) : null;
+            const timelineSteps = getTimelineSteps(effectiveStatus);
 
             return (
               <div 
@@ -480,7 +580,8 @@ export default function AdminAppointmentsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         {item.branch?.name && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent-border)]">
-                            📍 {item.branch.name}
+                            <FaLocationDot className="mr-1 h-3 w-3" />
+                            {item.branch.name}
                           </span>
                         )}
                         <span className="text-[10px] font-mono text-[var(--text-muted)]">
@@ -488,9 +589,7 @@ export default function AdminAppointmentsPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 mt-1">
-                        <svg className="h-4 w-4 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <FaClock className="h-4 w-4 text-[var(--accent)]" />
                         <span className="text-sm font-bold text-[var(--text-primary)] font-mono">
                           {item.start_time.slice(0, 5)}
                         </span>
@@ -498,37 +597,43 @@ export default function AdminAppointmentsPage() {
                     </div>
                   </div>
 
-                  {/* Stepper & Dropdown selector */}
+                  {/* Stepper & Actions */}
                   <div className="flex flex-wrap items-center gap-3 self-end xl:self-center">
                     {/* Stepper component */}
-                    {item.status !== "cancelled" && item.status !== "no_show" && (
+                    {effectiveStatus !== "no_show" && (
                       <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-semibold py-1.5 px-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border)] overflow-hidden shrink-0">
-                        {[
-                          { num: 1, label: isPrepaid ? "Pagado" : "Registrado" },
-                          { num: 2, label: "Confirmado" },
-                          { num: 3, label: "En Atención" },
-                          { num: 4, label: "Finalizado" }
-                        ].map((step, idx) => {
-                          const stepState = getStepStatus(step.num, item.status);
+                        {timelineSteps.map((step, idx) => {
                           return (
-                            <div key={step.num} className="flex items-center gap-1.5 sm:gap-2">
+                            <div key={step.key} className="flex items-center gap-1.5 sm:gap-2">
                               {idx > 0 && (
                                 <div className={`h-[2px] w-2 sm:w-4 transition-all duration-300 ${
-                                  stepState === "completed" || stepState === "active" ? "bg-[var(--accent)]" : "bg-white/10"
+                                  step.state === "completed" || step.state === "active" ? "bg-[var(--accent)]" : "bg-white/10"
                                 }`} />
                               )}
                               <div className="flex items-center gap-1">
                                 <span className={`flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full text-[9px] sm:text-[10px] font-black transition-all ${
-                                  stepState === "completed"
+                                  step.state === "completed"
                                     ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                                    : stepState === "active"
-                                    ? "bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)] animate-pulse"
+                                    : step.state === "active"
+                                    ? effectiveStatus === "cancelled"
+                                      ? "bg-red-500/10 text-red-300 border border-red-500/30"
+                                      : effectiveStatus === "in_progress"
+                                      ? "bg-purple-500/10 text-purple-300 border border-purple-500/30"
+                                      : "bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)] animate-pulse"
                                     : "bg-white/5 text-[var(--text-muted)] border border-white/5"
                                 }`}>
-                                  {stepState === "completed" ? "✓" : step.num}
+                                  {step.state === "completed" ? <FaCheck className="h-2.5 w-2.5" /> : idx + 1}
                                 </span>
                                 <span className={`hidden md:inline text-[9px] sm:text-[10px] ${
-                                  stepState === "completed" ? "text-emerald-400" : stepState === "active" ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
+                                  step.state === "completed"
+                                    ? "text-emerald-400"
+                                    : step.state === "active"
+                                    ? effectiveStatus === "cancelled"
+                                      ? "text-red-300"
+                                      : effectiveStatus === "in_progress"
+                                      ? "text-purple-300"
+                                      : "text-[var(--accent)]"
+                                    : "text-[var(--text-muted)]"
                                 }`}>
                                   {step.label}
                                 </span>
@@ -540,42 +645,38 @@ export default function AdminAppointmentsPage() {
                     )}
 
                     {/* Exceptions (Cancelled or No Show) banner */}
-                    {(item.status === "cancelled" || item.status === "no_show") && (
+                    {(effectiveStatus === "cancelled" || effectiveStatus === "no_show") && (
                       <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider" style={{ color: config.color, background: config.bg, border: `1px solid ${config.color}20` }}>
-                        ⚠️ Cita {config.label}
+                        <FaBan className="h-3 w-3" />
+                        Cita {config.label}
                       </span>
                     )}
 
-                    {/* Status badge pill and dropdown */}
-                    <div className="flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-xl py-1 px-2.5 shadow-sm">
+                    {/* Status badge pill and buttons */}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <span 
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
+                        className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-wider"
                         style={{ color: config.color, background: config.bg }}
                       >
                         <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
                         {config.label}
                       </span>
 
-                      <div className="relative">
-                        <select
-                          value={item.status}
+                      {actions.map((action) => (
+                        <button
+                          key={action.nextStatus}
+                          type="button"
                           disabled={savingId === item.id}
-                          onChange={(e) => void changeStatus(item.id, e.target.value as Appointment["status"])}
-                          className="admin-select !py-1 !pl-2 !pr-6 text-[10px] sm:text-xs font-bold border rounded-lg transition-all cursor-pointer hover:border-[var(--accent)] focus:border-[var(--accent)] outline-none !bg-transparent border-transparent"
-                          style={{ color: "var(--text-primary)" }}
+                          onClick={() => void changeStatus(item.id, action.nextStatus)}
+                          className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-all ${
+                            action.tone === "danger"
+                              ? "border border-red-500/20 bg-red-500/10 text-red-300 hover:bg-red-500/15"
+                              : "border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)] hover:border-[var(--accent)]"
+                          } ${savingId === item.id ? "cursor-wait opacity-60" : "cursor-pointer"}`}
                         >
-                          {STATUSES.map((s) => (
-                            <option key={s} value={s} className="bg-[var(--bg-surface)] text-[var(--text-primary)]">
-                              {s === "pending" ? (isPrepaid ? "Pagado y Confirmado" : "Pendiente") : STATUS_CONFIG_SIMPLE[s].label}
-                            </option>
-                          ))}
-                        </select>
-                        {savingId === item.id && (
-                          <div className="absolute inset-0 bg-[var(--bg-surface)]/60 flex items-center justify-center rounded-lg">
-                            <div className="h-3 w-3 border-2 border-[var(--accent)] border-t-transparent animate-spin rounded-full" />
-                          </div>
-                        )}
-                      </div>
+                          {savingId === item.id ? "Guardando..." : action.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -587,10 +688,22 @@ export default function AdminAppointmentsPage() {
                     <h4 className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)] pb-1">
                       Cliente
                     </h4>
-                    <div className="space-y-2">
-                      <p className="text-base font-bold text-[var(--text-primary)]">
-                        {item.customer_name ?? "Cliente sin nombre"}
-                      </p>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[var(--accent-border)]/40 bg-[var(--bg-secondary)] shadow-inner">
+                          <span className="text-xs font-black text-[var(--accent)]">
+                            {getCustomerInitials(item.customer_name)}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-[var(--text-primary)]">
+                            {item.customer_name ?? "Cliente sin nombre"}
+                          </p>
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                            Cliente registrado
+                          </p>
+                        </div>
+                      </div>
                       
                       <div className="space-y-1.5 text-xs text-[var(--text-secondary)]">
                         {item.customer_email && (
@@ -598,9 +711,7 @@ export default function AdminAppointmentsPage() {
                             href={`mailto:${item.customer_email}`}
                             className="flex items-center gap-2 hover:text-[var(--accent)] transition-colors py-0.5 group/link"
                           >
-                            <svg className="h-3.5 w-3.5 text-[var(--text-muted)] group-hover/link:text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
+                            <FaEnvelope className="h-3.5 w-3.5 text-[var(--text-muted)] group-hover/link:text-[var(--accent)]" />
                             <span className="truncate max-w-[180px]">{item.customer_email}</span>
                           </a>
                         )}
@@ -612,9 +723,7 @@ export default function AdminAppointmentsPage() {
                               href={`tel:${item.customer_phone}`}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-strong)] hover:border-[var(--accent)] bg-[var(--bg-secondary)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] transition-all font-semibold text-[10px] sm:text-xs"
                             >
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                              </svg>
+                              <FaPhone className="h-3 w-3" />
                               Llamar
                             </a>
                             
@@ -625,9 +734,7 @@ export default function AdminAppointmentsPage() {
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 hover:border-emerald-500/40 transition-all font-semibold text-[10px] sm:text-xs"
                             >
-                              <svg className="h-3 w-3 fill-current" viewBox="0 0 24 24">
-                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.517 2.266 2.27 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.167 1.451 4.777 1.453 5.378 0 9.754-4.374 9.758-9.754.002-2.605-1.013-5.056-2.86-6.905C16.417 2.097 13.961 1.08 11.36 1.08c-5.382 0-9.76 4.374-9.764 9.754-.002 1.709.452 3.376 1.312 4.868l-.963 3.517 3.606-.945zm11.367-7.793c-.302-.15-1.786-.881-2.062-.982-.277-.1-.478-.15-.679.15-.201.3-.778.982-.954 1.183-.176.201-.352.226-.654.076-.302-.15-1.275-.47-2.428-1.498-.897-.8-1.503-1.788-1.679-2.088-.176-.3-.019-.462.132-.612.135-.135.302-.35.452-.525.15-.175.201-.3.302-.5.101-.2.05-.375-.025-.525-.075-.15-.679-1.636-.93-2.246-.244-.589-.493-.51-.679-.519-.176-.009-.377-.01-.578-.01-.201 0-.527.075-.803.375-.276.3-1.055 1.031-1.055 2.516s1.08 2.917 1.23 3.117c.15.2 2.126 3.247 5.15 4.553.719.31 1.28.496 1.718.636.722.23 1.38.197 1.9.12.579-.087 1.786-.731 2.037-1.439.251-.708.251-1.313.176-1.439-.075-.125-.276-.201-.578-.351z"/>
-                              </svg>
+                              <FaWhatsapp className="h-3 w-3 fill-current" />
                               WhatsApp
                             </a>
                           </div>
@@ -638,7 +745,8 @@ export default function AdminAppointmentsPage() {
 
                   {/* Column 2: Service & Barber Details with images */}
                   <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)] pb-1">
+                    <h4 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)] pb-1">
+                      <FaScissors className="h-3 w-3" />
                       Servicio y Barbero
                     </h4>
                     <div className="space-y-3">
@@ -692,7 +800,8 @@ export default function AdminAppointmentsPage() {
                           <p className="text-xs font-bold text-[var(--text-primary)] leading-none">
                             {item.barber?.full_name ?? "Cualquier barbero"}
                           </p>
-                          <p className="text-[9px] uppercase font-black tracking-widest text-[var(--text-muted)] mt-1.5">
+                          <p className="flex items-center gap-1 text-[9px] uppercase font-black tracking-widest text-[var(--text-muted)] mt-1.5">
+                            <FaUserTie className="h-2.5 w-2.5" />
                             Barbero Especialista
                           </p>
                         </div>
@@ -702,7 +811,8 @@ export default function AdminAppointmentsPage() {
 
                   {/* Column 3: Companions & Payment Details */}
                   <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)] pb-1">
+                    <h4 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)] pb-1">
+                      <FaCreditCard className="h-3 w-3" />
                       Pago y Acompañantes
                     </h4>
                     <div className="space-y-3 text-xs">
@@ -711,25 +821,25 @@ export default function AdminAppointmentsPage() {
                         <div className="flex flex-col gap-2.5 p-3 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)]">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent)] flex items-center gap-1.5">
-                              👥 Reserva Grupal
+                              <FaUserGroup className="h-3.5 w-3.5" />
+                              Reserva Grupal
                             </span>
                             <span className="text-[10px] font-bold text-[var(--text-muted)]">
                               {companions + 1} personas
                             </span>
                           </div>
                           
-                          {/* Superimposed avatar group layout */}
-                          <div className="flex items-center -space-x-2 overflow-hidden py-1 pl-1">
+                          <div className="flex flex-wrap items-center gap-2 overflow-hidden py-1 pl-1">
                             {Array.from({ length: Math.min(companions + 1, 5) }).map((_, aIdx) => (
                               <div 
                                 key={aIdx} 
-                                className="inline-block h-7 w-7 rounded-full ring-2 ring-[var(--bg-surface)] bg-gradient-to-tr from-amber-500/10 to-amber-600/30 border border-[var(--accent-border)]/15 flex items-center justify-center text-[9px] font-black text-[var(--accent)] shadow-sm"
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--accent-border)]/20 bg-gradient-to-tr from-amber-500/10 to-amber-600/30 text-[var(--accent)] shadow-sm"
                               >
-                                {aIdx === 0 ? "Tit" : `A${aIdx}`}
+                                <FaUser className="h-3.5 w-3.5" />
                               </div>
                             ))}
                             {companions + 1 > 5 && (
-                              <div className="inline-block h-7 w-7 rounded-full ring-2 ring-[var(--bg-surface)] bg-[var(--border-strong)] flex items-center justify-center text-[9px] font-bold text-[var(--text-secondary)] shadow-sm">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--border-strong)] text-[9px] font-bold text-[var(--text-secondary)] shadow-sm">
                                 +{companions + 1 - 5}
                               </div>
                             )}
@@ -757,7 +867,7 @@ export default function AdminAppointmentsPage() {
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 p-2.5 rounded-xl border border-dashed border-[var(--border)] bg-white/[0.01]">
-                          <span className="text-sm">👤</span>
+                          <FaUser className="h-4 w-4 text-[var(--text-muted)]" />
                           <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                             Reserva Individual
                           </span>
@@ -767,36 +877,49 @@ export default function AdminAppointmentsPage() {
                       {/* Payment Badge */}
                       {payment ? (
                         <div className="pt-1">
-                          <div className={`p-3 rounded-2xl border flex flex-col gap-1.5 ${
-                            payment.method.toLowerCase().includes("yape") || payment.method.toLowerCase().includes("plin") || payment.method.toLowerCase() === "qr"
-                              ? "bg-[rgba(122,34,110,0.06)] text-[#d946ef] border-[rgba(122,34,110,0.18)]"
-                              : payment.method.toLowerCase().includes("tarjeta") || payment.method.toLowerCase().includes("card")
-                              ? "bg-blue-500/5 text-blue-400 border-blue-500/15"
-                              : "bg-emerald-500/5 text-emerald-400 border-emerald-500/15"
-                          }`}>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm">
-                                {payment.method.toLowerCase().includes("yape") || payment.method.toLowerCase().includes("plin") || payment.method.toLowerCase() === "qr"
-                                  ? "📱"
-                                  : payment.method.toLowerCase().includes("tarjeta") || payment.method.toLowerCase().includes("card")
-                                  ? "💳"
-                                  : "💵"}
-                              </span>
+                          <div className={`p-3 rounded-2xl border flex flex-col gap-2 ${paymentVisual?.accentClass ?? "bg-emerald-500/5 text-emerald-400 border-emerald-500/15"}`}>
+                            <div className="flex items-center gap-2">
+                              {paymentVisual && (
+                                <Image
+                                  src={paymentVisual.iconSrc}
+                                  alt={paymentVisual.iconAlt}
+                                  width={22}
+                                  height={22}
+                                  className="h-[22px] w-[22px] object-contain"
+                                />
+                              )}
                               <span className="font-black uppercase text-[10px] tracking-wider">
-                                Prepago: {payment.method}
+                                {paymentVisual?.label ?? `Prepago: ${payment.method}`}
                               </span>
                             </div>
-                            <p className="text-[10px] text-[var(--text-muted)] font-mono leading-none pl-5">
-                              TX: <span className="text-[var(--text-secondary)] font-bold">{payment.tx}</span>
-                            </p>
+                            <div className="grid gap-1 pl-7 text-[10px]">
+                              {payment.amount && (
+                                <p className="text-[var(--text-secondary)]">
+                                  Monto: <span className="font-bold">{payment.currency === "PEN" ? "S/ " : ""}{payment.amount}</span>
+                                </p>
+                              )}
+                              {payment.phone && (
+                                <p className="text-[var(--text-secondary)]">
+                                  Celular: <span className="font-bold">{payment.phone}</span>
+                                </p>
+                              )}
+                              {payment.cardLabel && (
+                                <p className="text-[var(--text-secondary)]">
+                                  Tarjeta: <span className="font-bold">{payment.cardLabel}</span>
+                                </p>
+                              )}
+                              <p className="text-[10px] text-[var(--text-muted)] font-mono leading-none">
+                                ID: <span className="text-[var(--text-secondary)] font-bold">{payment.tx}</span>
+                              </p>
+                            </div>
                           </div>
                         </div>
                       ) : (
                         <div className="pt-1">
                           <div className="p-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] flex items-center gap-2">
-                            <span className="text-sm">💵</span>
+                            <FaRegCircleCheck className="h-4 w-4" />
                             <span className="font-bold text-[10px] tracking-wider uppercase">
-                              Pago en Sede (Pendiente)
+                              Sin información de pago
                             </span>
                           </div>
                         </div>

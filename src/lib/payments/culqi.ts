@@ -11,6 +11,10 @@ type CulqiErrorPayload = {
 
 export type CulqiChargeResponse = {
   id: string;
+  amount?: number;
+  currency_code?: string;
+  source?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
   outcome?: CulqiErrorPayload;
 };
 

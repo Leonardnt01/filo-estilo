@@ -22,7 +22,7 @@ type Branch = {
 type Slot = { start_time: string; end_time: string };
 type CalendarCell = { iso: string; day: number; inMonth: boolean; disabled: boolean; isToday: boolean };
 type Stage = "branch" | "booking" | "payment";
-type PayMethod = "yape" | "cash" | "card";
+type PayMethod = "yape" | "card";
 type FooterSettings = {
   brand_name?: string;
   instagram?: string;
@@ -37,7 +37,30 @@ type BranchContact = {
   whatsapp?: string | null;
 };
 
-type CulqiToken = { id: string };
+type BookingDraft = {
+  stage: Stage;
+  branchId: string;
+  serviceId: string;
+  barberId: string;
+  date: string;
+  selectedSlots: string[];
+  selectedServiceIds: string[];
+  notes: string;
+  people: number;
+  paymentMethod: PayMethod;
+  calendarMonthIso: string | null;
+};
+
+type CulqiToken = {
+  id: string;
+  card_number?: string;
+  last_four?: string;
+  number_phone?: string;
+  phone_number?: string;
+  metadata?: Record<string, unknown> | null;
+  source?: Record<string, unknown> | null;
+  [key: string]: unknown;
+};
 type CulqiCheckoutError = { user_message?: string; merchant_message?: string };
 type CulqiCheckoutInstance = {
   open: () => void;
@@ -91,6 +114,8 @@ function getBarberImage(fullName: string) {
   return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop";
 }
 
+const BOOKING_DRAFT_STORAGE_KEY = "filo-estilo.booking-draft";
+
 function loadCulqiCheckoutScript() {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("Culqi checkout is only available in the browser"));
@@ -125,6 +150,56 @@ function loadCulqiCheckoutScript() {
   });
 
   return window.__filoCulqiCheckoutPromise;
+}
+
+function getPaymentMethodLabel(method: PayMethod) {
+  return method === "yape" ? "Yape" : "Tarjeta";
+}
+
+function getTokenStringValue(token: CulqiToken, keys: string[]) {
+  for (const key of keys) {
+    const value = token[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  const metadata = token.metadata;
+  if (metadata && typeof metadata === "object") {
+    for (const key of keys) {
+      const value = metadata[key];
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+
+  const source = token.source;
+  if (source && typeof source === "object") {
+    for (const key of keys) {
+      const value = source[key];
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+
+  return null;
+}
+
+function getCulqiPaymentDetails(token: CulqiToken, method: PayMethod) {
+  return {
+    phone:
+      method === "yape"
+        ? getTokenStringValue(token, ["number_phone", "phone_number", "phone"])
+        : null,
+    card_last4:
+      method === "card"
+        ? getTokenStringValue(token, ["last_four", "card_last4", "card_number"])
+            ?.replace(/\s+/g, "")
+            .slice(-4) ?? null
+        : null,
+  };
 }
 
 function ReservarPageContent({
@@ -173,6 +248,8 @@ function ReservarPageContent({
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [requestedServiceId, setRequestedServiceId] = useState("");
+  const [bookingDraftHydrated, setBookingDraftHydrated] = useState(false);
+  const [restoredBookingDraft, setRestoredBookingDraft] = useState(false);
 
   const authEmail = user?.email ?? "";
   const isAuthenticated = !!user;
@@ -282,6 +359,60 @@ function ReservarPageContent({
   }, [calendarMonth, minDate, maxDate]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const timer = window.setTimeout(() => {
+      try {
+        const rawDraft = window.sessionStorage.getItem(BOOKING_DRAFT_STORAGE_KEY);
+        if (!rawDraft) {
+          setBookingDraftHydrated(true);
+          return;
+        }
+
+        const parsed = JSON.parse(rawDraft) as Partial<BookingDraft>;
+        const nextStage = parsed.stage;
+        const nextPaymentMethod = parsed.paymentMethod;
+        const nextCalendarMonthIso = parsed.calendarMonthIso;
+
+        if (parsed.branchId) setBranchId(parsed.branchId);
+        if (parsed.serviceId) setServiceId(parsed.serviceId);
+        if (parsed.barberId) setBarberId(parsed.barberId);
+        if (parsed.date) setDate(parsed.date);
+        if (Array.isArray(parsed.selectedSlots)) {
+          setSelectedSlots(parsed.selectedSlots.filter((slot): slot is string => typeof slot === "string"));
+        }
+        if (Array.isArray(parsed.selectedServiceIds)) {
+          setSelectedServiceIds(parsed.selectedServiceIds.filter((service): service is string => typeof service === "string"));
+        }
+        if (typeof parsed.notes === "string") setNotes(parsed.notes);
+        if (typeof parsed.people === "number" && parsed.people > 0) setPeople(parsed.people);
+        if (nextPaymentMethod === "yape" || nextPaymentMethod === "card") setPaymentMethod(nextPaymentMethod);
+        if (nextStage === "branch" || nextStage === "booking" || nextStage === "payment") setStage(nextStage);
+        if (typeof nextCalendarMonthIso === "string") {
+          const parsedMonth = new Date(nextCalendarMonthIso);
+          if (!Number.isNaN(parsedMonth.getTime())) {
+            setCalendarMonth(new Date(parsedMonth.getFullYear(), parsedMonth.getMonth(), 1));
+          }
+        }
+
+        setRestoredBookingDraft(true);
+      } catch {
+        window.sessionStorage.removeItem(BOOKING_DRAFT_STORAGE_KEY);
+      } finally {
+        setBookingDraftHydrated(true);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!bookingDraftHydrated) return;
+
+    if (restoredBookingDraft) {
+      return;
+    }
+
     function syncInitialCatalogState() {
       const requestedService = searchParams.get("service_id");
       const requestedBranch = searchParams.get("branch_id");
@@ -301,7 +432,43 @@ function ReservarPageContent({
     }
 
     syncInitialCatalogState();
-  }, [branchById, initialBranches, searchParams, serviceById]);
+  }, [bookingDraftHydrated, restoredBookingDraft, branchById, initialBranches, searchParams, serviceById]);
+
+  useEffect(() => {
+    if (!bookingDraftHydrated || typeof window === "undefined" || bookingStatus === "success") {
+      return;
+    }
+
+    const draft: BookingDraft = {
+      stage,
+      branchId,
+      serviceId,
+      barberId,
+      date,
+      selectedSlots,
+      selectedServiceIds,
+      notes,
+      people,
+      paymentMethod,
+      calendarMonthIso: calendarMonth.toISOString(),
+    };
+
+    window.sessionStorage.setItem(BOOKING_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  }, [
+    bookingDraftHydrated,
+    bookingStatus,
+    stage,
+    branchId,
+    serviceId,
+    barberId,
+    date,
+    selectedSlots,
+    selectedServiceIds,
+    notes,
+    people,
+    paymentMethod,
+    calendarMonth,
+  ]);
 
   useEffect(() => {
     if (!branchId) return;
@@ -315,7 +482,6 @@ function ReservarPageContent({
     }
     const syncTimer = setTimeout(() => {
       setBarberId((prev) => (barbers.some((b) => b.id === prev) ? prev : (barbers[0]?.id ?? "")));
-      setSelectedSlots([]);
       setSlots([]);
     }, 0);
 
@@ -457,56 +623,15 @@ function ReservarPageContent({
     setSelectedSlots((prev) => [...prev, slotTime]);
   }
 
-  async function submitCashBooking() {
-    setLoading(true);
-    setError(null);
-    setBookingStatus("loading");
-    setBookingErrorMsg(null);
-    setCurrentBookingIndex(0);
-
-    try {
-      for (const [index, slot] of selectedSlots.entries()) {
-        setCurrentBookingIndex(index);
-        const txId = `TX-${Date.now().toString(36).toUpperCase()}`;
-        const paymentMeta = `[PAGO FICTICIO] metodo:EFECTIVO tx:${txId}`;
-
-        const res = await fetch("/api/my/appointments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            branch_id: branchId,
-            barber_id: barberId,
-            service_id: normalizedServiceIds[index] ?? serviceId,
-            appointment_date: date,
-            start_time: slot,
-            initial_status: "pending",
-            notes: `${paymentMeta} | Personas:${people} | Horarios del grupo: [${selectedSlots.join(", ")}]${notes ? ` | ${notes}` : ""}`,
-          }),
-        });
-
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}));
-          throw new Error(json.error ?? "No se pudo registrar uno de los horarios");
-        }
-      }
-
-      setBookingStatus("success");
-      toast(`¡Excelente! Se registraron con éxito tus ${selectedSlots.length} citas.`);
-      setTimeout(() => {
-        router.push("/mis-citas?created=1");
-      }, 2200);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "No se pudo crear la cita";
-      toast(message, "error");
-      setError(message);
-      setBookingStatus("error");
-      setBookingErrorMsg(message);
-    } finally {
-      setLoading(false);
-    }
+  function resetSelectedAvailability() {
+    setSelectedSlots([]);
+    setSlots([]);
   }
 
-  async function finalizeCulqiBooking(tokenId: string) {
+  async function finalizeCulqiBooking(
+    tokenId: string,
+    paymentDetails?: { phone: string | null; card_last4: string | null },
+  ) {
     setLoading(true);
     setError(null);
     setBookingStatus("loading");
@@ -514,12 +639,24 @@ function ReservarPageContent({
     setCurrentBookingIndex(0);
 
     try {
+      console.log("[CULQI][CLIENT] finalizeCulqiBooking payload", {
+        tokenId,
+        paymentMethod,
+        branchId,
+        barberId,
+        appointmentDate: date,
+        selectedSlots,
+        normalizedServiceIds,
+        paymentDetails,
+      });
+
       const res = await fetch("/api/payments/culqi/charge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token_id: tokenId,
           payment_method: paymentMethod,
+          payment_details: paymentDetails ?? null,
           branch_id: branchId,
           barber_id: barberId,
           appointment_date: date,
@@ -533,12 +670,22 @@ function ReservarPageContent({
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
+        console.error("[CULQI][CLIENT] finalizeCulqiBooking error response", {
+          status: res.status,
+          body: json,
+        });
         throw new Error(json.error ?? "No se pudo procesar el pago con Culqi");
       }
+
+      const successJson = await res.json().catch(() => ({}));
+      console.log("[CULQI][CLIENT] finalizeCulqiBooking success response", successJson);
 
       setBookingStatus("success");
       toast(`¡Excelente! Se registraron con éxito tus ${selectedSlots.length} citas.`);
       setTimeout(() => {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.removeItem(BOOKING_DRAFT_STORAGE_KEY);
+        }
         router.push("/mis-citas?created=1");
       }, 2200);
     } catch (err: unknown) {
@@ -608,7 +755,7 @@ function ReservarPageContent({
     culqi.culqi = () => {
       if (culqi.token?.id) {
         culqi.close();
-        void finalizeCulqiBooking(culqi.token.id);
+        void finalizeCulqiBooking(culqi.token.id, getCulqiPaymentDetails(culqi.token, paymentMethod));
         return;
       }
 
@@ -621,6 +768,73 @@ function ReservarPageContent({
     };
 
     culqi.open();
+  }
+
+  async function validateSelectedSlotsAvailability() {
+    const selections = selectedSlots.map((slot, index) => ({
+      slot,
+      serviceId: normalizedServiceIds[index] ?? serviceId,
+    }));
+
+    const availabilityResults = await Promise.all(
+      selections.map(async ({ slot, serviceId: currentServiceId }) => {
+        const res = await fetch("/api/booking/availability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            branch_id: branchId,
+            service_id: currentServiceId,
+            barber_id: barberId,
+            appointment_date: date,
+          }),
+        });
+
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          throw new Error(json.error ?? "No se pudo validar la disponibilidad actual");
+        }
+
+        const availableSlots = Array.isArray(json.slots) ? (json.slots as unknown[]) : [];
+        const availableStartTimes = availableSlots
+          .map((item: unknown) =>
+            item && typeof item === "object" && "start_time" in item && typeof item.start_time === "string"
+              ? item.start_time
+              : null,
+          )
+          .filter((value): value is string => !!value);
+
+        return {
+          slot,
+          serviceId: currentServiceId,
+          isAvailable: availableStartTimes.includes(slot),
+          availableSlots,
+        };
+      }),
+    );
+
+    const unavailableSelections = availabilityResults.filter((result) => !result.isAvailable);
+
+    if (unavailableSelections.length === 0) {
+      return true;
+    }
+
+    console.warn("[BOOKING] selected slots became unavailable before checkout", {
+      branchId,
+      barberId,
+      appointmentDate: date,
+      unavailableSelections,
+    });
+
+    const stillAvailableSlots = new Set(
+      availabilityResults.filter((result) => result.isAvailable).map((result) => result.slot),
+    );
+
+    setSelectedSlots((prev) => prev.filter((slot) => stillAvailableSlots.has(slot)));
+    setStage("booking");
+    void loadSlots();
+
+    throw new Error("Uno de los horarios seleccionados ya fue tomado. Te mostramos nuevamente los horarios libres.");
   }
 
   async function book(e: React.FormEvent<HTMLFormElement>) {
@@ -636,12 +850,8 @@ function ReservarPageContent({
       return;
     }
 
-    if (paymentMethod === "cash") {
-      await submitCashBooking();
-      return;
-    }
-
     try {
+      await validateSelectedSlotsAvailability();
       await openCulqiCheckout();
     } catch (err) {
       const message = err instanceof Error ? err.message : "No se pudo iniciar Culqi Checkout";
@@ -711,7 +921,12 @@ function ReservarPageContent({
                     <button
                       key={b.id}
                       type="button"
-                      onClick={() => setBranchId(b.id)}
+                      onClick={() => {
+                        if (branchId !== b.id) {
+                          resetSelectedAvailability();
+                        }
+                        setBranchId(b.id);
+                      }}
                       className={`text-left rounded-xl border overflow-hidden transition-all ${isActive ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"}`}
                     >
                       <div className="relative h-32 w-full">
@@ -742,7 +957,12 @@ function ReservarPageContent({
                       <button
                         key={s.id}
                         type="button"
-                        onClick={() => setServiceId(s.id)}
+                        onClick={() => {
+                          if (serviceId !== s.id) {
+                            resetSelectedAvailability();
+                          }
+                          setServiceId(s.id);
+                        }}
                         className={`text-left rounded-xl border p-3 transition-all duration-300 overflow-hidden flex gap-4 items-center relative cursor-pointer group ${
                           isSelected
                             ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_0_15px_rgba(212,168,67,0.12)] ring-1 ring-[var(--accent)]"
@@ -824,7 +1044,12 @@ function ReservarPageContent({
                     <button
                       key={b.id}
                       type="button"
-                      onClick={() => setBarberId(b.id)}
+                      onClick={() => {
+                        if (barberId !== b.id) {
+                          resetSelectedAvailability();
+                        }
+                        setBarberId(b.id);
+                      }}
                       className={`group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all ${isActive ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"}`}
                     >
                       <img
@@ -855,7 +1080,12 @@ function ReservarPageContent({
                         key={cell.iso}
                         type="button"
                         disabled={cell.disabled}
-                        onClick={() => setDate(cell.iso)}
+                        onClick={() => {
+                          if (date !== cell.iso) {
+                            resetSelectedAvailability();
+                          }
+                          setDate(cell.iso);
+                        }}
                         className={`h-8 rounded text-xs border ${date === cell.iso ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--bg-primary)]" : cell.disabled ? "border-transparent opacity-30" : "border-[var(--border)] hover:border-[var(--accent-border)]"} ${cell.isToday && date !== cell.iso ? "ring-1 ring-[var(--accent-border)]" : ""}`}
                       >
                         {cell.day}
@@ -1273,7 +1503,7 @@ function ReservarPageContent({
                   </div>
 
                   {/* Tabs Selector with Icons */}
-                  <div className="grid grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-2 gap-2.5">
                     {/* Yape Tab */}
                     <button
                       type="button"
@@ -1284,28 +1514,8 @@ function ReservarPageContent({
                           : "border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                       }`}
                       >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75ZM13.5 16.5h.75v.75h-.75v-.75ZM16.5 13.5h.75v.75h-.75v-.75ZM18 15h.75v.75H18V15ZM15 15h.75v.75H15V15ZM13.5 15h.75v.75h-.75V15ZM15 18h.75v.75H15V18ZM18 18h.75v.75H18V18ZM19.5 18h.75v.75h-.75V18ZM19.5 15h.75v.75h-.75V15ZM19.5 13.5h.75v.75h-.75v-.75Z" />
-                      </svg>
+                      <Image src="/yape.svg" alt="Yape" width={18} height={18} className="h-[18px] w-[18px]" />
                       <span className="text-[10px] sm:text-xs">Yape</span>
-                    </button>
-
-                    {/* Cash Tab */}
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("cash")}
-                      className={`flex flex-col sm:flex-row items-center justify-center gap-2 rounded-xl border p-3 text-xs font-bold transition-all duration-300 cursor-pointer ${
-                        paymentMethod === "cash"
-                          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] shadow-[0_0_12px_rgba(212,168,67,0.15)]"
-                          : "border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
-                      }`}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5h16.5M3.75 20.25h16.5M3 7.5h18M3 16.5h18m-18-9v9m18-9v9M5.25 5.25h13.5m-13.5 13.5h13.5" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 14.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" />
-                      </svg>
-                      <span className="text-[10px] sm:text-xs">Efectivo</span>
                     </button>
 
                     {/* Card Tab */}
@@ -1318,9 +1528,7 @@ function ReservarPageContent({
                           : "border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                       }`}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-19.5 5.25h19.5m-19.5 0h19.5M2.25 12h19.5m-19.5 0h19.5M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
-                      </svg>
+                      <Image src="/visa.png" alt="Tarjeta" width={20} height={14} className="h-[14px] w-[20px] object-contain" />
                       <span className="text-[10px] sm:text-xs">Tarjeta</span>
                     </button>
                   </div>
@@ -1328,50 +1536,29 @@ function ReservarPageContent({
                   {/* Yape Method Detail */}
                   {paymentMethod === "yape" && (
                     <div className="space-y-4 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-secondary)]/30 p-5 animate-fade-in">
-                      <div className="text-center">
-                        <p className="text-sm font-semibold text-[var(--text-primary)]">Paga con Yape en Culqi</p>
-                        <p className="text-xs text-[var(--text-muted)] mt-0.5">Culqi abrirá su formulario oficial para generar el token de pago</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/10">
+                          <Image src="/yape.svg" alt="Yape" width={24} height={24} className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--text-primary)]">Paga con Yape</p>
+                          <p className="text-xs text-[var(--text-muted)] mt-0.5">Confirma tu pago de forma rápida, segura y sin salir del flujo de reserva.</p>
+                        </div>
                       </div>
 
                       <div className="space-y-2.5 border-t border-[var(--border)] pt-4 text-[11px] text-[var(--text-secondary)]">
                         <div className="flex gap-2">
                           <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">1</span>
-                          <p>Presiona el botón final y Culqi te pedirá tu número Yape y el código de aprobación.</p>
+                          <p>Completa la confirmación desde tu billetera y valida el pago en pocos pasos.</p>
                         </div>
                         <div className="flex gap-2">
                           <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">2</span>
-                          <p>En integración puedes probar con el celular <strong className="text-[var(--accent)]">900000001</strong> y cualquier código de 6 dígitos.</p>
+                          <p>Tu operación se procesa con verificación segura para proteger tus datos y tu reserva.</p>
                         </div>
                         <div className="flex gap-2">
                           <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">3</span>
-                          <p>Si Culqi aprueba el pago por <strong className="text-[var(--accent)]">S/ {totalServicesAmount.toFixed(2)}</strong>, recién registraremos tu cita.</p>
+                          <p>Una vez aprobado el pago por <strong className="text-[var(--accent)]">S/ {totalServicesAmount.toFixed(2)}</strong>, tu cita quedará registrada automáticamente.</p>
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Cash Method Detail */}
-                  {paymentMethod === "cash" && (
-                    <div className="space-y-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 animate-fade-in text-sm text-[var(--text-secondary)]">
-                      <div className="flex gap-3">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 shrink-0">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.745 3.745 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.745 3.745 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-[var(--text-primary)]">Pago Físico en Establecimiento</h4>
-                          <p className="text-xs text-[var(--text-muted)] mt-0.5">Reserva 100% segura y garantizada</p>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-3 text-xs text-[var(--text-secondary)] border-t border-[var(--border)] pt-4">
-                        <p>
-                          Tu cita se guardará de inmediato. Podrás efectuar el pago completo de su monto de **S/ {totalServicesAmount.toFixed(2)}** en efectivo, tarjeta de débito/crédito o transferencia al culminar tu atención.
-                        </p>
-                        <p className="font-medium text-[var(--accent)]">
-                          Nota: Te solicitamos llegar al menos 10 minutos antes de tu cita programada.
-                        </p>
                       </div>
                     </div>
                   )}
@@ -1380,29 +1567,27 @@ function ReservarPageContent({
                   {paymentMethod === "card" && (
                     <div className="space-y-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 animate-fade-in text-sm text-[var(--text-secondary)]">
                       <div className="flex gap-3">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 shrink-0">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M3 10.5h18m-16.5 6h3.75m-3.75-3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
-                          </svg>
+                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 shrink-0">
+                          <Image src="/visa.png" alt="Tarjeta" width={24} height={16} className="h-4 w-6 object-contain" />
                         </div>
                         <div>
-                          <h4 className="font-semibold text-[var(--text-primary)]">Tarjeta vía Culqi</h4>
-                          <p className="text-xs text-[var(--text-muted)] mt-0.5">Tus datos se capturan en la pasarela oficial de Culqi, no en este formulario</p>
+                          <h4 className="font-semibold text-[var(--text-primary)]">Paga con Tarjeta</h4>
+                          <p className="text-xs text-[var(--text-muted)] mt-0.5">Realiza tu pago con una experiencia ágil y protegida para confirmar tu reserva.</p>
                         </div>
                       </div>
 
                       <div className="space-y-3 text-xs text-[var(--text-secondary)] border-t border-[var(--border)] pt-4">
                         <p>
-                          Al confirmar, abriremos el checkout de Culqi para cobrar <strong className="text-blue-300">S/ {totalServicesAmount.toFixed(2)}</strong>.
+                          Confirma el pago de <strong className="text-blue-300">S/ {totalServicesAmount.toFixed(2)}</strong> y asegura tu horario seleccionado al instante.
                         </p>
                         <p>
-                          Para pruebas, usa las credenciales del entorno de integración configuradas en tu cuenta Culqi.
+                          Tu reserva solo se registra cuando el pago es validado correctamente.
                         </p>
                         <p className="text-[10px] text-[var(--text-muted)] flex items-center gap-1 bg-black/10 px-2.5 py-1.5 rounded-lg border border-[var(--border)]">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-emerald-400 shrink-0">
                             <path fillRule="evenodd" d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm3 4.25a.75.75 0 0 0-1.06-.02L7 8.67 6.06 7.73a.75.75 0 0 0-1.06 1.06l1.5 1.5a.75.75 0 0 0 1.08-.02l3.5-3.75a.75.75 0 0 0-.08-1.07Z" clipRule="evenodd" />
                           </svg>
-                          Conexión segura SSL. Encriptación de datos de extremo a extremo.
+                          Pago protegido con cifrado y validación segura de la transacción.
                         </p>
                       </div>
                     </div>
@@ -1435,11 +1620,11 @@ function ReservarPageContent({
                         Procesando Reserva...
                       </span>
                     ) : (
-                      "Confirmar y Registrar Cita"
+                      "Pagar Ahora"
                     )}
                   </button>
                   <p className="text-[10px] text-[var(--text-muted)] text-center italic">
-                    Efectivo mantiene el flujo simulado actual. Yape y tarjeta ahora procesan el cobro real en Culqi antes de registrar la cita.
+                    Tu reserva se confirmará automáticamente después de validar el pago con {getPaymentMethodLabel(paymentMethod).toLowerCase()}.
                   </p>
                 </div>
               </section>

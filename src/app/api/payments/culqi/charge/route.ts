@@ -9,6 +9,7 @@ import {
 import { getAuthContext } from "@/lib/auth/session";
 import { createCulqiCharge, toCulqiAmount } from "@/lib/payments/culqi";
 import { buildFullName } from "@/lib/schema-compat";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const selectionSchema = z.object({
@@ -19,6 +20,13 @@ const selectionSchema = z.object({
 const chargeBookingSchema = z.object({
   token_id: z.string().trim().min(1),
   payment_method: z.enum(["card", "yape"]),
+  payment_details: z
+    .object({
+      phone: z.string().trim().min(1).max(30).optional().nullable(),
+      card_last4: z.string().trim().min(4).max(8).optional().nullable(),
+    })
+    .optional()
+    .nullable(),
   branch_id: z.uuid(),
   barber_id: z.uuid(),
   appointment_date: z.iso.date(),
@@ -26,26 +34,40 @@ const chargeBookingSchema = z.object({
   notes: z.string().trim().max(2000).optional().nullable(),
 });
 
+function buildPaidPaymentNote(params: {
+  paymentMethod: "card" | "yape";
+  chargeId: string;
+  amount: number;
+  phone?: string | null;
+  cardLast4?: string | null;
+}) {
+  const parts = [
+    "[PAGO CULQI]",
+    "estado:pagado",
+    `metodo:${params.paymentMethod === "yape" ? "YAPE" : "TARJETA"}`,
+    `tx:${params.chargeId}`,
+    `monto:${params.amount.toFixed(2)}`,
+    "moneda:PEN",
+  ];
+
+  if (params.paymentMethod === "yape" && params.phone) {
+    parts.push(`celular:${params.phone}`);
+  }
+
+  if (params.paymentMethod === "card" && params.cardLast4) {
+    parts.push(`tarjeta:****${params.cardLast4}`);
+  }
+
+  return parts.join(" ");
+}
+
 async function updateAppointmentNotesAfterCharge(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>,
   appointmentIds: string[],
-  userId: string,
   notes: string,
   paymentMethodLabel: string,
 ) {
   const attempts = [
-    () =>
-      supabase
-        .from("appointments")
-        .update({ notes, status: "confirmed" })
-        .in("id", appointmentIds)
-        .eq("client_id", userId),
-    () =>
-      supabase
-        .from("appointments")
-        .update({ notes, status: "confirmed" })
-        .in("id", appointmentIds)
-        .eq("profile_id", userId),
     () =>
       supabase
         .from("appointments")
@@ -56,26 +78,35 @@ async function updateAppointmentNotesAfterCharge(
           payment_status: "paid",
         })
         .in("id", appointmentIds)
-        .eq("profile_id", userId),
+        .select("id"),
+    () =>
+      supabase
+        .from("appointments")
+        .update({ notes, status: "confirmed" })
+        .in("id", appointmentIds)
+        .select("id"),
   ] as const;
 
   let lastError: { message: string } | null = null;
 
   for (const attempt of attempts) {
     const result = await attempt();
-    if (!result.error) {
+    if (!result.error && (result.data?.length ?? 0) > 0) {
       return null;
     }
-    lastError = { message: result.error.message };
+    lastError = {
+      message:
+        result.error?.message ??
+        "No se encontró ninguna cita para actualizar después del pago",
+    };
   }
 
   return lastError;
 }
 
 async function rollbackFailedCharge(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>,
   appointmentIds: string[],
-  userId: string,
   notes: string,
 ) {
   const attempts = [
@@ -85,33 +116,24 @@ async function rollbackFailedCharge(
         .update({
           status: "cancelled",
           notes,
-        })
-        .in("id", appointmentIds)
-        .eq("client_id", userId),
-    () =>
-      supabase
-        .from("appointments")
-        .update({
-          status: "cancelled",
-          notes,
-        })
-        .in("id", appointmentIds)
-        .eq("profile_id", userId),
-    () =>
-      supabase
-        .from("appointments")
-        .update({
-          status: "cancelled",
-          notes,
           payment_status: "failed",
         })
         .in("id", appointmentIds)
-        .eq("profile_id", userId),
+        .select("id"),
+    () =>
+      supabase
+        .from("appointments")
+        .update({
+          status: "cancelled",
+          notes,
+        })
+        .in("id", appointmentIds)
+        .select("id"),
   ] as const;
 
   for (const attempt of attempts) {
     const result = await attempt();
-    if (!result.error) {
+    if (!result.error && (result.data?.length ?? 0) > 0) {
       return;
     }
   }
@@ -131,7 +153,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { token_id, payment_method, branch_id, barber_id, appointment_date, selections, notes } = parsed.data;
+  const { token_id, payment_method, payment_details, branch_id, barber_id, appointment_date, selections, notes } =
+    parsed.data;
+  console.log("[CULQI][API] incoming charge booking request", {
+    userId: user.id,
+    email: user.email,
+    payment_method,
+    branch_id,
+    barber_id,
+    appointment_date,
+    selections,
+    payment_details,
+  });
   const bookingWindowError = validateBookingWindow(appointment_date);
 
   if (bookingWindowError) {
@@ -142,10 +175,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Authenticated user email is required for Culqi payments" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const userSupabase = await createClient();
+  const adminSupabase = (() => {
+    try {
+      return createAdminClient();
+    } catch {
+      return null;
+    }
+  })();
+  const dbClient = adminSupabase ?? userSupabase;
+
   const [{ data: profile, error: profileError }, { data: services, error: servicesError }] = await Promise.all([
-    supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
-    supabase
+    dbClient.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
+    dbClient
       .from("services")
       .select("id, name, price, branch_id")
       .eq("branch_id", branch_id)
@@ -177,7 +219,7 @@ export async function POST(request: Request) {
   const pendingRef = `pay_${Date.now().toString(36).toUpperCase()}`;
   const pendingNote = `[PAGO CULQI EN PROCESO] canal:${payment_method.toUpperCase()} ref:${pendingRef} | Personas:${selections.length} | Horarios del grupo: [${selections.map((selection) => selection.start_time).join(", ")}]${baseUserNote}`;
 
-  const bookingResult = await createAppointmentsForSelections(supabase, {
+  const bookingResult = await createAppointmentsForSelections(dbClient, {
     client: {
       clientId: user.id,
       customerName: buildFullName(profile, user.email ?? "Cliente"),
@@ -196,8 +238,22 @@ export async function POST(request: Request) {
   });
 
   if (!bookingResult.ok) {
+    console.error("[CULQI][API] createAppointmentsForSelections failed", {
+      userId: user.id,
+      appointment_date,
+      barber_id,
+      branch_id,
+      selections,
+      error: bookingResult.error,
+      status: bookingResult.status,
+    });
     return NextResponse.json({ error: bookingResult.error }, { status: bookingResult.status });
   }
+
+  console.log("[CULQI][API] appointments created before charge", {
+    appointmentIds: bookingResult.items.map((item) => item.id),
+    items: bookingResult.items,
+  });
 
   try {
     const charge = await createCulqiCharge({
@@ -211,20 +267,35 @@ export async function POST(request: Request) {
         appointment_date,
       },
     });
+    console.log("[CULQI][API] charge created successfully", {
+      chargeId: charge.id,
+      payment_method,
+      appointmentIds: bookingResult.items.map((item) => item.id),
+    });
 
     const paymentMethodLabel = payment_method === "yape" ? "YAPE" : "TARJETA";
-    const paidNote = `[PAGO CULQI] metodo:${paymentMethodLabel} tx:${charge.id}`;
+    const paidNote = buildPaidPaymentNote({
+      paymentMethod: payment_method,
+      chargeId: charge.id,
+      amount: totalAmount,
+      phone: payment_method === "yape" ? payment_details?.phone ?? null : null,
+      cardLast4: payment_method === "card" ? payment_details?.card_last4 ?? null : null,
+    });
     const finalNotes = `${paidNote} | Personas:${selections.length} | Horarios del grupo: [${selections.map((selection) => selection.start_time).join(", ")}]${baseUserNote}`;
     const appointmentIds = bookingResult.items.map((item) => item.id);
     const updateError = await updateAppointmentNotesAfterCharge(
-      supabase,
+      dbClient,
       appointmentIds,
-      user.id,
       finalNotes,
       paymentMethodLabel,
     );
 
     if (updateError) {
+      console.error("[CULQI][API] appointment update after charge failed", {
+        appointmentIds,
+        updateError,
+        finalNotes,
+      });
       return NextResponse.json({
         error: `Charge created successfully in Culqi, but appointment notes could not be updated: ${updateError.message}`,
       }, { status: 500 });
@@ -240,10 +311,18 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch (error) {
     const failureMessage = error instanceof Error ? error.message : "Culqi payment could not be processed";
+    console.error("[CULQI][API] charge flow failed", {
+      userId: user.id,
+      appointment_date,
+      branch_id,
+      barber_id,
+      selections,
+      error: failureMessage,
+    });
     const failureNote = `[PAGO CULQI FALLIDO ${new Date().toISOString()}] ${failureMessage}`;
     const rollbackNotes = appendAuditNote(pendingNote, failureNote);
     const appointmentIds = bookingResult.items.map((item) => item.id);
-    await rollbackFailedCharge(supabase, appointmentIds, user.id, rollbackNotes);
+    await rollbackFailedCharge(dbClient, appointmentIds, rollbackNotes);
 
     return NextResponse.json({ error: failureMessage }, { status: 402 });
   }

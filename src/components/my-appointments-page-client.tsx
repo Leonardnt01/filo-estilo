@@ -1,6 +1,6 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Footer } from "@/components/footer";
@@ -45,6 +45,9 @@ interface ParsedNotes {
   method: string | null;
   tx: string | null;
   ref: string | null;
+  amount: string | null;
+  phone: string | null;
+  cardLabel: string | null;
   card: string | null;
   personas: number | null;
   horarios: string[] | null;
@@ -57,6 +60,9 @@ function parseNotes(notesStr: string | null): ParsedNotes {
     method: null,
     tx: null,
     ref: null,
+    amount: null,
+    phone: null,
+    cardLabel: null,
     card: null,
     personas: null,
     horarios: null,
@@ -95,6 +101,15 @@ function parseNotes(notesStr: string | null): ParsedNotes {
 
       const refMatch = part.match(/ref:(\S+)/);
       if (refMatch) result.ref = refMatch[1];
+
+      const amountMatch = part.match(/monto:(\S+)/);
+      if (amountMatch) result.amount = amountMatch[1];
+
+      const phoneMatch = part.match(/celular:(\S+)/);
+      if (phoneMatch) result.phone = phoneMatch[1];
+
+      const cardLabelMatch = part.match(/tarjeta:(\S+)/);
+      if (cardLabelMatch) result.cardLabel = cardLabelMatch[1];
 
       const cardMatch = part.match(/card:(\S+)/);
       if (cardMatch) result.card = cardMatch[1];
@@ -140,38 +155,11 @@ export default function MyAppointmentsPageClient({
 }) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const [items, setItems] = useState<MyAppointment[]>(initialItems);
-  const [error, setError] = useState<string | null>(initialError);
-  const [services, setServices] = useState<CatalogService[]>(initialServices);
-  const [barbers, setBarbers] = useState<CatalogBarber[]>(initialBarbers);
-  const [branches, setBranches] = useState<CatalogBranch[]>(initialBranches);
-
-  async function load() {
-    try {
-      const [appointmentsRes, catalogRes] = await Promise.all([
-        fetch("/api/my/appointments"),
-        fetch("/api/booking/catalog"),
-      ]);
-
-      const appointmentsJson = await appointmentsRes.json().catch(() => ({}));
-      const catalogJson = await catalogRes.json().catch(() => ({}));
-
-      if (!appointmentsRes.ok) {
-        setError(appointmentsJson.error ?? "No se pudo cargar tus citas");
-        return;
-      }
-
-      setItems(appointmentsJson.items ?? []);
-
-      if (catalogRes.ok) {
-        setServices(catalogJson.services ?? []);
-        setBarbers(catalogJson.barbers ?? []);
-        setBranches(catalogJson.branches ?? []);
-      }
-    } catch {
-      setError("No se pudo conectar con el servidor para cargar tus citas.");
-    }
-  }
+  const [items] = useState<MyAppointment[]>(initialItems);
+  const [error] = useState<string | null>(initialError);
+  const [services] = useState<CatalogService[]>(initialServices);
+  const [barbers] = useState<CatalogBarber[]>(initialBarbers);
+  const [branches] = useState<CatalogBranch[]>(initialBranches);
 
   useEffect(() => {
     if (searchParams.get("created") === "1") {
@@ -312,12 +300,24 @@ export default function MyAppointmentsPageClient({
                           <div className="rounded-2xl border border-white/5 bg-[#14141d]/40 p-3 sm:p-4 space-y-3">
                             {parsed.paymentState && (
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                                {parsed.method === "TARJETA" && <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] text-emerald-300 font-semibold shadow-sm">Tarjeta **** {parsed.card ?? "4242"}</span>}
+                                {parsed.method === "TARJETA" && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] text-emerald-300 font-semibold shadow-sm">
+                                    <Image src="/visa.png" alt="Tarjeta" width={18} height={12} className="h-3 w-[18px] object-contain" />
+                                    Tarjeta {parsed.cardLabel ?? `**** ${parsed.card ?? "4242"}`}
+                                  </span>
+                                )}
                                 {parsed.method === "QR" && <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[11px] text-amber-300 font-semibold shadow-sm">Pago Móvil QR</span>}
-                                {parsed.method === "YAPE" && <span className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 px-2.5 py-1 text-[11px] text-fuchsia-300 font-semibold shadow-sm">Yape</span>}
+                                {parsed.method === "YAPE" && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 px-2.5 py-1 text-[11px] text-fuchsia-300 font-semibold shadow-sm">
+                                    <Image src="/yape.svg" alt="Yape" width={16} height={16} className="h-4 w-4" />
+                                    Yape
+                                  </span>
+                                )}
                                 {parsed.method === "EFECTIVO" && <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 text-[11px] text-blue-300 font-semibold shadow-sm">Efectivo en Local</span>}
                                 {parsed.tx && <span className="font-mono text-[10px] text-[var(--text-muted)] bg-white/5 border border-white/5 rounded px-2 py-0.5">ID: {parsed.tx}</span>}
                                 {!parsed.tx && parsed.ref && <span className="font-mono text-[10px] text-[var(--text-muted)] bg-white/5 border border-white/5 rounded px-2 py-0.5">REF: {parsed.ref}</span>}
+                                {parsed.amount && <span className="font-mono text-[10px] text-[var(--text-muted)] bg-white/5 border border-white/5 rounded px-2 py-0.5">Monto: S/ {parsed.amount}</span>}
+                                {parsed.phone && <span className="font-mono text-[10px] text-[var(--text-muted)] bg-white/5 border border-white/5 rounded px-2 py-0.5">Celular: {parsed.phone}</span>}
                                 <span className={`text-[9px] font-bold uppercase tracking-widest ${parsed.paymentState === "confirmed" ? "text-emerald-400/80" : "text-amber-500/70"}`}>
                                   {parsed.paymentState === "confirmed" ? "Pago confirmado" : "Pago en validación"}
                                 </span>

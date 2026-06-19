@@ -86,6 +86,11 @@ export function addMinutes(time: string, minutes: number) {
   return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
 }
 
+export function timeToMinutes(time: string) {
+  const [hours, mins] = time.slice(0, 5).split(":").map(Number);
+  return hours * 60 + mins;
+}
+
 export function getBookingWindowBounds() {
   const today = new Date();
   const min = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -170,11 +175,28 @@ export async function createAppointmentsForSelections(
     });
 
     if (!availability.ok) {
+      console.error("[BOOKING] availability lookup failed", {
+        branchId,
+        barberId,
+        appointmentDate,
+        serviceId: selection.serviceId,
+        startTime: selection.startTime,
+        error: availability.error,
+        status: availability.status,
+      });
       return availability;
     }
 
     const selectedSlot = availability.slots.find((slot) => slot.start_time === selection.startTime);
     if (!selectedSlot) {
+      console.error("[BOOKING] selected slot not available", {
+        branchId,
+        barberId,
+        appointmentDate,
+        serviceId: selection.serviceId,
+        requestedStartTime: selection.startTime,
+        availableSlots: availability.slots.map((slot) => slot.start_time),
+      });
       return { ok: false, status: 409, error: "Selected slot is not available" };
     }
 
@@ -321,8 +343,11 @@ export async function resolveAvailability(
     return { ok: false, status: 400, error: "Barber not found or inactive for this branch" };
   }
 
-  const busySelects = ["id, start_time", "id, appointment_time"] as const;
-  let busyItems: Array<{ slot: string }> = [];
+  const busySelects = [
+    "id, service_id, start_time, end_time",
+    "id, service_id, appointment_time",
+  ] as const;
+  let busyItems: Array<{ start: string; end: string; serviceId: string | null }> = [];
   let busyError: { message: string } | null = null;
 
   for (const busySelect of busySelects) {
@@ -340,14 +365,25 @@ export async function resolveAvailability(
 
     const res = await query;
     if (!res.error) {
-      busyItems = ((res.data ?? []) as Array<Record<string, unknown>>).map((item) => ({
-        slot:
+      busyItems = ((res.data ?? []) as unknown as Array<Record<string, unknown>>).map((item) => {
+        const start =
           typeof item.start_time === "string"
             ? item.start_time.slice(0, 5)
             : typeof item.appointment_time === "string"
             ? item.appointment_time.slice(0, 5)
-            : "",
-      })).filter((item) => item.slot);
+            : "";
+
+        const end =
+          typeof item.end_time === "string"
+            ? item.end_time.slice(0, 5)
+            : "";
+
+        return {
+          start,
+          end,
+          serviceId: typeof item.service_id === "string" ? item.service_id : null,
+        };
+      }).filter((item) => item.start);
       busyError = null;
       break;
     }
@@ -359,7 +395,33 @@ export async function resolveAvailability(
     return { ok: false, status: 500, error: busyError.message };
   }
 
-  const busySet = new Set(busyItems.map((item) => item.slot));
+  const busyServiceIds = [...new Set(busyItems.map((item) => item.serviceId).filter((value): value is string => !!value))];
+  let busyServiceDurationMap = new Map<string, number>();
+
+  if (busyServiceIds.length > 0) {
+    const { data: busyServices, error: busyServicesError } = await supabase
+      .from("services")
+      .select("id, duration_minutes")
+      .in("id", busyServiceIds);
+
+    if (busyServicesError) {
+      return { ok: false, status: 500, error: busyServicesError.message };
+    }
+
+    busyServiceDurationMap = new Map(
+      (busyServices ?? []).map((busyService) => [busyService.id, busyService.duration_minutes]),
+    );
+  }
+
+  const busyIntervals = busyItems.map((item) => {
+    const fallbackDuration = item.serviceId ? busyServiceDurationMap.get(item.serviceId) : null;
+    const resolvedEnd = item.end || addMinutes(item.start, fallbackDuration ?? service.duration_minutes);
+
+    return {
+      start: item.start,
+      end: resolvedEnd,
+    };
+  });
   const slots: Slot[] = [];
 
   for (const item of hours ?? []) {
@@ -367,16 +429,32 @@ export async function resolveAvailability(
     const end = item.end_time.slice(0, 5);
 
     while (addMinutes(cursor, service.duration_minutes) <= end) {
-      if (!busySet.has(cursor)) {
+      const slotEnd = addMinutes(cursor, service.duration_minutes);
+      const collidesWithBusyInterval = busyIntervals.some((busyInterval) => {
+        return timeToMinutes(cursor) < timeToMinutes(busyInterval.end) &&
+          timeToMinutes(slotEnd) > timeToMinutes(busyInterval.start);
+      });
+
+      if (!collidesWithBusyInterval) {
         slots.push({
           start_time: cursor,
-          end_time: addMinutes(cursor, service.duration_minutes),
+          end_time: slotEnd,
         });
       }
 
       cursor = addMinutes(cursor, 30);
     }
   }
+
+  console.log("[BOOKING] resolveAvailability snapshot", {
+    branchId,
+    barberId,
+    appointmentDate,
+    serviceId,
+    excludeAppointmentId: excludeAppointmentId ?? null,
+    busySlots: busyIntervals.map((interval) => `${interval.start}-${interval.end}`),
+    generatedSlots: slots.map((slot) => slot.start_time),
+  });
 
   return {
     ok: true,
