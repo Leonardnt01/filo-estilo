@@ -56,6 +56,24 @@ type PaymentFilter = "all" | "yape" | "card" | "processing";
 type ViewMode = "detailed" | "compact";
 type DateShortcut = "all" | "today" | "week" | "month";
 
+type AdminAppointmentsPreferences = {
+  branchFilter: string;
+  statusFilter: string;
+  barberFilter: string;
+  serviceFilter: string;
+  dateFrom: string;
+  dateTo: string;
+  limit: string;
+  quickStatusFilter: QuickStatusFilter;
+  searchQuery: string;
+  paymentFilter: PaymentFilter;
+  showFilters: boolean;
+  viewMode: ViewMode;
+  dateShortcut: DateShortcut;
+};
+
+const ADMIN_APPOINTMENTS_PREFERENCES_KEY = "admin.appointments.preferences";
+
 const STATUSES: Appointment["status"][] = ["pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"];
 const STATUS_CONFIG_SIMPLE: Record<Appointment["status"], { label: string }> = {
   pending: { label: "Pendiente" },
@@ -331,29 +349,43 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
+function loadAdminAppointmentsPreferences(): Partial<AdminAppointmentsPreferences> | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(ADMIN_APPOINTMENTS_PREFERENCES_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AdminAppointmentsPreferences>;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function AdminAppointmentsPage() {
   const { toast } = useToast();
+  const storedPreferences = useMemo(() => loadAdminAppointmentsPreferences(), []);
   const [items, setItems] = useState<Appointment[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchFilter, setBranchFilter] = useState<string | undefined>(undefined);
   const [barbers, setBarbers] = useState<OptionItem[]>([]);
   const [services, setServices] = useState<OptionItem[]>([]);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [barberFilter, setBarberFilter] = useState("");
-  const [serviceFilter, setServiceFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [limit, setLimit] = useState("100");
-  const [quickStatusFilter, setQuickStatusFilter] = useState<QuickStatusFilter>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
+  const [statusFilter, setStatusFilter] = useState(storedPreferences?.statusFilter ?? "");
+  const [barberFilter, setBarberFilter] = useState(storedPreferences?.barberFilter ?? "");
+  const [serviceFilter, setServiceFilter] = useState(storedPreferences?.serviceFilter ?? "");
+  const [dateFrom, setDateFrom] = useState(storedPreferences?.dateFrom ?? "");
+  const [dateTo, setDateTo] = useState(storedPreferences?.dateTo ?? "");
+  const [limit, setLimit] = useState(storedPreferences?.limit ?? "100");
+  const [quickStatusFilter, setQuickStatusFilter] = useState<QuickStatusFilter>(storedPreferences?.quickStatusFilter ?? "all");
+  const [searchQuery, setSearchQuery] = useState(storedPreferences?.searchQuery ?? "");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>(storedPreferences?.paymentFilter ?? "all");
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(storedPreferences?.showFilters ?? false);
   const [loading, setLoading] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("detailed");
+  const [viewMode, setViewMode] = useState<ViewMode>(storedPreferences?.viewMode ?? "detailed");
   const [visibleCount, setVisibleCount] = useState(15);
-  const [dateShortcut, setDateShortcut] = useState<DateShortcut>("all");
+  const [dateShortcut, setDateShortcut] = useState<DateShortcut>(storedPreferences?.dateShortcut ?? "all");
 
   async function loadOptions() {
     try {
@@ -397,9 +429,13 @@ export default function AdminAppointmentsPage() {
         const json = await fetchCachedJson<{ items?: Branch[] }>("/api/admin/branches", { ttlMs: 60_000 });
         const nextBranches = json.items ?? [];
         const remembered = typeof window !== "undefined" ? localStorage.getItem("admin.branch_id") : "";
-        const selected = (remembered !== null && (remembered === "" || nextBranches.some((b) => b.id === remembered))) 
-          ? remembered 
-          : nextBranches[0]?.id || "";
+        const preferredBranch = storedPreferences?.branchFilter;
+        const selected =
+          preferredBranch !== undefined && (preferredBranch === "" || nextBranches.some((b) => b.id === preferredBranch))
+            ? preferredBranch
+            : (remembered !== null && (remembered === "" || nextBranches.some((b) => b.id === remembered)))
+            ? remembered
+            : nextBranches[0]?.id || "";
         setBranches(nextBranches);
         setBranchFilter(selected);
       } finally {
@@ -407,7 +443,7 @@ export default function AdminAppointmentsPage() {
       }
     }
     void loadBranches();
-  }, []);
+  }, [storedPreferences]);
 
   useEffect(() => {
     if (branchFilter !== undefined) {
@@ -421,6 +457,42 @@ export default function AdminAppointmentsPage() {
       localStorage.setItem("admin.branch_id", branchFilter);
     }
   }, [branchFilter]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || branchFilter === undefined) return;
+
+    const preferences: AdminAppointmentsPreferences = {
+      branchFilter,
+      statusFilter,
+      barberFilter,
+      serviceFilter,
+      dateFrom,
+      dateTo,
+      limit,
+      quickStatusFilter,
+      searchQuery,
+      paymentFilter,
+      showFilters,
+      viewMode,
+      dateShortcut,
+    };
+
+    window.localStorage.setItem(ADMIN_APPOINTMENTS_PREFERENCES_KEY, JSON.stringify(preferences));
+  }, [
+    branchFilter,
+    statusFilter,
+    barberFilter,
+    serviceFilter,
+    dateFrom,
+    dateTo,
+    limit,
+    quickStatusFilter,
+    searchQuery,
+    paymentFilter,
+    showFilters,
+    viewMode,
+    dateShortcut,
+  ]);
 
   async function applyFilters() { await load(); }
   async function clearFilters() {
