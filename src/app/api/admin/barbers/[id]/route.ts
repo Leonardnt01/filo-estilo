@@ -21,6 +21,35 @@ const updateBarberSchema = z
   })
   .refine((v) => Object.keys(v).length > 0, "At least one field is required");
 
+async function updateBarberWithCompat(id: string, payload: Record<string, unknown>) {
+  const supabase = await createClient();
+  let { data, error } = await supabase
+    .from("barbers")
+    .update(payload)
+    .eq("id", id)
+    .select("id, full_name, specialty, image_url, is_active, created_at, updated_at")
+    .single();
+
+  if (!error) return { data, error: null };
+
+  if (!error.message.toLowerCase().includes("image_url")) {
+    return { data: null, error };
+  }
+
+  const { image_url: _ignored, ...fallbackPayload } = payload;
+  const fallback = await supabase
+    .from("barbers")
+    .update(fallbackPayload)
+    .eq("id", id)
+    .select("id, full_name, specialty, is_active, created_at, updated_at")
+    .single();
+
+  return {
+    data: fallback.data ? { ...fallback.data, image_url: null } : null,
+    error: fallback.error,
+  };
+}
+
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.ok) return adminCheck.response;
@@ -54,12 +83,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
   }
 
-  const { data, error } = await supabase
-    .from("barbers")
-    .update(parsed.data)
-    .eq("id", id)
-    .select("id, full_name, specialty, image_url, is_active, created_at, updated_at")
-    .single();
+  const { data, error } = await updateBarberWithCompat(id, parsed.data);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
 import { Footer } from "@/components/footer";
+import { BARBER_FALLBACK_IMAGE, SERVICE_FALLBACK_IMAGE, resolveBarberImage, resolveServiceImage } from "@/lib/catalog-images";
 
 type Branch = {
   id: string;
@@ -25,27 +26,6 @@ type FooterBranchContact = {
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number; image_url?: string | null };
 type Barber = { id: string; full_name: string; specialty: string | null; image_url?: string | null };
-
-const SERVICE_FALLBACK_IMAGE = "/hero-bg.png";
-const BARBER_FALLBACK_IMAGE = "/hero-bg.png";
-
-function getServiceImageByName(serviceName: string) {
-  const key = serviceName.toLowerCase();
-  if (key.includes("barba")) return "https://images.unsplash.com/photo-1493256338651-d82f7acb2b38?q=80&w=900&auto=format&fit=crop";
-  if (key.includes("corte")) return "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=900&auto=format&fit=crop";
-  if (key.includes("premium")) return "https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=900&auto=format&fit=crop";
-  if (key.includes("afeitado")) return "https://images.unsplash.com/photo-1622287162716-f311baa1a2b8?q=80&w=900&auto=format&fit=crop";
-  return "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=900&auto=format&fit=crop";
-}
-
-function getBarberImageByName(fullName: string) {
-  const name = fullName.toLowerCase();
-  if (name.includes("carlos")) return "https://images.unsplash.com/photo-1618077360395-f3068be8e001?q=80&w=600&auto=format&fit=crop";
-  if (name.includes("javier")) return "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop";
-  if (name.includes("jefferson")) return "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop";
-  if (name.includes("miguel")) return "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600&auto=format&fit=crop";
-  return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop";
-}
 
 export default function SedeDetallePageClient({
   branch,
@@ -248,7 +228,7 @@ export default function SedeDetallePageClient({
                       <div>
                         <div className="h-44 w-full overflow-hidden relative">
                           <Image
-                            src={s.image_url || getServiceImageByName(s.name) || SERVICE_FALLBACK_IMAGE}
+                            src={resolveServiceImage(s.name, s.image_url)}
                             alt={s.name}
                             fill
                             loading="eager"
@@ -289,7 +269,7 @@ export default function SedeDetallePageClient({
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                   {barbers.map((b) => {
                     const initials = b.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2);
-                    const barberImage = b.image_url || getBarberImageByName(b.full_name) || BARBER_FALLBACK_IMAGE;
+                    const barberImage = resolveBarberImage(b.full_name, b.image_url);
                     const specialty = b.specialty ?? "Barbero profesional";
 
                     let cutDescription = "Estilos personalizados con precisión geométrica.";

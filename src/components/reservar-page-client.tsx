@@ -488,6 +488,29 @@ function ReservarPageContent({
     return () => clearTimeout(syncTimer);
   }, [barbers, branchId, branchServiceIds, requestedServiceId, serviceId, services]);
 
+  useEffect(() => {
+    if (!branchId || !serviceId || !branchServiceIds.has(serviceId)) return;
+
+    setSelectedServiceIds((prev) => {
+      const next = [...prev].filter((id) => branchServiceIds.has(id));
+      const fallbackServiceId = serviceId || services[0]?.id || "";
+
+      while (next.length < people) {
+        next.push(fallbackServiceId);
+      }
+
+      if (next.length > people) {
+        next.length = people;
+      }
+
+      if (next.length === prev.length && next.every((value, index) => value === prev[index])) {
+        return prev;
+      }
+
+      return next;
+    });
+  }, [branchId, branchServiceIds, people, serviceId, services]);
+
   const loadSlots = useCallback(async () => {
     setError(null);
     if (!branchId || !serviceId || !barberId || !date) {

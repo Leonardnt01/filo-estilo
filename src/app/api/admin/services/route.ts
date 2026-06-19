@@ -5,14 +5,114 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { canManageBranch, getManageableBranchIds, isGlobalAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
+const imageUrlSchema = z
+  .string()
+  .trim()
+  .refine((value) => value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:image/"), {
+    message: "image_url must be a valid URL or data image",
+  });
+
 const createServiceSchema = z.object({
   branch_id: z.uuid(),
   name: z.string().trim().min(1),
   description: z.string().trim().optional().nullable(),
   price: z.number().min(0),
   duration_minutes: z.number().int().positive(),
+  image_url: imageUrlSchema.optional().nullable(),
   is_active: z.boolean().optional(),
 });
+
+async function selectServicesWithCompat(
+  branchId: string | null,
+  onlyActive: boolean,
+  allowedBranchIds: string[] | null,
+) {
+  const supabase = await createClient();
+  const selects = [
+    "id, branch_id, name, description, price, duration_minutes, image_url, is_active, created_at, updated_at",
+    "id, branch_id, name, description, price, duration_minutes, is_active, created_at, updated_at",
+  ];
+
+  for (const select of selects) {
+    let query = supabase
+      .from("services")
+      .select(select)
+      .order("created_at", { ascending: false });
+
+    if (onlyActive) query = query.eq("is_active", true);
+    if (branchId) {
+      query = query.eq("branch_id", branchId);
+    } else if (allowedBranchIds) {
+      query = query.in("branch_id", allowedBranchIds);
+    }
+
+    const { data, error } = await query;
+    if (!error) {
+      return {
+        data: (data ?? []).map((item) => {
+          const row = item as unknown as Record<string, unknown>;
+          return {
+            ...row,
+            image_url: typeof row.image_url === "string" ? row.image_url : null,
+          };
+        }),
+        error: null,
+      };
+    }
+  }
+
+  const { error } = await supabase
+    .from("services")
+    .select("id")
+    .limit(1);
+
+  return { data: null, error };
+}
+
+async function insertServiceWithCompat(payload: {
+  name: string;
+  branch_id: string;
+  description: string | null;
+  price: number;
+  duration_minutes: number;
+  image_url: string | null;
+  is_active: boolean;
+}) {
+  const supabase = await createClient();
+  const insertPayload = {
+    name: payload.name,
+    branch_id: payload.branch_id,
+    description: payload.description,
+    price: payload.price,
+    duration_minutes: payload.duration_minutes,
+    image_url: payload.image_url,
+    is_active: payload.is_active,
+  };
+
+  let { data, error } = await supabase
+    .from("services")
+    .insert(insertPayload)
+    .select("id, name, description, price, duration_minutes, image_url, is_active, created_at, updated_at")
+    .single();
+
+  if (!error) return { data, error: null };
+
+  if (!error.message.toLowerCase().includes("image_url")) {
+    return { data: null, error };
+  }
+
+  const { image_url: _ignored, ...fallbackPayload } = insertPayload;
+  const fallback = await supabase
+    .from("services")
+    .insert(fallbackPayload)
+    .select("id, name, description, price, duration_minutes, is_active, created_at, updated_at")
+    .single();
+
+  return {
+    data: fallback.data ? { ...fallback.data, image_url: null } : null,
+    error: fallback.error,
+  };
+}
 
 export async function GET(request: Request) {
   const adminCheck = await requireAdmin();
@@ -27,32 +127,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
   }
 
-  const supabase = await createClient();
-  let query = supabase
-    .from("services")
-    .select("id, branch_id, name, description, price, duration_minutes, is_active, created_at, updated_at")
-    .order("created_at", { ascending: false });
-
-  if (onlyActive) {
-    query = query.eq("is_active", true);
-  }
-  if (branchId) {
-    query = query.eq("branch_id", branchId);
-  } else if (!isGlobalAdmin(role)) {
-    const allowedBranchIds = getManageableBranchIds(role, memberships);
+  let allowedBranchIds: string[] | null = null;
+  if (!branchId && !isGlobalAdmin(role)) {
+    allowedBranchIds = getManageableBranchIds(role, memberships);
     if (!allowedBranchIds || allowedBranchIds.length === 0) {
       return NextResponse.json({ ok: true, count: 0, items: [] });
     }
-    query = query.in("branch_id", allowedBranchIds);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await selectServicesWithCompat(branchId, onlyActive, allowedBranchIds);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, count: data.length, items: data });
+  return NextResponse.json({ ok: true, count: data?.length ?? 0, items: data ?? [] });
 }
 
 export async function POST(request: Request) {
@@ -74,19 +163,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden for this branch" }, { status: 403 });
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("services")
-    .insert({
-      name: parsed.data.name,
-      branch_id: parsed.data.branch_id,
-      description: parsed.data.description ?? null,
-      price: parsed.data.price,
-      duration_minutes: parsed.data.duration_minutes,
-      is_active: parsed.data.is_active ?? true,
-    })
-    .select("id, name, description, price, duration_minutes, is_active, created_at, updated_at")
-    .single();
+  const { data, error } = await insertServiceWithCompat({
+    name: parsed.data.name,
+    branch_id: parsed.data.branch_id,
+    description: parsed.data.description ?? null,
+    price: parsed.data.price,
+    duration_minutes: parsed.data.duration_minutes,
+    image_url: parsed.data.image_url ?? null,
+    is_active: parsed.data.is_active ?? true,
+  });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

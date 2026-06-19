@@ -3,10 +3,22 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  FaBan,
+  FaCircleCheck,
+  FaImage,
+  FaLocationDot,
+  FaPen,
+  FaPlus,
+  FaStar,
+  FaUserTie,
+  FaXmark,
+} from "react-icons/fa6";
 import { useToast } from "@/components/toast";
 import { useConfirm } from "@/components/confirm-modal";
 import { AdminCardsSkeleton, AdminHeaderSkeleton } from "@/components/admin-skeletons";
 import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/cache/admin-client-cache";
+import { resolveBarberImage } from "@/lib/catalog-images";
 
 type Barber = { id: string; full_name: string; specialty: string | null; image_url: string | null; is_active: boolean };
 type Branch = { id: string; name: string };
@@ -28,6 +40,10 @@ export default function AdminBarbersPage() {
     () => new Map(branches.map((branch) => [branch.id, branch.name])),
     [branches],
   );
+
+  function getBarberPreview(fullName: string, imageUrl?: string | null) {
+    return resolveBarberImage(fullName || "Barbero", imageUrl ?? null);
+  }
 
   async function load() {
     if (!branchId) return;
@@ -100,7 +116,7 @@ export default function AdminBarbersPage() {
     invalidateCacheByPrefix("/api/admin/barbers");
 
     const savedItem = { 
-      id: isEdit ? editingItem.id : Math.random().toString(), // El ID real vendrá en el próximo load o refresh, pero esto evita el parpadeo
+      id: isEdit ? editingItem.id : Math.random().toString(),
       full_name: form.full_name,
       specialty: form.specialty || null,
       image_url: form.image_url || null,
@@ -158,7 +174,9 @@ export default function AdminBarbersPage() {
           <h2 className="text-3xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
             Gestión de <span style={{ color: "var(--accent)" }}>Barberos</span>
           </h2>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{items.length} barberos registrados en esta sede</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            {items.length} barberos registrados en esta sede
+          </p>
           
           {/* Branch Tabs Selector */}
           <div className="mt-6 flex flex-wrap gap-2">
@@ -166,19 +184,24 @@ export default function AdminBarbersPage() {
               <button
                 key={b.id}
                 onClick={() => setBranchId(b.id)}
-                className={`rounded-full px-5 py-2 text-sm font-medium transition-all border ${
+                className={`rounded-full px-5 py-2 text-sm font-medium transition-all border flex items-center gap-1.5 ${
                   branchId === b.id 
                     ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-lg shadow-[var(--accent-soft)]" 
                     : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
                 }`}
               >
+                <FaLocationDot className="h-3 w-3" />
                 {b.name}
               </button>
             ))}
           </div>
         </div>
-        <button onClick={() => { setEditingItem(null); setForm({ full_name: "", specialty: "", image_url: "" }); setImagePreview(null); setShowForm(!showForm); }} className="admin-btn admin-btn-primary !h-11 !px-6" disabled={!branchId}>
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M12 4v16m8-8H4" /></svg>
+        <button 
+          onClick={() => { setEditingItem(null); setForm({ full_name: "", specialty: "", image_url: "" }); setImagePreview(null); setShowForm(!showForm); }} 
+          className="admin-btn admin-btn-primary !h-11 !px-6 flex items-center gap-2" 
+          disabled={!branchId}
+        >
+          <FaPlus className="h-4 w-4" />
           Nuevo Barbero
         </button>
       </div>
@@ -187,19 +210,26 @@ export default function AdminBarbersPage() {
       {showForm && (
         <form onSubmit={saveBarber} className="admin-card space-y-6 animate-fade-in border-2" style={{ borderColor: "var(--accent-border)" }}>
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
+            <h3 className="text-base font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: "var(--accent)" }}>
+              <FaUserTie className="h-4 w-4" />
               {editingItem ? "Editar Barbero" : "Crear nuevo barbero"}
             </h3>
-            <button type="button" onClick={() => { setShowForm(false); setEditingItem(null); }} className="text-[var(--text-muted)] hover:text-red-500 transition-colors">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" strokeWidth="2" /></svg>
+            <button type="button" onClick={() => { setShowForm(false); setEditingItem(null); setImagePreview(null); }} className="text-[var(--text-muted)] hover:text-red-500 transition-colors">
+              <FaXmark className="h-5 w-5" />
             </button>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
-              <input placeholder="Nombre completo" value={form.full_name} onChange={(e) => setForm((s) => ({ ...s, full_name: e.target.value }))} className="admin-input w-full" required />
-              <input placeholder="Especialidad (ej: Fade y barba)" value={form.specialty} onChange={(e) => setForm((s) => ({ ...s, specialty: e.target.value }))} className="admin-input w-full" />
-              <div>
-                <label className="text-xs font-medium block mb-1.5" style={{ color: "var(--text-muted)" }}>Foto del barbero</label>
+          <div className="grid gap-5 md:grid-cols-[1fr_180px]">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider pl-1 text-[var(--text-muted)]">Nombre completo</label>
+                <input placeholder="Ej: Luis Paredes" value={form.full_name} onChange={(e) => setForm((s) => ({ ...s, full_name: e.target.value }))} className="admin-input w-full" required />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider pl-1 text-[var(--text-muted)]">Especialidad</label>
+                <input placeholder="Ej: Fade y barba, Cortes modernos" value={form.specialty} onChange={(e) => setForm((s) => ({ ...s, specialty: e.target.value }))} className="admin-input w-full" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider pl-1 text-[var(--text-muted)]">Foto del barbero</label>
                 <div className="flex gap-2">
                   <input
                     ref={fileRef}
@@ -208,14 +238,18 @@ export default function AdminBarbersPage() {
                     onChange={handleImageSelect}
                     className="hidden"
                   />
-                  <button type="button" onClick={() => fileRef.current?.click()} className="admin-btn flex-1">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <button type="button" onClick={() => fileRef.current?.click()} className="admin-btn flex items-center gap-2">
+                    <FaImage className="h-3.5 w-3.5" />
                     Subir foto
                   </button>
                   <input
                     placeholder="O pegar URL de imagen"
                     value={form.image_url.startsWith("data:") ? "" : form.image_url}
-                    onChange={(e) => { setForm((s) => ({ ...s, image_url: e.target.value })); setImagePreview(e.target.value || null); }}
+                    onChange={(e) => {
+                      const nextValue = e.target.value;
+                      setForm((s) => ({ ...s, image_url: nextValue }));
+                      setImagePreview(nextValue || getBarberPreview(form.full_name, null));
+                    }}
                     className="admin-input flex-1"
                   />
                 </div>
@@ -226,13 +260,17 @@ export default function AdminBarbersPage() {
             <div className="flex items-center justify-center">
               {imagePreview ? (
                 <div className="relative">
-                  <img src={imagePreview} alt="Preview" className="h-32 w-32 rounded-full object-cover border-2" style={{ borderColor: "var(--accent-border)" }} />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imagePreview} alt="Preview" className="h-36 w-36 rounded-full object-cover border-2" style={{ borderColor: "var(--accent-border)" }} />
                   <button type="button" onClick={() => { setImagePreview(null); setForm((s) => ({ ...s, image_url: "" })); }}
-                    className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white text-xs">✕</button>
+                    className="absolute -top-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white shadow-lg hover:bg-red-600 transition-colors">
+                    <FaXmark className="h-3 w-3" />
+                  </button>
                 </div>
               ) : (
-                <div className="flex h-32 w-32 items-center justify-center rounded-full border-2 border-dashed" style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)" }}>
-                  <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                <div className="flex h-36 w-36 flex-col items-center justify-center rounded-full border-2 border-dashed gap-2" style={{ borderColor: "var(--border-strong)", color: "var(--text-muted)" }}>
+                  <FaUserTie className="h-10 w-10" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Sin foto</span>
                 </div>
               )}
             </div>
@@ -250,72 +288,130 @@ export default function AdminBarbersPage() {
       {loading ? (
         <AdminCardsSkeleton count={6} />
       ) : (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item, i) => {
           const initials = item.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2);
           const hue = hues[i % hues.length];
           const branchName = branchNameById.get(branchId) ?? "Sede";
+          const hasSpecialty = !!item.specialty;
           return (
-            <div key={item.id} className="admin-card flex flex-col items-center text-center relative pt-8">
-              <div className="absolute top-3 right-3 rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
-                style={{ background: "var(--accent-soft)", color: "var(--accent)", borderColor: "var(--accent-border)" }}>
-                {branchName}
-              </div>
-              {item.image_url ? (
-                <div className="relative h-20 w-20 overflow-hidden rounded-full border-2" style={{ borderColor: "var(--accent-border)" }}>
-                  <Image
-                    src={item.image_url}
-                    alt={item.full_name}
-                    fill
-                    sizes="80px"
-                    className="object-cover"
-                  />
-                </div>
-              ) : (
-                <div
-                  className="h-20 w-20 rounded-full flex items-center justify-center text-2xl font-bold border-2"
-                  style={{ background: `linear-gradient(135deg, hsl(${hue},40%,18%), hsl(${hue},30%,12%))`, color: `hsl(${hue},60%,65%)`, borderColor: "var(--accent-border)" }}
-                >
-                  {initials}
-                </div>
-              )}
-              <h3 className="mt-3 font-semibold" style={{ color: "var(--text-primary)" }}>{item.full_name}</h3>
-              <p className="text-sm" style={{ color: "var(--accent)" }}>{item.specialty ?? "Sin especialidad"}</p>
-              <span className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${item.is_active ? "status-completed" : "status-cancelled"}`}>
-                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                {item.is_active ? "Activo" : "Inactivo"}
-              </span>
+            <div
+              key={item.id}
+              className={`admin-card relative overflow-hidden rounded-2xl border transition-all duration-300 group hover:-translate-y-0.5 hover:shadow-xl ${
+                item.is_active
+                  ? "border-[var(--border)] hover:border-[var(--accent-border)]/60"
+                  : "border-[var(--border)] opacity-60 hover:opacity-80"
+              }`}
+            >
+              {/* Top accent line on hover */}
+              <div className="absolute top-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[var(--accent)] to-amber-500 group-hover:w-full transition-all duration-500" />
 
-              <div className="mt-6 flex gap-2 w-full">
-                <button 
-                  className="admin-btn flex-1 !h-10 gap-2 font-semibold" 
-                  onClick={() => { 
-                    setEditingItem(item); 
-                    setForm({ full_name: item.full_name, specialty: item.specialty ?? "", image_url: item.image_url ?? "" }); 
-                    setImagePreview(item.image_url);
-                    setShowForm(true); 
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                  Editar
-                </button>
-                <button
-                  className={`admin-btn flex-1 !h-10 gap-2 font-semibold ${item.is_active ? "admin-btn-danger" : "admin-btn-primary"}`}
-                  onClick={() => toggleActive(item)}
-                >
-                  {item.is_active ? (
-                    <>
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                      Desactivar
-                    </>
-                  ) : (
-                    <>
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      Activar
-                    </>
+              <div className="p-5 flex flex-col items-center text-center">
+                {/* Branch badge */}
+                <div className="absolute top-3 right-3">
+                  <span className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-bold uppercase tracking-wider bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent-border)]">
+                    <FaLocationDot className="h-2.5 w-2.5" />
+                    {branchName}
+                  </span>
+                </div>
+
+                {/* Avatar */}
+                <div className="mt-2 relative">
+                  <div className="relative h-24 w-24 overflow-hidden rounded-full border-[3px] shadow-lg transition-transform duration-300 group-hover:scale-105" style={{ borderColor: "var(--accent-border)" }}>
+                    <Image
+                      src={getBarberPreview(item.full_name, item.image_url)}
+                      alt={item.full_name}
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                    <div
+                      className="absolute inset-0"
+                      style={{ background: `linear-gradient(135deg, hsla(${hue},40%,18%,0.08), hsla(${hue},30%,12%,0.22))` }}
+                    />
+                    {!item.image_url && (
+                      <div className="absolute bottom-1 left-1 flex h-6 min-w-6 items-center justify-center rounded-full border border-[var(--accent-border)] bg-[var(--bg-primary)]/80 px-1.5 text-[10px] font-black text-[var(--accent)]">
+                        {initials}
+                      </div>
+                    )}
+                  </div>
+                  {/* Online indicator */}
+                  {item.is_active && (
+                    <div className="absolute bottom-1 right-1 h-4 w-4 rounded-full bg-emerald-500 border-2 border-[var(--bg-surface)] shadow-sm" />
                   )}
-                </button>
+                </div>
+
+                {/* Name */}
+                <h3 className="mt-4 text-lg font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors leading-tight">
+                  {item.full_name}
+                </h3>
+
+                {/* Role badge */}
+                <div className="mt-2 flex items-center gap-1.5">
+                  {hasSpecialty ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent-border)]">
+                      <FaStar className="h-2.5 w-2.5" />
+                      Especialista
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border)]">
+                      <FaUserTie className="h-2.5 w-2.5" />
+                      Barbero General
+                    </span>
+                  )}
+                </div>
+
+                {/* Specialty */}
+                {item.specialty ? (
+                  <p className="mt-2 text-xs text-[var(--text-secondary)] leading-relaxed max-w-[200px]">
+                    {item.specialty}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-[11px] text-[var(--text-muted)] italic">
+                    Sin especialidad definida
+                  </p>
+                )}
+
+                {/* Status badge */}
+                <div className="mt-3">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${item.is_active ? "status-completed" : "status-cancelled"}`}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    {item.is_active ? "Activo" : "Inactivo"}
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="mt-5 flex gap-2 w-full">
+                  <button 
+                    className="admin-btn flex-1 !h-10 gap-2 font-semibold text-xs" 
+                    onClick={() => { 
+                      setEditingItem(item); 
+                      setForm({ full_name: item.full_name, specialty: item.specialty ?? "", image_url: item.image_url ?? "" }); 
+                      setImagePreview(getBarberPreview(item.full_name, item.image_url));
+                      setShowForm(true); 
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                  >
+                    <FaPen className="h-3.5 w-3.5" />
+                    Editar
+                  </button>
+                  <button
+                    className={`admin-btn flex-1 !h-10 gap-2 font-semibold text-xs ${item.is_active ? "admin-btn-danger" : "admin-btn-primary"}`}
+                    onClick={() => toggleActive(item)}
+                  >
+                    {item.is_active ? (
+                      <>
+                        <FaBan className="h-3.5 w-3.5" />
+                        Desactivar
+                      </>
+                    ) : (
+                      <>
+                        <FaCircleCheck className="h-3.5 w-3.5" />
+                        Activar
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           );

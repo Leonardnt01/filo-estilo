@@ -5,13 +5,17 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
   FaBan,
+  FaCalendarDay,
   FaCheck,
   FaClock,
   FaCreditCard,
   FaEarthAmericas,
   FaEnvelope,
   FaFilter,
+  FaGripVertical,
+  FaList,
   FaLocationDot,
+  FaMagnifyingGlass,
   FaPhone,
   FaRegCircleCheck,
   FaScissors,
@@ -19,6 +23,7 @@ import {
   FaUserGroup,
   FaUserTie,
   FaWhatsapp,
+  FaXmark,
 } from "react-icons/fa6";
 import { useToast } from "@/components/toast";
 import { AdminAppointmentsSkeleton, AdminHeaderSkeleton } from "@/components/admin-skeletons";
@@ -47,6 +52,9 @@ type Appointment = {
 type OptionItem = { id: string; full_name?: string; name?: string };
 type Branch = { id: string; name: string };
 type QuickStatusFilter = "all" | "to_start" | "in_progress" | "finished" | "cancelled";
+type PaymentFilter = "all" | "yape" | "card" | "processing";
+type ViewMode = "detailed" | "compact";
+type DateShortcut = "all" | "today" | "week" | "month";
 
 const STATUSES: Appointment["status"][] = ["pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"];
 const STATUS_CONFIG_SIMPLE: Record<Appointment["status"], { label: string }> = {
@@ -310,6 +318,19 @@ function getAppointmentSortTimestamp(item: Appointment) {
   return Number.isNaN(fallbackMs) ? 0 : fallbackMs;
 }
 
+function formatLocalDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 export default function AdminAppointmentsPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<Appointment[]>([]);
@@ -324,10 +345,15 @@ export default function AdminAppointmentsPage() {
   const [dateTo, setDateTo] = useState("");
   const [limit, setLimit] = useState("100");
   const [quickStatusFilter, setQuickStatusFilter] = useState<QuickStatusFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>("detailed");
+  const [visibleCount, setVisibleCount] = useState(15);
+  const [dateShortcut, setDateShortcut] = useState<DateShortcut>("all");
 
   async function loadOptions() {
     try {
@@ -400,7 +426,34 @@ export default function AdminAppointmentsPage() {
   async function clearFilters() {
     setStatusFilter(""); setBarberFilter(""); setServiceFilter("");
     setDateFrom(""); setDateTo(""); setLimit("100");
+    setSearchQuery("");
+    setPaymentFilter("all");
+    setQuickStatusFilter("all");
+    setDateShortcut("all");
+    setVisibleCount(15);
     setTimeout(() => { void load(); }, 0);
+  }
+
+  function applyDateShortcut(shortcut: DateShortcut) {
+    setDateShortcut(shortcut);
+    setVisibleCount(15);
+    if (shortcut === "all") {
+      setDateFrom("");
+      setDateTo("");
+      return;
+    }
+    const now = new Date();
+    const todayStr = formatLocalDateInput(now);
+    if (shortcut === "today") {
+      setDateFrom(todayStr);
+      setDateTo(todayStr);
+    } else if (shortcut === "week") {
+      setDateFrom(todayStr);
+      setDateTo(formatLocalDateInput(addDays(now, 6)));
+    } else if (shortcut === "month") {
+      setDateFrom(todayStr);
+      setDateTo(formatLocalDateInput(addDays(now, 29)));
+    }
   }
 
   async function changeStatus(id: string, status: Appointment["status"]) {
@@ -451,14 +504,96 @@ export default function AdminAppointmentsPage() {
       const parsedNotes = parseAppointmentNotes(item.notes);
       const isPrepaid = !!parsedNotes.payment?.isPrepaid;
       const effectiveStatus = getEffectiveAppointmentStatus(item, isPrepaid);
+      const paymentMethod = parsedNotes.payment?.method?.toLowerCase() ?? "";
+      const paymentState = parsedNotes.payment?.isPrepaid ? "confirmed" : parsedNotes.payment ? "processing" : "";
+      const searchText = [
+        item.customer_name,
+        item.customer_email,
+        item.customer_phone,
+        item.id,
+        item.barber?.full_name,
+        item.service?.name,
+        item.branch?.name,
+        parsedNotes.payment?.tx,
+        parsedNotes.payment?.cardLabel,
+        parsedNotes.userNote,
+        paymentMethod,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
 
-      if (quickStatusFilter === "to_start") return effectiveStatus === "confirmed";
-      if (quickStatusFilter === "in_progress") return effectiveStatus === "in_progress";
-      if (quickStatusFilter === "finished") return effectiveStatus === "completed";
-      if (quickStatusFilter === "cancelled") return effectiveStatus === "cancelled";
+      // Client-side barber filter
+      if (barberFilter && item.barber_id !== barberFilter) return false;
+      // Client-side service filter
+      if (serviceFilter && item.service_id !== serviceFilter) return false;
+      // Strict client-side date filtering so shortcut chips always match the visible list
+      if (dateFrom && item.appointment_date < dateFrom) return false;
+      if (dateTo && item.appointment_date > dateTo) return false;
+
+      const matchesQuickStatus =
+        quickStatusFilter === "all" ||
+        (quickStatusFilter === "to_start" && effectiveStatus === "confirmed") ||
+        (quickStatusFilter === "in_progress" && effectiveStatus === "in_progress") ||
+        (quickStatusFilter === "finished" && effectiveStatus === "completed") ||
+        (quickStatusFilter === "cancelled" && effectiveStatus === "cancelled");
+
+      if (!matchesQuickStatus) return false;
+
+      if (paymentFilter === "yape" && !paymentMethod.includes("yape")) return false;
+      if (paymentFilter === "card" && !paymentMethod.includes("tarjeta")) return false;
+      if (paymentFilter === "processing" && paymentState !== "processing") return false;
+
+      // Multi-word search: every word must be found in the searchText
+      if (searchQuery.trim()) {
+        const searchWords = searchQuery.trim().toLowerCase().split(/\s+/);
+        if (!searchWords.every(word => searchText.includes(word))) return false;
+      }
+
       return true;
     });
-  }, [quickStatusFilter, sortedItems]);
+  }, [barberFilter, dateFrom, dateTo, paymentFilter, quickStatusFilter, searchQuery, serviceFilter, sortedItems]);
+
+  // Pagination: only show visibleCount items
+  const paginatedItems = useMemo(() => visibleItems.slice(0, visibleCount), [visibleItems, visibleCount]);
+  const hasMore = visibleCount < visibleItems.length;
+
+  // Reset pagination when filters change
+  useEffect(() => { setVisibleCount(15); }, [searchQuery, quickStatusFilter, paymentFilter, barberFilter, serviceFilter, dateFrom, dateTo]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ key: string; label: string; clear: () => void }> = [];
+
+    if (searchQuery.trim()) chips.push({ key: "search", label: `Busqueda: ${searchQuery.trim()}`, clear: () => setSearchQuery("") });
+    if (branchFilter) {
+      const branchName = branches.find((branch) => branch.id === branchFilter)?.name ?? "Sede";
+      chips.push({ key: "branch", label: branchName, clear: () => setBranchFilter("") });
+    }
+    if (quickStatusFilter !== "all") {
+      const quickLabels: Record<Exclude<QuickStatusFilter, "all">, string> = {
+        to_start: "Por iniciar",
+        in_progress: "En atención",
+        finished: "Finalizados",
+        cancelled: "Cancelados",
+      };
+      chips.push({ key: "quick-status", label: quickLabels[quickStatusFilter as Exclude<QuickStatusFilter, "all">], clear: () => setQuickStatusFilter("all") });
+    }
+    if (paymentFilter !== "all") {
+      const paymentLabels: Record<Exclude<PaymentFilter, "all">, string> = {
+        yape: "Yape",
+        card: "Tarjeta",
+        processing: "En validación",
+      };
+      chips.push({ key: "payment", label: paymentLabels[paymentFilter as Exclude<PaymentFilter, "all">], clear: () => setPaymentFilter("all") });
+    }
+    if (statusFilter) chips.push({ key: "status", label: STATUS_CONFIG_SIMPLE[statusFilter as Appointment["status"]]?.label ?? statusFilter, clear: () => setStatusFilter("") });
+    if (barberFilter) chips.push({ key: "barber", label: barbers.find((barber) => barber.id === barberFilter)?.full_name ?? "Barbero", clear: () => setBarberFilter("") });
+    if (serviceFilter) chips.push({ key: "service", label: services.find((service) => service.id === serviceFilter)?.name ?? "Servicio", clear: () => setServiceFilter("") });
+    if (dateFrom) chips.push({ key: "date-from", label: `Desde ${dateFrom}`, clear: () => setDateFrom("") });
+    if (dateTo) chips.push({ key: "date-to", label: `Hasta ${dateTo}`, clear: () => setDateTo("") });
+
+    return chips;
+  }, [barberFilter, barbers, branchFilter, branches, dateFrom, dateTo, paymentFilter, quickStatusFilter, searchQuery, serviceFilter, services, statusFilter]);
 
   return (
     <section className="space-y-6">
@@ -475,15 +610,44 @@ export default function AdminAppointmentsPage() {
                 Monitorea y actualiza el estado de las citas en tiempo real. {visibleItems.length} {visibleItems.length === 1 ? "cita encontrada" : "citas encontradas"}
               </p>
             </div>
-            <button 
-              onClick={() => setShowFilters(!showFilters)} 
-              className={`admin-btn font-semibold flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
-                showFilters ? "border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-soft)]" : ""
-              }`}
-            >
-              <FaFilter className="h-4 w-4" />
-              {showFilters ? "Ocultar Filtros" : "Mostrar Filtros"}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* View toggle */}
+              <div className="flex items-center rounded-xl border border-[var(--border-strong)] bg-[var(--bg-secondary)] overflow-hidden">
+                <button
+                  onClick={() => setViewMode("detailed")}
+                  title="Vista detallada"
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-all ${
+                    viewMode === "detailed"
+                      ? "bg-[var(--accent-soft)] text-[var(--accent)] shadow-inner"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                  }`}
+                >
+                  <FaGripVertical className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Detallada</span>
+                </button>
+                <button
+                  onClick={() => setViewMode("compact")}
+                  title="Vista compacta"
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-all ${
+                    viewMode === "compact"
+                      ? "bg-[var(--accent-soft)] text-[var(--accent)] shadow-inner"
+                      : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                  }`}
+                >
+                  <FaList className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Compacta</span>
+                </button>
+              </div>
+              <button 
+                onClick={() => setShowFilters(!showFilters)} 
+                className={`admin-btn font-semibold flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+                  showFilters ? "border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-soft)]" : ""
+                }`}
+              >
+                <FaFilter className="h-4 w-4" />
+                {showFilters ? "Ocultar Filtros" : "Mostrar Filtros"}
+              </button>
+            </div>
           </div>
 
           {/* Sede tabs premium */}
@@ -561,94 +725,211 @@ export default function AdminAppointmentsPage() {
               </button>
             ))}
           </div>
-        </div>
-      )}
 
-      {showFilters && (
-        <div className="admin-card space-y-4 animate-fade-in bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl p-6 shadow-xl">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--accent)] flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
-              Filtros Avanzados
-            </h3>
-            <button 
-              onClick={() => void clearFilters()} 
-              className="text-xs font-semibold hover:underline"
-              style={{ color: "var(--text-muted)" }}
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-1 items-center gap-2">
+              <div className="relative flex-1 xl:max-w-xl">
+                <FaMagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar cliente, teléfono, barbero, código o método de pago"
+                  className="w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-secondary)] py-3 pl-11 pr-4 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+                />
+              </div>
+
+              {/* Date shortcuts */}
+              <div className="hidden sm:flex items-center gap-1.5">
+                {[
+                  { key: "all" as const, label: "Todo", icon: null },
+                  { key: "today" as const, label: "Hoy", icon: <FaCalendarDay className="h-3 w-3" /> },
+                  { key: "week" as const, label: "Semana", icon: null },
+                  { key: "month" as const, label: "Mes", icon: null },
+                ].map((ds) => (
+                  <button
+                    key={ds.key}
+                    onClick={() => applyDateShortcut(ds.key)}
+                    className={`flex items-center gap-1 px-3 py-2 text-[11px] font-bold rounded-xl border transition-all whitespace-nowrap ${
+                      dateShortcut === ds.key
+                        ? "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)] shadow-sm"
+                        : "bg-[var(--bg-secondary)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--accent-border)] hover:text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    {ds.icon}
+                    {ds.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold uppercase tracking-wider transition xl:hidden ${
+                showFilters
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                  : "border-[var(--border-strong)] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
+              }`}
             >
-              Resetear filtros
+              <FaFilter className="h-4 w-4" />
+              {showFilters ? "Ocultar panel" : "Mostrar panel"}
             </button>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-bold uppercase tracking-wider pl-1" style={{ color: "var(--text-muted)" }}>Estado</label>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="admin-select !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3">
-                <option value="">Todos los estados</option>
-                {STATUSES.map((s) => <option key={s} value={s}>{STATUS_CONFIG_SIMPLE[s].label}</option>)}
-              </select>
+
+          {/* Mobile date shortcuts */}
+          <div className="flex sm:hidden items-center gap-1.5 overflow-x-auto scrollbar-none">
+            {[
+              { key: "all" as const, label: "Todo" },
+              { key: "today" as const, label: "Hoy" },
+              { key: "week" as const, label: "Semana" },
+              { key: "month" as const, label: "Mes" },
+            ].map((ds) => (
+              <button
+                key={ds.key}
+                onClick={() => applyDateShortcut(ds.key)}
+                className={`px-3 py-2 text-[11px] font-bold rounded-xl border transition-all whitespace-nowrap ${
+                  dateShortcut === ds.key
+                    ? "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)] shadow-sm"
+                    : "bg-[var(--bg-secondary)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--accent-border)]"
+                }`}
+              >
+                {ds.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className={`grid gap-6 ${showFilters ? "xl:grid-cols-[280px_minmax(0,1fr)]" : ""}`}>
+        {showFilters && (
+        <aside className="block">
+          <div className="admin-card space-y-5 animate-fade-in bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl p-5 shadow-xl xl:sticky xl:top-24">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--accent)] flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
+                Filtros avanzados
+              </h3>
+              <button
+                onClick={() => void clearFilters()}
+                className="text-xs font-semibold hover:underline"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Limpiar
+              </button>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-bold uppercase tracking-wider pl-1" style={{ color: "var(--text-muted)" }}>Barbero</label>
-              <select value={barberFilter} onChange={(e) => setBarberFilter(e.target.value)} className="admin-select !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3">
-                <option value="">Todos los barberos</option>
-                {barbers.map((b) => <option key={b.id} value={b.id}>{b.full_name}</option>)}
-              </select>
+            {/* Payment filter pills */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider pl-1 text-[var(--text-muted)]">Método de pago</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: "all", label: "Todos" },
+                  { key: "yape", label: "Yape" },
+                  { key: "card", label: "Tarjeta" },
+                  { key: "processing", label: "En validación" },
+                ].map((option) => (
+                  <button
+                    key={option.key}
+                    onClick={() => setPaymentFilter(option.key as PaymentFilter)}
+                    className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+                      paymentFilter === option.key
+                        ? "bg-[var(--accent-soft)] text-[var(--accent)] border border-[var(--accent)]"
+                        : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border)]"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-bold uppercase tracking-wider pl-1" style={{ color: "var(--text-muted)" }}>Servicio</label>
-              <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className="admin-select !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3">
-                <option value="">Todos los servicios</option>
-                {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-bold uppercase tracking-wider pl-1" style={{ color: "var(--text-muted)" }}>Desde</label>
-              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="admin-input !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3" />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-bold uppercase tracking-wider pl-1" style={{ color: "var(--text-muted)" }}>Hasta</label>
-              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="admin-input !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 items-end">
+            <div className="space-y-4">
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider pl-1" style={{ color: "var(--text-muted)" }}>Límite</label>
+                <label className="text-[11px] font-bold uppercase tracking-wider pl-1 text-[var(--text-muted)]">Barbero</label>
+                <select value={barberFilter} onChange={(e) => setBarberFilter(e.target.value)} className="admin-select !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3">
+                  <option value="">Todos los barberos</option>
+                  {barbers.map((b) => <option key={b.id} value={b.id}>{b.full_name}</option>)}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider pl-1 text-[var(--text-muted)]">Servicio</label>
+                <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className="admin-select !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3">
+                  <option value="">Todos los servicios</option>
+                  {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider pl-1 text-[var(--text-muted)]">Desde</label>
+                <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setDateShortcut("all"); }} className="admin-input !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3" />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider pl-1 text-[var(--text-muted)]">Hasta</label>
+                <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setDateShortcut("all"); }} className="admin-input !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3" />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider pl-1 text-[var(--text-muted)]">Límite de carga</label>
                 <select value={limit} onChange={(e) => setLimit(e.target.value)} className="admin-select !w-full !bg-[var(--bg-secondary)] border-[var(--border-strong)] focus:border-[var(--accent)] rounded-xl py-2 px-3">
-                  <option value="10">10 resultados</option>
                   <option value="20">20 resultados</option>
                   <option value="50">50 resultados</option>
                   <option value="100">100 resultados</option>
+                  <option value="200">200 resultados</option>
                 </select>
               </div>
+
               <button onClick={() => void applyFilters()} className="admin-btn admin-btn-primary w-full justify-center !py-2.5 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-all">
-                Filtrar
+                Recargar datos
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </aside>
+        )}
 
-      {loading ? (
-        <AdminAppointmentsSkeleton rows={6} />
-      ) : visibleItems.length === 0 ? (
-        <div className="admin-card p-16 text-center bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl shadow-lg">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl mb-4" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
-            <svg className="h-10 w-10 text-[var(--accent)] animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>No se encontraron citas</h3>
-          <p className="mt-2 text-sm max-w-md mx-auto" style={{ color: "var(--text-secondary)" }}>
-            Intenta cambiar los filtros de búsqueda o la sede seleccionada para visualizar otras reservas registradas.
-          </p>
-        </div>
-      ) : (
         <div className="space-y-4">
-          {visibleItems.map((item) => {
+          {activeFilterChips.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {activeFilterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  onClick={chip.clear}
+                  className="inline-flex items-center gap-2 rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)]/20 px-3 py-1.5 text-[11px] font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-soft)]"
+                >
+                  <span>{chip.label}</span>
+                  <FaXmark className="h-3 w-3" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {loading ? (
+            <AdminAppointmentsSkeleton rows={6} />
+          ) : visibleItems.length === 0 ? (
+            <div className="admin-card p-16 text-center bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl shadow-lg">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl mb-4" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+                <svg className="h-10 w-10 text-[var(--accent)] animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>No se encontraron citas</h3>
+              <p className="mt-2 text-sm max-w-md mx-auto" style={{ color: "var(--text-secondary)" }}>
+                Intenta cambiar la busqueda, la sede o los filtros activos para visualizar otras reservas registradas.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Compact view table header */}
+              {viewMode === "compact" && paginatedItems.length > 0 && (
+                <div className="hidden md:grid grid-cols-[70px_1fr_1fr_1fr_130px_140px] gap-3 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)]">
+                  <span>Fecha</span>
+                  <span>Cliente</span>
+                  <span>Servicio / Barbero</span>
+                  <span>Pago</span>
+                  <span>Estado</span>
+                  <span className="text-right">Acciones</span>
+                </div>
+              )}
+              {paginatedItems.map((item) => {
             const { payment, companions, groupSlots, userNote } = parseAppointmentNotes(item.notes);
             const isPrepaid = !!payment?.isPrepaid;
             const effectiveStatus = getEffectiveAppointmentStatus(item, isPrepaid);
@@ -657,6 +938,135 @@ export default function AdminAppointmentsPage() {
             const paymentVisual = payment ? getPaymentVisual(payment.method) : null;
             const timelineSteps = getTimelineSteps(effectiveStatus);
 
+            // ─── COMPACT VIEW ───
+            if (viewMode === "compact") {
+              return (
+                <div
+                  key={item.id}
+                  className="admin-card bg-[var(--bg-surface)] border border-[var(--border)] hover:border-[var(--accent-border)]/50 transition-all duration-200 rounded-xl px-4 py-3 shadow-sm group"
+                >
+                  {/* Mobile compact */}
+                  <div className="md:hidden space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-[var(--accent)] font-mono">
+                          {new Date(item.appointment_date + "T00:00").toLocaleDateString("es", { day: "2-digit", month: "short" })}
+                        </span>
+                        <span className="text-xs font-bold font-mono text-[var(--text-primary)]">{item.start_time.slice(0, 5)}</span>
+                      </div>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wider"
+                        style={{ color: config.color, background: config.bg }}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {config.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-[var(--text-primary)]">{item.customer_name ?? "Sin nombre"}</p>
+                        <p className="text-[11px] text-[var(--text-secondary)]">{item.service?.name ?? "Servicio"} · {item.barber?.full_name ?? "Barbero"}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {actions.map((action) => (
+                          <button
+                            key={action.nextStatus}
+                            disabled={savingId === item.id}
+                            onClick={() => void changeStatus(item.id, action.nextStatus)}
+                            className={`rounded-lg px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all ${
+                              action.tone === "danger"
+                                ? "border border-red-500/20 bg-red-500/10 text-red-300"
+                                : "border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                            } ${savingId === item.id ? "cursor-wait opacity-60" : "cursor-pointer"}`}
+                          >
+                            {savingId === item.id ? "..." : action.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop compact row */}
+                  <div className="hidden md:grid grid-cols-[70px_1fr_1fr_1fr_130px_140px] gap-3 items-center">
+                    {/* Date */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[var(--accent)]">
+                        {new Date(item.appointment_date + "T00:00").toLocaleDateString("es", { month: "short" })}
+                      </span>
+                      <span className="text-lg font-black leading-none text-[var(--text-primary)] font-mono">
+                        {new Date(item.appointment_date + "T00:00").getDate()}
+                      </span>
+                      <span className="text-[10px] font-bold font-mono text-[var(--accent)]">{item.start_time.slice(0, 5)}</span>
+                    </div>
+                    {/* Customer */}
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">{item.customer_name ?? "Sin nombre"}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)] truncate">{item.customer_email ?? item.customer_phone ?? ""}</p>
+                    </div>
+                    {/* Service & Barber */}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[var(--text-primary)] truncate">{item.service?.name ?? "Servicio"}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)] truncate">{item.barber?.full_name ?? "Barbero"}</p>
+                      {item.service?.price != null && (
+                        <span className="inline-block mt-0.5 text-[10px] font-black font-mono text-[var(--accent)]">S/ {item.service.price.toFixed(2)}</span>
+                      )}
+                    </div>
+                    {/* Payment */}
+                    <div className="min-w-0">
+                      {payment ? (
+                        <div className="flex items-center gap-1.5">
+                          {paymentVisual && (
+                            <Image src={paymentVisual.iconSrc} alt={paymentVisual.iconAlt} width={16} height={16} className="h-4 w-4 object-contain" />
+                          )}
+                          <span className="text-[10px] font-bold text-[var(--text-secondary)] truncate">
+                            {payment.method === "YAPE" ? "Yape" : payment.method === "TARJETA" ? `Tarjeta ${payment.cardLabel ?? ""}` : payment.method}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-[var(--text-muted)]">—</span>
+                      )}
+                      {companions != null && companions > 1 && (
+                        <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-bold text-[var(--accent)]">
+                          <FaUserGroup className="h-3 w-3" /> {companions}p
+                        </span>
+                      )}
+                    </div>
+                    {/* Status */}
+                    <div>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wider"
+                        style={{ color: config.color, background: config.bg }}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {config.label}
+                      </span>
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-1.5">
+                      {actions.map((action) => (
+                        <button
+                          key={action.nextStatus}
+                          disabled={savingId === item.id}
+                          onClick={() => void changeStatus(item.id, action.nextStatus)}
+                          className={`rounded-lg px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all ${
+                            action.tone === "danger"
+                              ? "border border-red-500/20 bg-red-500/10 text-red-300 hover:bg-red-500/15"
+                              : "border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)] hover:border-[var(--accent)]"
+                          } ${savingId === item.id ? "cursor-wait opacity-60" : "cursor-pointer"}`}
+                        >
+                          {savingId === item.id ? "..." : action.label}
+                        </button>
+                      ))}
+                      {actions.length === 0 && (
+                        <span className="text-[10px] text-[var(--text-muted)] font-mono">#{item.id.slice(0, 6)}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // ─── DETAILED VIEW ───
             return (
               <div 
                 key={item.id} 
@@ -917,7 +1327,7 @@ export default function AdminAppointmentsPage() {
                     </h4>
                     <div className="space-y-3 text-xs">
                       {/* Companions indicator */}
-                      {companions != null && companions > 0 ? (
+                      {companions != null && companions > 1 ? (
                         <div className="flex flex-col gap-2.5 p-3 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)]">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent)] flex items-center gap-1.5">
@@ -925,12 +1335,12 @@ export default function AdminAppointmentsPage() {
                               Reserva Grupal
                             </span>
                             <span className="text-[10px] font-bold text-[var(--text-muted)]">
-                              {companions + 1} personas
+                              {companions} personas
                             </span>
                           </div>
                           
                           <div className="flex flex-wrap items-center gap-2 overflow-hidden py-1 pl-1">
-                            {Array.from({ length: Math.min(companions + 1, 5) }).map((_, aIdx) => (
+                            {Array.from({ length: Math.min(companions, 5) }).map((_, aIdx) => (
                               <div 
                                 key={aIdx} 
                                 className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--accent-border)]/20 bg-gradient-to-tr from-amber-500/10 to-amber-600/30 text-[var(--accent)] shadow-sm"
@@ -938,9 +1348,9 @@ export default function AdminAppointmentsPage() {
                                 <FaUser className="h-3.5 w-3.5" />
                               </div>
                             ))}
-                            {companions + 1 > 5 && (
+                            {companions > 5 && (
                               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--border-strong)] text-[9px] font-bold text-[var(--text-secondary)] shadow-sm">
-                                +{companions + 1 - 5}
+                                +{companions - 5}
                               </div>
                             )}
                           </div>
@@ -1045,8 +1455,38 @@ export default function AdminAppointmentsPage() {
               </div>
             );
           })}
+
+              {/* Load more button */}
+              {hasMore && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    onClick={() => setVisibleCount((prev) => prev + 15)}
+                    className="group flex items-center gap-2 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] px-8 py-3 text-sm font-bold text-[var(--text-secondary)] transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] hover:shadow-lg"
+                  >
+                    <svg className="h-4 w-4 transition-transform group-hover:translate-y-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Ver más citas
+                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-mono text-[var(--text-muted)] group-hover:bg-[var(--accent)]/10 group-hover:text-[var(--accent)]">
+                      {visibleItems.length - visibleCount} restantes
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {/* Summary footer */}
+              {paginatedItems.length > 0 && (
+                <div className="flex items-center justify-center gap-3 pt-2 text-[11px] text-[var(--text-muted)]">
+                  <span>Mostrando {paginatedItems.length} de {visibleItems.length} citas</span>
+                  {visibleItems.length < sortedItems.length && (
+                    <span className="text-[var(--accent)]">(filtradas de {sortedItems.length} totales)</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </section>
   );
 }
