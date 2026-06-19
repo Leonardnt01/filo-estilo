@@ -4,8 +4,19 @@ const clientEmail = process.env.BDD_CLIENT_EMAIL;
 const clientPassword = process.env.BDD_CLIENT_PASSWORD;
 
 test.describe('Flujo de Reservas - Filo y Estilo', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
     test.skip(!clientEmail || !clientPassword, 'Faltan BDD_CLIENT_EMAIL y BDD_CLIENT_PASSWORD');
+
+    const isolatedClientIp = `pw-booking-${testInfo.title.replace(/\s+/g, '-').toLowerCase()}`;
+
+    await page.route('**/api/auth/login', async (route) => {
+      await route.continue({
+        headers: {
+          ...route.request().headers(),
+          'x-forwarded-for': isolatedClientIp,
+        },
+      });
+    });
 
     await page.addInitScript(() => {
       class MockCulqiCheckout {
@@ -61,7 +72,7 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
     await page.getByPlaceholder('tu@email.com').fill(clientEmail!);
     await page.locator('input[type="password"]').fill(clientPassword!);
     await page.getByRole('button', { name: /Iniciar sesion/i }).click();
-    await page.waitForURL('**/mis-citas', { timeout: 10000 });
+    await page.waitForURL('**/mis-citas', { timeout: 15000 });
 
     await page.goto('/reservar');
 

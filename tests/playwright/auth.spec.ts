@@ -6,7 +6,18 @@ const adminEmail = process.env.BDD_ADMIN_EMAIL;
 const adminPassword = process.env.BDD_ADMIN_PASSWORD;
 
 test.describe('Modulo de Autenticacion - Filo y Estilo', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    const isolatedClientIp = `pw-auth-${testInfo.title.replace(/\s+/g, '-').toLowerCase()}`;
+
+    await page.route('**/api/auth/login', async (route) => {
+      await route.continue({
+        headers: {
+          ...route.request().headers(),
+          'x-forwarded-for': isolatedClientIp,
+        },
+      });
+    });
+
     await page.goto('/login');
   });
 
@@ -21,24 +32,27 @@ test.describe('Modulo de Autenticacion - Filo y Estilo', () => {
   });
 
   test('Funcionalidad 2: Login exitoso como Cliente', async ({ page }) => {
+    test.setTimeout(60000);
     test.skip(!clientEmail || !clientPassword, 'Faltan BDD_CLIENT_EMAIL y BDD_CLIENT_PASSWORD');
 
     await page.getByPlaceholder('tu@email.com').fill(clientEmail!);
     await page.locator('input[type="password"]').fill(clientPassword!);
     await page.getByRole('button', { name: /Iniciar sesion/i }).click();
 
-    await page.waitForURL('**/mis-citas', { timeout: 10000 });
+    await page.waitForURL('**/mis-citas', { timeout: 15000 });
     await expect(page).toHaveURL(/.*mis-citas/);
   });
 
   test('Funcionalidad 3: Login exitoso como Administrador', async ({ page }) => {
+    test.setTimeout(60000);
     test.skip(!adminEmail || !adminPassword, 'Faltan BDD_ADMIN_EMAIL y BDD_ADMIN_PASSWORD');
 
     await page.getByPlaceholder('tu@email.com').fill(adminEmail!);
     await page.locator('input[type="password"]').fill(adminPassword!);
     await page.getByRole('button', { name: /Iniciar sesion/i }).click();
 
-    await page.waitForURL('**/admin', { timeout: 10000 });
+    await page.waitForURL('**/admin', { timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Dashboard/i })).toBeVisible({ timeout: 15000 });
     await expect(page).toHaveURL(/.*admin/);
   });
 

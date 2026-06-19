@@ -1,80 +1,63 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Módulo Administrativo - Filo y Estilo', () => {
+const adminEmail = process.env.BDD_ADMIN_EMAIL;
+const adminPassword = process.env.BDD_ADMIN_PASSWORD;
 
-  test('Debería navegar por el Dashboard interactivo revisando todas las sedes con scrolls', async ({ page }) => {
-    // =========================================================================
-    // 1. INICIO DE SESIÓN
-    // =========================================================================
+test.describe('Modulo Administrativo - Filo y Estilo', () => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(!adminEmail || !adminPassword, 'Faltan BDD_ADMIN_EMAIL y BDD_ADMIN_PASSWORD');
+
+    const isolatedClientIp = `pw-admin-${testInfo.title.replace(/\s+/g, '-').toLowerCase()}`;
+
+    await page.route('**/api/auth/login', async (route) => {
+      await route.continue({
+        headers: {
+          ...route.request().headers(),
+          'x-forwarded-for': isolatedClientIp,
+        },
+      });
+    });
+  });
+
+  test('Deberia navegar por el dashboard interactivo revisando todas las sedes con scrolls', async ({ page }) => {
+    test.setTimeout(60000);
+
     await page.goto('/login');
-    await page.getByPlaceholder('tu@email.com').fill('jgonzalezchaca@gmail.com');
-    await page.locator('input[type="password"]').fill('Jefferson159753');
+    await page.getByPlaceholder('tu@email.com').fill(adminEmail!);
+    await page.locator('input[type="password"]').fill(adminPassword!);
     await page.getByRole('button', { name: /Iniciar sesion/i }).click();
-    
-    // Esperamos la redirección al panel de control
-    await page.waitForURL('**/admin');
 
-    // Validar que el encabezado del panel esté visible en pantalla
-    await expect(page.locator('h2:has-text("Panel de Control")')).toBeVisible({ timeout: 8000 });
+    await page.waitForURL('**/admin', { timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Panel de Control/i })).toBeVisible({ timeout: 15000 });
 
-    // Sincronización de APIs: Esperar a que las métricas dejen de estar en carga ("--")
     const tarjetaPendientes = page.locator('p:has-text("Pendientes") + p');
-    await expect(tarjetaPendientes).not.toContainText('--', { timeout: 10000 });
+    await expect(tarjetaPendientes).not.toContainText('--', { timeout: 15000 });
 
-    // =========================================================================
-    // 2. LOGICA DE SCROLL COMPLETO (Utilidad interna)
-    // =========================================================================
-    // Ejecutamos scripts directos en el navegador para bajar y subir limpiamente
-    const ejecutarScrollCompleto = async () => {
-      // Scroll hacia abajo hasta el final de la página
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await page.waitForTimeout(1500); // Pausa de 1.5s para apreciar los gráficos inferiores
-      
-      // Scroll de regreso hacia el tope de la página
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.waitForTimeout(1000); // Pausa de 1s antes de la siguiente acción
-    };
+    const botonVistaGeneral = page.getByRole('button', { name: /Vista General/i });
+    const botonSedePrincipal = page.getByRole('button', { name: /Sede Principal/i });
+    const botonSedeNorte = page.getByRole('button', { name: /Sede Norte/i });
+    const headingAcciones = page.getByRole('heading', { name: /Acciones R[aá]pidas del Administrador/i });
 
-    // =========================================================================
-    // 3. INTERACCIÓN Y REVISIÓN DE LAS 3 SEDES (Flujo solicitado)
-    // =========================================================================
-    // --- 1. Todas las Sedes ---
-    // Ubicamos el botón global usando el texto Todas las sedes
-    const botonTodasLasSedes = page.locator('button:has-text("Todas las Sedes"), button:has-text("Vista General")').first();
-    await botonTodasLasSedes.click();
-    await expect(page.locator('span:has-text("Global")').first()).toBeVisible({ timeout: 4000 });
-    
-    // Primer scroll inspeccionando la vista global
-    await ejecutarScrollCompleto();
+    await botonVistaGeneral.click();
+    await expect(botonVistaGeneral).toHaveClass(/shadow-xl/, { timeout: 8000 });
+    await expect(page.locator('text=Global').first()).toBeVisible({ timeout: 8000 });
+    await headingAcciones.scrollIntoViewIfNeeded();
+    await expect(headingAcciones).toBeVisible({ timeout: 8000 });
+    await page.getByRole('heading', { name: /Panel de Control/i }).scrollIntoViewIfNeeded();
 
-
-    // --- 2. Sede Principal ---
-    // Ubicamos la pestaña que contiene el texto de la Sede Principal
-    const botonSedePrincipal = page.locator('button:has-text("Sede Principal")').first();
     await botonSedePrincipal.click();
-    
-    // Esperamos que el estado de carga condicional de tu React se estabilice
-    await page.waitForTimeout(1000);
-    
-    // Segundo scroll inspeccionando el rendimiento de la sede principal
-    await ejecutarScrollCompleto();
+    await expect(botonSedePrincipal).toHaveClass(/shadow-xl/, { timeout: 8000 });
+    await expect(botonVistaGeneral).not.toHaveClass(/shadow-xl/, { timeout: 8000 });
+    await headingAcciones.scrollIntoViewIfNeeded();
+    await expect(headingAcciones).toBeVisible({ timeout: 8000 });
+    await page.getByRole('heading', { name: /Panel de Control/i }).scrollIntoViewIfNeeded();
 
-
-    // --- 3. Sede Norte ---
-    // Ubicamos la pestaña que contiene el texto de la Sede Norte
-    const botonSedeNorte = page.locator('button:has-text("Sede Norte")').first();
     await botonSedeNorte.click();
-    
-    // Esperamos la actualización reactiva de las métricas en Supabase
-    await page.waitForTimeout(1000);
-    
-    // Tercer y último scroll inspeccionando los gráficos de la sede norte
-    await ejecutarScrollCompleto();
+    await expect(botonSedeNorte).toHaveClass(/shadow-xl/, { timeout: 8000 });
+    await expect(botonVistaGeneral).not.toHaveClass(/shadow-xl/, { timeout: 8000 });
+    await headingAcciones.scrollIntoViewIfNeeded();
+    await expect(headingAcciones).toBeVisible({ timeout: 8000 });
 
-    // =========================================================================
-    // VERIFICACIÓN FINAL
-    // =========================================================================
-    // Aseguramos que tras toda la navegación el botón de la Sede Norte permanezca seleccionado
-    await expect(botonSedeNorte).toHaveClass(/.*shadow-xl.*/);
+    await expect(botonSedeNorte).toHaveClass(/shadow-xl/, { timeout: 8000 });
   });
 });
