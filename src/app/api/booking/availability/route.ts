@@ -10,6 +10,7 @@ const availabilitySchema = z.object({
   barber_id: z.uuid(),
   service_id: z.uuid(),
   appointment_date: z.iso.date(),
+     
 });
 
 export async function POST(request: Request) {
