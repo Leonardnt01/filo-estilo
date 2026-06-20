@@ -4,7 +4,7 @@
 
 Este documento reemplaza la guía separada de Bruno y concentra solo los endpoints más importantes del proyecto para pruebas funcionales, demo académica y sustentación.
 
-## 1. Objetivo
+## 1. Objetivo 123
 
 La API de **FILO_ESTILO** soporta la plataforma web de reservas para barbería multi-sede. Esta guía está pensada para:
 
@@ -582,25 +582,25 @@ Si te falta tiempo, muestra solo estos:
 
 ## 8. Estados de cita
 
-| Estado | Descripción |
-|---|---|
-| `pending` | Cita pendiente |
-| `confirmed` | Cita confirmada |
+| Estado        | Descripción             |
+| ------------- | ----------------------- |
+| `pending`     | Cita pendiente          |
+| `confirmed`   | Cita confirmada         |
 | `in_progress` | Cliente siendo atendido |
-| `completed` | Servicio finalizado |
-| `cancelled` | Cita cancelada |
-| `no_show` | Cliente no asistió |
+| `completed`   | Servicio finalizado     |
+| `cancelled`   | Cita cancelada          |
+| `no_show`     | Cliente no asistió      |
 
 ## 9. Errores comunes al probar
 
-| Error | Qué significa |
-|---|---|
-| `401 Unauthorized` | No hay sesión activa |
-| `403 Forbidden` | El usuario no tiene permisos suficientes |
-| `404 User not found for this email` | El usuario aún no se registró |
-| `409` al crear cita | El horario ya está ocupado |
-| `400 Invalid payload` | El body está incompleto o mal formado |
-| `429` en auth | Se activó el límite de intentos |
+| Error                               | Qué significa                            |
+| ----------------------------------- | ---------------------------------------- |
+| `401 Unauthorized`                  | No hay sesión activa                     |
+| `403 Forbidden`                     | El usuario no tiene permisos suficientes |
+| `404 User not found for this email` | El usuario aún no se registró            |
+| `409` al crear cita                 | El horario ya está ocupado               |
+| `400 Invalid payload`               | El body está incompleto o mal formado    |
+| `429` en auth                       | Se activó el límite de intentos          |
 
 ## 10. Recomendación final
 

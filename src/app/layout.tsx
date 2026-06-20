@@ -53,6 +53,8 @@ export default function RootLayout({
                   <SessionSyncGuard />
                   <SiteNavbar />
                   {children}
+                  <Analytics />
+                  <SpeedInsights />
                 </AuthModalProvider>
               </ConfirmProvider>
             </ToastProvider>
