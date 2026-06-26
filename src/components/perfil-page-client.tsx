@@ -190,26 +190,42 @@ export default function PerfilPageClient({
                 </div>
 
                 <div className="glass-card p-6">
-                  <h2 className="text-lg font-semibold mb-4">
+                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-[var(--accent)]">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-12h9c.621 0 1.125.504 1.125 1.125V18c0 .621-.504 1.125-1.125 1.125h-9a1.125 1.125 0 0 1-1.125-1.125V7.125C5.25 6.504 5.754 6 6.375 6ZM21 12H3" />
+                    </svg>
                     Promociones para ti
                   </h2>
-                  <div className="grid gap-3">
+                  <div className="grid gap-4">
                     {(promotions.length > 0 ? promotions : [
                       { id: "fallback-1", title: "Promociones semanales", description: "Consulta nuestras promociones activas en sedes y reserva con descuento.", discount_percent: null },
                     ]).map((promo) => (
                       <article
                         key={promo.id}
-                        className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-4"
+                        className="relative rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)] hover:bg-[var(--bg-surface-hover)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[var(--accent-soft)]/5 transition-all duration-300 p-4 overflow-hidden group cursor-pointer"
+                        style={{ borderLeft: `4px solid ${promo.discount_percent ? "var(--accent)" : "var(--border-strong)"}` }}
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <h3 className="font-semibold">{promo.title}</h3>
-                          <span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)]">
-                            {promo.discount_percent ? `${promo.discount_percent}% OFF` : "Activa"}
-                          </span>
+                        {/* Decorative background badge */}
+                        <div className="absolute right-0 bottom-0 translate-x-3 translate-y-3 opacity-[0.02] group-hover:opacity-[0.05] group-hover:scale-110 text-[var(--accent)] transition-all duration-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-24 h-24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.562 3.077c.552-.552 1.45-.552 2.002 0l.004.004a1.416 1.416 0 0 1 .414 1.001v.004c0 .375.149.734.414.999l.004.004c.552.552 1.45.552 2.002 0l.004-.004a1.416 1.416 0 0 1 1.001-.414h.004c.375 0 .734.149.999.414l.004.004c.552.552.552 1.45 0 2.002l-.004.004a1.416 1.416 0 0 1-.414 1.001v.004c0 .375-.149.734-.414.999l-.004.004c-.552.552-.552 1.45 0 2.002l.004.004a1.416 1.416 0 0 1 .414 1.001v.004c0 .375.149.734.414.999l-.004.004c-.552.552-1.5 0-2.002 0l-.004-.004a1.416 1.416 0 0 1-1.001-.414h-.004c-.375 0-.734-.149-.999-.414l-.004-.004c-.552-.552-1.45-.552-2.002 0l-.004.004a1.416 1.416 0 0 1-1.001.414h-.004c-.375 0-.734.149-.999.414l-.004-.004c-.552-.552-.552-1.45 0-2.002l.004-.004a1.416 1.416 0 0 1 .414-1.001v-.004c0-.375.149-.734.414-.999l.004-.004c.552-.552.552-1.45 0-2.002l-.004-.004a1.416 1.416 0 0 1-.414-1.001v-.004c0-.375-.149-.734-.414-.999l.004-.004Z" />
+                          </svg>
                         </div>
-                        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                          {promo.description ?? "Promoción disponible por tiempo limitado."}
-                        </p>
+                        
+                        <div className="flex items-start justify-between gap-3 relative z-10">
+                          <div>
+                            <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">{promo.title}</h3>
+                            <p className="mt-1.5 text-xs text-[var(--text-secondary)] leading-relaxed">
+                              {promo.description ?? "Promoción disponible por tiempo limitado."}
+                            </p>
+                          </div>
+                          
+                          <div className="shrink-0 flex flex-col items-end">
+                            <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-black tracking-tight text-[var(--accent)] shadow-sm shadow-[var(--accent-soft)]/20 uppercase">
+                              {promo.discount_percent ? `${promo.discount_percent}% OFF` : "Activa"}
+                            </span>
+                          </div>
+                        </div>
                       </article>
                     ))}
                   </div>

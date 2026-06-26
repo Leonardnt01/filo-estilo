@@ -40,7 +40,7 @@ const getPublicHomeDataImpl = cache(async () => {
       .order("sort_order", { ascending: true }),
     supabase
       .from("promotions")
-      .select("id, branch_id, title, description, discount_percent, image_url, starts_at, ends_at, sort_order")
+      .select("id, branch_id, title, description, discount_percent, image_url, starts_at, ends_at, is_active, sort_order")
       .eq("is_active", true)
       .order("sort_order", { ascending: true }),
     supabase.from("site_settings").select("key, value").in("key", ["public_footer", "public_home"]),

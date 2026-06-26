@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { canManageBranch, getManageableBranchIds, isGlobalAdmin } from "@/lib/auth/session";
-import { normalizeAppointmentForClient } from "@/lib/schema-compat";
+import { buildFullName, normalizeAppointmentForClient } from "@/lib/schema-compat";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const appointmentStatus = z.enum([
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const rawLimit = Number(searchParams.get("limit") ?? "100");
-  const limit = Number.isNaN(rawLimit) ? 100 : Math.min(Math.max(rawLimit, 1), 100);
+  const limit = Number.isNaN(rawLimit) ? 100 : Math.min(Math.max(rawLimit, 1), 1000);
 
   const statusParam = searchParams.get("status");
   const barberId = searchParams.get("barber_id");
@@ -135,5 +136,58 @@ export async function GET(request: Request) {
     normalizeAppointmentForClient(item as Record<string, unknown>),
   );
 
-  return NextResponse.json({ ok: true, count: items.length, items });
+  const clientIds = [...new Set(items.map((item) => item.client_id).filter(Boolean))] as string[];
+  if (clientIds.length === 0) {
+    return NextResponse.json({ ok: true, count: items.length, items });
+  }
+
+  const admin = createAdminClient();
+  const [{ data: profiles }, authUsersResult] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("id, full_name, nombre, apellido, correo, phone")
+      .in("id", clientIds),
+    admin
+      .schema("auth")
+      .from("users")
+      .select("id, email")
+      .in("id", clientIds),
+  ]);
+
+  const profileById = new Map(
+    (profiles ?? []).map((profile) => [profile.id as string, profile]),
+  );
+  const emailById = new Map(
+    ((authUsersResult.error ? [] : authUsersResult.data) ?? []).map((user) => [
+      user.id as string,
+      (user.email as string | null) ?? null,
+    ]),
+  );
+
+  const enrichedItems = items.map((item) => {
+    if (!item.client_id) return item;
+
+    const profile = profileById.get(item.client_id) as
+      | {
+          full_name?: string | null;
+          nombre?: string | null;
+          apellido?: string | null;
+          correo?: string | null;
+          phone?: string | null;
+        }
+      | undefined;
+
+    const fallbackName = profile ? buildFullName(profile, "") : "";
+    const fallbackEmail = emailById.get(item.client_id) ?? profile?.correo ?? null;
+    const fallbackPhone = profile?.phone ?? null;
+
+    return {
+      ...item,
+      customer_name: item.customer_name || fallbackName || null,
+      customer_email: item.customer_email || fallbackEmail,
+      customer_phone: item.customer_phone || fallbackPhone,
+    };
+  });
+
+  return NextResponse.json({ ok: true, count: enrichedItems.length, items: enrichedItems });
 }

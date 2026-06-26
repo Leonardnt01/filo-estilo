@@ -32,9 +32,20 @@ type FooterSettings = {
   address?: string;
 };
 type BranchContact = {
-  address?: string | null;
-  phone?: string | null;
   whatsapp?: string | null;
+};
+
+type Promotion = {
+  id: string;
+  branch_id: string | null;
+  title: string;
+  description: string | null;
+  discount_percent: number;
+  image_url: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_active: boolean;
+  sort_order: number;
 };
 
 type BookingDraft = {
@@ -206,10 +217,12 @@ function ReservarPageContent({
   initialBranches,
   initialServices,
   initialBarbers,
+  initialPromotions = [],
 }: {
   initialBranches: Branch[];
   initialServices: Service[];
   initialBarbers: Barber[];
+  initialPromotions?: Promotion[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -227,6 +240,7 @@ function ReservarPageContent({
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [people, setPeople] = useState(1);
+  const [selectedPromotionId, setSelectedPromotionId] = useState("");
   const [validationModalMessage, setValidationModalMessage] = useState<string | null>(null);
   const [serviceSelectionModalIdx, setServiceSelectionModalIdx] = useState<number | null>(null);
 
@@ -239,6 +253,10 @@ function ReservarPageContent({
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setSelectedPromotionId("");
+  }, [branchId]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   // Estados de progreso de confirmación animada
@@ -562,6 +580,25 @@ function ReservarPageContent({
     [selectedServices],
   );
 
+  const promotions = useMemo(() => {
+    return (initialPromotions ?? []).filter(
+      (promo) => promo.is_active && (!promo.branch_id || promo.branch_id === branchId)
+    );
+  }, [initialPromotions, branchId]);
+
+  const selectedPromotion = useMemo(() => {
+    return promotions.find((promo) => promo.id === selectedPromotionId) ?? null;
+  }, [promotions, selectedPromotionId]);
+
+  const discountAmount = useMemo(() => {
+    if (!selectedPromotion) return 0;
+    return Math.round(totalServicesAmount * (selectedPromotion.discount_percent / 100));
+  }, [selectedPromotion, totalServicesAmount]);
+
+  const totalAmountWithDiscount = useMemo(() => {
+    return Math.max(0, totalServicesAmount - discountAmount);
+  }, [totalServicesAmount, discountAmount]);
+
   const whatsappUrl = useMemo(() => {
     const whatsappPhone = selectedBranch?.phone ? selectedBranch.phone.replace(/\D/g, "") : "51999999999";
     const waNumber = whatsappPhone.startsWith("51") ? whatsappPhone : `51${whatsappPhone}`;
@@ -688,6 +725,7 @@ function ReservarPageContent({
             start_time: slot,
           })),
           notes,
+          promotion_id: selectedPromotionId || null,
         }),
       });
 
@@ -751,7 +789,7 @@ function ReservarPageContent({
     const settings: Record<string, unknown> = {
       title: "Filo Estilo",
       currency: "PEN",
-      amount: Math.round(totalServicesAmount * 100),
+      amount: Math.round(totalAmountWithDiscount * 100),
     };
 
     if (process.env.NEXT_PUBLIC_CULQI_RSA_ID && process.env.NEXT_PUBLIC_CULQI_RSA_PUBLIC_KEY) {
@@ -1467,6 +1505,30 @@ function ReservarPageContent({
                   </div>
                 </div>
 
+                {/* Promotion Selector */}
+                {promotions.length > 0 && (
+                  <div className="space-y-2 mb-6">
+                    <label className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-[var(--accent)]">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.562 3.077c.552-.552 1.45-.552 2.002 0l.004.004a1.416 1.416 0 0 1 .414 1.001v.004c0 .375.149.734.414.999l.004.004c.552.552 1.45.552 2.002 0l.004-.004a1.416 1.416 0 0 1 1.001-.414h.004c.375 0 .734.149.999.414l.004.004c.552.552.552 1.45 0 2.002l-.004.004a1.416 1.416 0 0 1-.414 1.001v.004c0 .375-.149.734-.414.999l-.004.004c-.552.552-.552 1.45 0 2.002l.004.004a1.416 1.416 0 0 1 .414 1.001v.004c0 .375.149.734.414.999l-.004.004c-.552.552-1.5 0-2.002 0l-.004-.004a1.416 1.416 0 0 1-1.001-.414h-.004c-.375 0-.734-.149-.999-.414l-.004-.004c-.552-.552-1.45-.552-2.002 0l-.004.004a1.416 1.416 0 0 1-1.001.414h-.004c-.375 0-.734.149-.999.414l-.004-.004c-.552-.552-.552-1.45 0-2.002l.004-.004a1.416 1.416 0 0 1 .414-1.001v-.004c0-.375.149-.734.414-.999l.004-.004c.552-.552.552-1.45 0-2.002l-.004-.004a1.416 1.416 0 0 1-.414-1.001v-.004c0-.375-.149-.734-.414-.999l.004-.004Z" />
+                      </svg>
+                      ¿Tienes alguna promoción?
+                    </label>
+                    <select
+                      value={selectedPromotionId}
+                      onChange={(e) => setSelectedPromotionId(e.target.value)}
+                      className="w-full rounded-xl px-3 py-2.5 outline-none text-xs font-semibold border border-[var(--border-strong)] bg-[var(--bg-secondary)]/50 text-[var(--text-primary)] focus:border-[var(--accent)] transition-all cursor-pointer"
+                    >
+                      <option value="" className="bg-[var(--bg-surface)]">Sin promoción aplicada</option>
+                      {promotions.map((promo) => (
+                        <option key={promo.id} value={promo.id} className="bg-[var(--bg-surface)]">
+                          {promo.title} ({promo.discount_percent}% de descuento)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Dashed Separator mimicking a coupon rip strip */}
                 <div className="relative my-6">
                   <div className="absolute left-[-32px] right-[-32px] top-1/2 -translate-y-1/2 border-t-2 border-dashed border-[var(--border-strong)]"></div>
@@ -1483,9 +1545,15 @@ function ReservarPageContent({
                     <span>Servicios del Grupo</span>
                     <span className="font-semibold text-[var(--text-primary)]">S/ {totalServicesAmount.toFixed(2)}</span>
                   </div>
+                  {selectedPromotion && (
+                    <div className="flex justify-between items-center text-emerald-400 font-semibold animate-fade-in">
+                      <span>Descuento ({selectedPromotion.title})</span>
+                      <span>- S/ {discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-[var(--text-secondary)]">
                     <span>IGV (18% incluido)</span>
-                    <span className="font-mono text-xs text-[var(--text-muted)]">S/ {(totalServicesAmount * 0.18 / 1.18).toFixed(2)}</span>
+                    <span className="font-mono text-xs text-[var(--text-muted)]">S/ {(totalAmountWithDiscount * 0.18 / 1.18).toFixed(2)}</span>
                   </div>
                   
                   <div className="border-t border-[var(--border)] pt-4 flex justify-between items-baseline">
@@ -1494,7 +1562,7 @@ function ReservarPageContent({
                     </span>
                     <div className="text-right">
                       <span className="font-bold text-2xl text-[var(--accent)] tracking-tight">
-                        S/ {totalServicesAmount.toFixed(2)}
+                        S/ {totalAmountWithDiscount.toFixed(2)}
                       </span>
                       <p className="text-[10px] text-[var(--text-muted)] font-medium">Moneda Nacional (PEN)</p>
                     </div>
@@ -1582,7 +1650,7 @@ function ReservarPageContent({
                         </div>
                         <div className="flex gap-2">
                           <span className="flex items-center justify-center w-4.5 h-4.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[var(--accent)] font-bold shrink-0">3</span>
-                          <p>Una vez aprobado el pago por <strong className="text-[var(--accent)]">S/ {totalServicesAmount.toFixed(2)}</strong>, tu cita quedará registrada automáticamente.</p>
+                          <p>Una vez aprobado el pago por <strong className="text-[var(--accent)]">S/ {totalAmountWithDiscount.toFixed(2)}</strong>, tu cita quedará registrada automáticamente.</p>
                         </div>
                       </div>
                     </div>
@@ -1603,7 +1671,7 @@ function ReservarPageContent({
 
                       <div className="space-y-3 text-xs text-[var(--text-secondary)] border-t border-[var(--border)] pt-4">
                         <p>
-                          Confirma el pago de <strong className="text-blue-300">S/ {totalServicesAmount.toFixed(2)}</strong> y asegura tu horario seleccionado al instante.
+                          Confirma el pago de <strong className="text-blue-300">S/ {totalAmountWithDiscount.toFixed(2)}</strong> y asegura tu horario seleccionado al instante.
                         </p>
                         <p>
                           Tu reserva solo se registra cuando el pago es validado correctamente.
@@ -1904,12 +1972,14 @@ export default function ReservarPageClient({
   initialBranches,
   initialServices,
   initialBarbers,
+  initialPromotions = [],
   footerSettings,
   footerBranchContact,
 }: {
   initialBranches: Branch[];
   initialServices: Service[];
   initialBarbers: Barber[];
+  initialPromotions?: Promotion[];
   footerSettings: FooterSettings;
   footerBranchContact: BranchContact | null;
 }) {
@@ -1928,6 +1998,7 @@ export default function ReservarPageClient({
           initialBranches={initialBranches}
           initialServices={initialServices}
           initialBarbers={initialBarbers}
+          initialPromotions={initialPromotions}
         />
       </Suspense>
       <Footer

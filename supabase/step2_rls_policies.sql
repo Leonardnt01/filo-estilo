@@ -256,4 +256,36 @@ begin
 end
 $$;
 
+-- Promotions RLS Policies
+alter table if exists public.promotions enable row level security;
+
+drop policy if exists "promotions_select_active_or_admin" on public.promotions;
+create policy "promotions_select_active_or_admin"
+on public.promotions
+for select
+to anon, authenticated
+using (is_active = true or (branch_id is not null and public.can_manage_branch(branch_id)) or (branch_id is null and public.is_admin()));
+
+drop policy if exists "promotions_insert_admin" on public.promotions;
+create policy "promotions_insert_admin"
+on public.promotions
+for insert
+to authenticated
+with check ((branch_id is not null and public.can_manage_branch(branch_id)) or (branch_id is null and public.is_admin()));
+
+drop policy if exists "promotions_update_admin" on public.promotions;
+create policy "promotions_update_admin"
+on public.promotions
+for update
+to authenticated
+using ((branch_id is not null and public.can_manage_branch(branch_id)) or (branch_id is null and public.is_admin()))
+with check ((branch_id is not null and public.can_manage_branch(branch_id)) or (branch_id is null and public.is_admin()));
+
+drop policy if exists "promotions_delete_admin" on public.promotions;
+create policy "promotions_delete_admin"
+on public.promotions
+for delete
+to authenticated
+using ((branch_id is not null and public.can_manage_branch(branch_id)) or (branch_id is null and public.is_admin()));
+
 commit;

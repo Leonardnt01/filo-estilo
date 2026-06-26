@@ -2,6 +2,8 @@ import ReservarPageClient from "@/components/reservar-page-client";
 import { getPublicCatalogData } from "@/lib/public-catalog";
 import { getPublicHomeData } from "@/lib/public-home";
 
+export const dynamic = "force-dynamic";
+
 export default async function ReservarPage() {
   const [catalogData, homeData] = await Promise.all([
     getPublicCatalogData(),
@@ -13,6 +15,7 @@ export default async function ReservarPage() {
       initialBranches={catalogData.branches}
       initialServices={catalogData.services}
       initialBarbers={catalogData.barbers}
+      initialPromotions={homeData.promotions}
       footerSettings={homeData.site_settings.public_footer as Record<string, string>}
       footerBranchContact={homeData.branches[0] ?? null}
     />

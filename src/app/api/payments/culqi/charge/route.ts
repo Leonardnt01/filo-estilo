@@ -29,9 +29,10 @@ const chargeBookingSchema = z.object({
     .nullable(),
   branch_id: z.uuid(),
   barber_id: z.uuid(),
-  appointment_date: z.iso.date(),
+  appointment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   selections: z.array(selectionSchema).min(1).max(10),
   notes: z.string().trim().max(2000).optional().nullable(),
+  promotion_id: z.string().uuid().optional().nullable(),
 });
 
 function buildPaidPaymentNote(params: {
@@ -173,7 +174,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { token_id, payment_method, payment_details, branch_id, barber_id, appointment_date, selections, notes } =
+  const { token_id, payment_method, payment_details, branch_id, barber_id, appointment_date, selections, notes, promotion_id } =
     parsed.data;
   console.log("[CULQI][API] incoming charge booking request", {
     userId: user.id,
@@ -184,6 +185,7 @@ export async function POST(request: Request) {
     appointment_date,
     selections,
     payment_details,
+    promotion_id,
   });
   const bookingWindowError = validateBookingWindow(appointment_date);
 
@@ -205,7 +207,11 @@ export async function POST(request: Request) {
   })();
   const dbClient = adminSupabase ?? userSupabase;
 
-  const [{ data: profile, error: profileError }, { data: services, error: servicesError }] = await Promise.all([
+  const [
+    { data: profile, error: profileError },
+    { data: services, error: servicesError },
+    { data: promotion, error: promotionError }
+  ] = await Promise.all([
     dbClient.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
     dbClient
       .from("services")
@@ -213,6 +219,14 @@ export async function POST(request: Request) {
       .eq("branch_id", branch_id)
       .eq("is_active", true)
       .in("id", [...new Set(selections.map((selection) => selection.service_id))]),
+    promotion_id
+      ? dbClient
+          .from("promotions")
+          .select("id, branch_id, title, discount_percent, is_active, starts_at, ends_at")
+          .eq("id", promotion_id)
+          .or(`branch_id.eq.${branch_id},branch_id.is.null`)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   if (profileError) {
@@ -221,6 +235,10 @@ export async function POST(request: Request) {
 
   if (servicesError) {
     return NextResponse.json({ error: servicesError.message }, { status: 500 });
+  }
+
+  if (promotionError) {
+    return NextResponse.json({ error: promotionError.message }, { status: 500 });
   }
 
   const serviceById = new Map((services ?? []).map((service) => [service.id as string, service]));
@@ -234,6 +252,25 @@ export async function POST(request: Request) {
     const service = serviceById.get(selection.service_id);
     return sum + Number(service?.price ?? 0);
   }, 0);
+
+  let discountPercent = 0;
+  let promotionTitle = "";
+
+  if (promotion) {
+    const now = Date.now();
+    const startsAt = promotion.starts_at ? Date.parse(promotion.starts_at) : null;
+    const endsAt = promotion.ends_at ? Date.parse(promotion.ends_at) : null;
+    const isAfterStart = startsAt === null || Number.isNaN(startsAt) || startsAt <= now;
+    const isBeforeEnd = endsAt === null || Number.isNaN(endsAt) || endsAt >= now;
+
+    if (promotion.is_active && isAfterStart && isBeforeEnd) {
+      discountPercent = promotion.discount_percent;
+      promotionTitle = promotion.title;
+    }
+  }
+
+  const discountAmount = Math.round(totalAmount * (discountPercent / 100));
+  const chargedAmount = Math.max(0, totalAmount - discountAmount);
 
   const baseUserNote = notes?.trim() ? ` | ${notes.trim()}` : "";
   const pendingRef = `pay_${Date.now().toString(36).toUpperCase()}`;
@@ -277,7 +314,7 @@ export async function POST(request: Request) {
 
   try {
     const charge = await createCulqiCharge({
-      amount: toCulqiAmount(totalAmount),
+      amount: toCulqiAmount(chargedAmount),
       email: user.email,
       source_id: token_id,
       description: `Reserva Filo Estilo ${appointment_date}`,
@@ -299,11 +336,17 @@ export async function POST(request: Request) {
     const paidNote = buildPaidPaymentNote({
       paymentMethod: payment_method,
       chargeId: chargeReference,
-      amount: totalAmount,
+      amount: chargedAmount,
       phone: payment_method === "yape" ? payment_details?.phone ?? null : null,
       cardLast4: payment_method === "card" ? payment_details?.card_last4 ?? null : null,
     });
-    const finalNotes = `${paidNote} | Personas:${selections.length} | Horarios del grupo: [${selections.map((selection) => selection.start_time).join(", ")}]${baseUserNote}`;
+
+    let promoDetails = "";
+    if (promotionTitle) {
+      promoDetails = ` | promo:${promotionTitle} (-${discountPercent}%)`;
+    }
+
+    const finalNotes = `${paidNote}${promoDetails} | Personas:${selections.length} | Horarios del grupo: [${selections.map((selection) => selection.start_time).join(", ")}]${baseUserNote}`;
     const appointmentIds = bookingResult.items.map((item) => item.id);
     const updateError = await updateAppointmentNotesAfterCharge(
       dbClient,
