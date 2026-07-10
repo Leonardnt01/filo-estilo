@@ -5,6 +5,7 @@ import {
   normalizeAppointmentForClient,
   normalizeProfileForClient,
 } from "@/lib/schema-compat";
+import { normalizeWaitlistEntryForClient } from "@/lib/waitlist";
 import { createClient } from "@/lib/supabase/server";
 
 export async function getProfilePageData() {
@@ -78,7 +79,9 @@ export async function getMyAppointmentsPageData() {
   }
 
   const supabase = await createClient();
-  const selectVariants = [
+  const selectVariants: string[] = [
+    "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at",
+    "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
     "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
     "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
   ];
@@ -108,6 +111,32 @@ export async function getMyAppointmentsPageData() {
     error = { message: res.error.message };
   }
 
+  let waitlistEntries: ReturnType<typeof normalizeWaitlistEntryForClient>[] = [];
+
+  const waitlistSelectVariants: string[] = [
+    `
+      id, client_id, branch_id, service_id, barber_id, desired_date, desired_start_from, desired_start_to,
+      status, source_appointment_id, promoted_appointment_id, offer_expires_at, notes, created_at, updated_at,
+      branch:branches(name), barber:barbers(full_name), service:services(name, price)
+    `,
+    "id, client_id, branch_id, service_id, barber_id, desired_date, desired_start_from, desired_start_to, status, source_appointment_id, promoted_appointment_id, offer_expires_at, notes, created_at, updated_at",
+  ];
+
+  for (const select of waitlistSelectVariants) {
+    const waitlistRes = await supabase
+      .from("waitlist_entries")
+      .select(select)
+      .eq("client_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (!waitlistRes.error) {
+      waitlistEntries = (waitlistRes.data ?? []).map((entry) =>
+        normalizeWaitlistEntryForClient(entry as unknown as Record<string, unknown>),
+      );
+      break;
+    }
+  }
+
   const catalog = await getPublicCatalogData().catch(() => null);
 
   if (error) {
@@ -128,6 +157,7 @@ export async function getMyAppointmentsPageData() {
     services: catalog?.services ?? [],
     barbers: catalog?.barbers ?? [],
     branches: catalog?.branches ?? [],
+    waitlistEntries,
     footerBranchContact: catalog?.branches?.[0] ?? null,
   };
 }

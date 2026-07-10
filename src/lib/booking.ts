@@ -12,9 +12,18 @@ export const APPOINTMENT_STATUSES = [
 ] as const;
 
 export const APPOINTMENT_ACTIVE_STATUSES = ["pending", "confirmed", "in_progress"] as const;
+export const ATTENDANCE_STATUSES = ["pending", "confirmed", "declined", "expired"] as const;
+export const RELEASE_REASONS = [
+  "client_declined",
+  "client_cancelled",
+  "admin_cancelled",
+  "no_show",
+] as const;
 
 export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];
 export type ActiveAppointmentStatus = (typeof APPOINTMENT_ACTIVE_STATUSES)[number];
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+export type ReleaseReason = (typeof RELEASE_REASONS)[number];
 
 export type Slot = {
   start_time: string;
@@ -118,14 +127,67 @@ export function validateBookingWindow(appointmentDate: string) {
 }
 
 export function isFutureAppointment(appointmentDate: string, startTime: string) {
-  const [year, month, day] = appointmentDate.split("-").map(Number);
-  const [hours, minutes] = startTime.slice(0, 5).split(":").map(Number);
-  const startAt = new Date(year, month - 1, day, hours, minutes, 0, 0);
-  return startAt.getTime() > Date.now();
+  return getAppointmentStartAt(appointmentDate, startTime).getTime() > Date.now();
 }
 
 export function appendAuditNote(currentNotes: string | null, entry: string) {
   return currentNotes ? `${currentNotes} | ${entry}` : entry;
+}
+
+export function getAppointmentStartAt(appointmentDate: string, startTime: string) {
+  const [year, month, day] = appointmentDate.split("-").map(Number);
+  const [hours, minutes] = startTime.slice(0, 5).split(":").map(Number);
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+}
+
+type AttendanceRuleInput = {
+  status: string;
+  attendanceStatus?: string | null;
+  appointmentDate: string;
+  startTime: string;
+};
+
+export function canConfirmAttendance(input: AttendanceRuleInput) {
+  return (
+    ["pending", "confirmed"].includes(input.status) &&
+    input.attendanceStatus !== "confirmed" &&
+    isFutureAppointment(input.appointmentDate, input.startTime)
+  );
+}
+
+export function canDeclineAttendance(input: AttendanceRuleInput) {
+  return (
+    ["pending", "confirmed"].includes(input.status) &&
+    input.attendanceStatus !== "declined" &&
+    isFutureAppointment(input.appointmentDate, input.startTime)
+  );
+}
+
+export function canMarkNoShow(input: Pick<AttendanceRuleInput, "status" | "appointmentDate" | "startTime">) {
+  const blockedStatuses = new Set(["cancelled", "completed", "no_show"]);
+  if (blockedStatuses.has(input.status)) {
+    return false;
+  }
+
+  return getAppointmentStartAt(input.appointmentDate, input.startTime).getTime() <= Date.now();
+}
+
+export function isAttendanceAtRisk(input: AttendanceRuleInput, thresholdHours = 24) {
+  if (!["pending", "confirmed"].includes(input.status)) {
+    return false;
+  }
+
+  if ((input.attendanceStatus ?? "pending") !== "pending") {
+    return false;
+  }
+
+  const startAt = getAppointmentStartAt(input.appointmentDate, input.startTime).getTime();
+  const deltaMs = startAt - Date.now();
+  if (deltaMs <= 0) {
+    return false;
+  }
+
+  return deltaMs <= thresholdHours * 60 * 60 * 1000;
 }
 
 export async function createAppointmentsForSelections(
@@ -146,6 +208,7 @@ export async function createAppointmentsForSelections(
     start_time: string;
     end_time: string;
     status: AppointmentStatus;
+    attendance_status: AttendanceStatus;
     notes: string | null;
   }> = [];
 
@@ -162,6 +225,7 @@ export async function createAppointmentsForSelections(
     payment_method: string;
     payment_status: string;
     status: AppointmentStatus;
+    attendance_status: AttendanceStatus;
     total_price?: number;
     notes: string | null;
   }> = [];
@@ -212,6 +276,7 @@ export async function createAppointmentsForSelections(
       start_time: selection.startTime,
       end_time: selectedSlot.end_time,
       status: initialStatus,
+      attendance_status: "pending",
       notes: notes ?? null,
     });
 
@@ -228,6 +293,7 @@ export async function createAppointmentsForSelections(
       payment_method: "pending",
       payment_status: "pending",
       status: initialStatus,
+      attendance_status: "pending",
       notes: notes ?? null,
     });
   }
@@ -245,18 +311,26 @@ export async function createAppointmentsForSelections(
   const insertAttempts: Array<{ rows: unknown[]; select: string }> = [
     {
       rows: modernRows,
-      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at",
     },
     {
       rows: modernRowsWithoutEmail,
-      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, start_time, end_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at",
     },
     {
       rows: modernRowsMinimal,
-      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, start_time, end_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at",
     },
     {
       rows: legacyRows,
+      select: "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
+    },
+    {
+      rows: modernRows.map(({ attendance_status: _attendanceStatus, ...row }) => row),
+      select: "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+    },
+    {
+      rows: legacyRows.map(({ attendance_status: _attendanceStatus, ...row }) => row),
       select: "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
     },
   ];

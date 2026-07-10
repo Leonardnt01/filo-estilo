@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { resolveAvailability, validateBookingWindow } from "@/lib/booking";
+import { createAppointmentsForSelections, resolveAvailability, validateBookingWindow } from "@/lib/booking";
 import { getAuthContext } from "@/lib/auth/session";
 import {
   buildFullName,
@@ -43,21 +43,41 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  let query = supabase
-    .from("appointments")
-    .select(
-      "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
-    )
-    .eq("profile_id", user.id)
-    .order("appointment_date", { ascending: false })
-    .order("appointment_time", { ascending: false })
-    .limit(limit);
+  const selectVariants: string[] = [
+    "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at",
+    "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
+    "id, client_id, branch_id, barber_id, service_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at",
+    "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
+  ];
 
-  if (statusParam) query = query.eq("status", statusParam);
-  if (dateFrom) query = query.gte("appointment_date", dateFrom);
-  if (dateTo) query = query.lte("appointment_date", dateTo);
+  let data: Record<string, unknown>[] | null = null;
+  let error: { message: string } | null = null;
 
-  const { data, error } = await query;
+  for (const select of selectVariants) {
+    let query = supabase
+      .from("appointments")
+      .select(select)
+      .order("appointment_date", { ascending: false })
+      .limit(limit);
+
+    if (select.includes("client_id")) {
+      query = query.eq("client_id", user.id).order("start_time", { ascending: false });
+    } else {
+      query = query.eq("profile_id", user.id).order("appointment_time", { ascending: false });
+    }
+
+    if (statusParam) query = query.eq("status", statusParam);
+    if (dateFrom) query = query.gte("appointment_date", dateFrom);
+    if (dateTo) query = query.lte("appointment_date", dateTo);
+
+    const res = await query;
+    if (!res.error) {
+      data = (res.data ?? []) as unknown as Record<string, unknown>[];
+      error = null;
+      break;
+    }
+    error = { message: res.error.message };
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -106,39 +126,30 @@ export async function POST(request: Request) {
   if (!availability.ok) {
     return NextResponse.json({ error: availability.error }, { status: availability.status });
   }
+
   const selectedSlot = availability.slots.find((slot) => slot.start_time === start_time);
   if (!selectedSlot) {
     return NextResponse.json({ error: "Selected slot is not available" }, { status: 409 });
   }
 
-  const { data, error } = await supabase
-    .from("appointments")
-    .insert({
-      profile_id: user.id,
-      branch_id,
-      barber_id,
-      service_id,
-      customer_name: buildFullName(profile, user.email ?? "Cliente"),
-      customer_phone: profile?.phone ?? null,
-      appointment_date,
-      appointment_time: start_time,
-      people: 1,
-      payment_method: "pending",
-      payment_status: "pending",
-      status: initial_status ?? "pending",
-      notes: notes ?? null,
-    })
-    .select(
-      "id, profile_id, branch_id, barber_id, service_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price",
-    )
-    .single();
+  const created = await createAppointmentsForSelections(supabase, {
+    client: {
+      clientId: user.id,
+      customerName: buildFullName(profile, user.email ?? "Cliente"),
+      customerPhone: profile?.phone ?? null,
+      customerEmail: user.email ?? null,
+    },
+    branchId: branch_id,
+    barberId: barber_id,
+    appointmentDate: appointment_date,
+    selections: [{ serviceId: service_id, startTime: start_time }],
+    notes: notes ?? null,
+    initialStatus: initial_status ?? "pending",
+  });
 
-  if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json({ error: "Selected slot is already taken" }, { status: 409 });
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!created.ok) {
+    return NextResponse.json({ error: created.error }, { status: created.status });
   }
 
-  return NextResponse.json({ ok: true, item: normalizeAppointmentForClient(data) }, { status: 201 });
+  return NextResponse.json({ ok: true, item: created.items[0] ?? null }, { status: 201 });
 }

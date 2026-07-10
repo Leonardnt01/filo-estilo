@@ -10,6 +10,7 @@ export default async function MyAppointmentsPage() {
       initialServices={data.services}
       initialBarbers={data.barbers}
       initialBranches={data.branches}
+      initialWaitlistEntries={data.waitlistEntries ?? []}
       footerBranchContact={data.footerBranchContact}
       initialError={data.error}
     />
