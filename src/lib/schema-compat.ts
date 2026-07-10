@@ -28,6 +28,11 @@ type LegacyAppointmentRow = {
   appointment_date?: string | null;
   appointment_time?: string | null;
   status?: string | null;
+  attendance_status?: string | null;
+  attendance_confirmed_at?: string | null;
+  last_reminder_at?: string | null;
+  reminder_count?: number | null;
+  release_reason?: string | null;
   notes?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -53,6 +58,11 @@ type ModernAppointmentRow = {
   start_time?: string | null;
   end_time?: string | null;
   status?: string | null;
+  attendance_status?: string | null;
+  attendance_confirmed_at?: string | null;
+  last_reminder_at?: string | null;
+  reminder_count?: number | null;
+  release_reason?: string | null;
   notes?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -146,6 +156,11 @@ export type NormalizedAppointment = {
   start_time: string;
   end_time: string | null;
   status: string;
+  attendance_status: string;
+  attendance_confirmed_at: string | null;
+  last_reminder_at: string | null;
+  reminder_count: number;
+  release_reason: string | null;
   notes: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -186,6 +201,16 @@ export function normalizeAppointmentForClient(
     start_time: startTime ? startTime.slice(0, 5) : "",
     end_time: typeof appointment.end_time === "string" ? appointment.end_time : null,
     status: typeof appointment.status === "string" ? appointment.status : "pending",
+    attendance_status:
+      typeof appointment.attendance_status === "string" ? appointment.attendance_status : "pending",
+    attendance_confirmed_at:
+      typeof appointment.attendance_confirmed_at === "string" ? appointment.attendance_confirmed_at : null,
+    last_reminder_at:
+      typeof appointment.last_reminder_at === "string" ? appointment.last_reminder_at : null,
+    reminder_count:
+      typeof appointment.reminder_count === "number" ? appointment.reminder_count : 0,
+    release_reason:
+      typeof appointment.release_reason === "string" ? appointment.release_reason : null,
     notes: typeof appointment.notes === "string" ? appointment.notes : null,
     created_at: typeof appointment.created_at === "string" ? appointment.created_at : null,
     updated_at: typeof appointment.updated_at === "string" ? appointment.updated_at : null,

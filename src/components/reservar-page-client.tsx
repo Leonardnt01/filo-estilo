@@ -240,6 +240,7 @@ function ReservarPageContent({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false);
 
   // Estados de progreso de confirmación animada
   const [bookingStatus, setBookingStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -491,24 +492,28 @@ function ReservarPageContent({
   useEffect(() => {
     if (!branchId || !serviceId || !branchServiceIds.has(serviceId)) return;
 
-    setSelectedServiceIds((prev) => {
-      const next = [...prev].filter((id) => branchServiceIds.has(id));
-      const fallbackServiceId = serviceId || services[0]?.id || "";
+    const syncTimer = setTimeout(() => {
+      setSelectedServiceIds((prev) => {
+        const next = [...prev].filter((id) => branchServiceIds.has(id));
+        const fallbackServiceId = serviceId || services[0]?.id || "";
 
-      while (next.length < people) {
-        next.push(fallbackServiceId);
-      }
+        while (next.length < people) {
+          next.push(fallbackServiceId);
+        }
 
-      if (next.length > people) {
-        next.length = people;
-      }
+        if (next.length > people) {
+          next.length = people;
+        }
 
-      if (next.length === prev.length && next.every((value, index) => value === prev[index])) {
-        return prev;
-      }
+        if (next.length === prev.length && next.every((value, index) => value === prev[index])) {
+          return prev;
+        }
 
-      return next;
-    });
+        return next;
+      });
+    }, 0);
+
+    return () => clearTimeout(syncTimer);
   }, [branchId, branchServiceIds, people, serviceId, services]);
 
   const loadSlots = useCallback(async () => {
@@ -569,6 +574,45 @@ function ReservarPageContent({
       `Hola, me comunico de Filo Estilo. Quisiera solicitar una reserva personalizada para ${people} personas en la sede ${selectedBranch?.name ?? ""}.`
     )}`;
   }, [selectedBranch, people]);
+
+  const submitWaitlistRequest = useCallback(async () => {
+    if (!branchId || !serviceId || !date) {
+      toast("Selecciona sede, servicio y fecha antes de solicitar lista de espera.", "error");
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    setJoiningWaitlist(true);
+    try {
+      const preferredStartTime = selectedSlots[0] ?? null;
+      const res = await fetch("/api/my/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branch_id: branchId,
+          service_id: serviceId,
+          barber_id: barberId || null,
+          desired_date: date,
+          selected_start_time: preferredStartTime,
+          notes: notes?.trim() || null,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(json.error ?? "No se pudo crear la solicitud en lista de espera.", "error");
+        return;
+      }
+
+      toast("Te uniste a la lista de espera. Te avisaremos si se libera un cupo.");
+    } finally {
+      setJoiningWaitlist(false);
+    }
+  }, [barberId, branchId, date, isAuthenticated, notes, selectedSlots, serviceId, toast]);
 
   function updatePeople(nextValue: number) {
     const safe = Math.max(1, nextValue);
@@ -1158,17 +1202,31 @@ function ReservarPageContent({
                       slots.length === 0 ? (
                         <div className="col-span-full text-center py-6 px-4 bg-red-950/10 border border-red-500/20 rounded-xl space-y-3 animate-fade-in">
                           <p className="text-sm text-[var(--text-muted)]">No hay horarios disponibles para esta fecha.</p>
-                          <a
-                            href={whatsappUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] hover:bg-[#20ba5a] text-white px-4 py-2.5 text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-                          >
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 .007c-6.617 0-12 5.391-12 12 0 2.115.549 4.16 1.595 5.977l-1.595 5.83 5.951-1.564c1.752.959 3.737 1.464 5.753 1.464h.003c6.616 0 12-5.39 12-12 0-3.2-1.243-6.206-3.5-8.46-2.256-2.254-5.262-3.497-8.462-3.497zm6.393 16.947c-.27.76-1.318 1.483-2.13 1.595-.54.075-1.242.1-3.607-.879-3.023-1.252-4.969-4.323-5.12-4.524-.152-.201-1.217-1.616-1.217-3.084 0-1.469.771-2.19 1.041-2.49.27-.3.59-.375.79-.375h.563c.18 0 .42-.068.653.495.24.577.818 2.002.893 2.152.075.15.128.323.023.533-.105.21-.158.338-.315.518-.158.18-.33.405-.472.54-.158.15-.323.315-.143.623.18.3.8 1.312 1.718 2.128.172.15.344.293.51.428.878.712 1.425.6 1.83.188.248-.255.772-.893.975-1.193.203-.3.405-.255.675-.15.27.105 1.718.81 2.018.96.3.15.5.225.57.345.075.12.075.69-.195 1.45z"/>
-                            </svg>
-                            Reserva por WhatsApp
-                          </a>
+                          <div className="flex flex-wrap justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => void submitWaitlistRequest()}
+                              disabled={joiningWaitlist}
+                              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2.5 text-xs font-bold text-[var(--bg-primary)] transition-all shadow-md active:scale-95 disabled:opacity-60"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6.75h-9A2.25 2.25 0 005.25 9v8.25A2.25 2.25 0 007.5 19.5h9a2.25 2.25 0 002.25-2.25V9a2.25 2.25 0 00-2.25-2.25z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 3h4M8.25 4.5h7.5" />
+                              </svg>
+                              {joiningWaitlist ? "Enviando..." : "Unirme a lista de espera"}
+                            </button>
+                            <a
+                              href={whatsappUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] hover:bg-[#20ba5a] text-white px-4 py-2.5 text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+                            >
+                              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                <path d="M12 .007c-6.617 0-12 5.391-12 12 0 2.115.549 4.16 1.595 5.977l-1.595 5.83 5.951-1.564c1.752.959 3.737 1.464 5.753 1.464h.003c6.616 0 12-5.39 12-12 0-3.2-1.243-6.206-3.5-8.46-2.256-2.254-5.262-3.497-8.462-3.497zm6.393 16.947c-.27.76-1.318 1.483-2.13 1.595-.54.075-1.242.1-3.607-.879-3.023-1.252-4.969-4.323-5.12-4.524-.152-.201-1.217-1.616-1.217-3.084 0-1.469.771-2.19 1.041-2.49.27-.3.59-.375.79-.375h.563c.18 0 .42-.068.653.495.24.577.818 2.002.893 2.152.075.15.128.323.023.533-.105.21-.158.338-.315.518-.158.18-.33.405-.472.54-.158.15-.323.315-.143.623.18.3.8 1.312 1.718 2.128.172.15.344.293.51.428.878.712 1.425.6 1.83.188.248-.255.772-.893.975-1.193.203-.3.405-.255.675-.15.27.105 1.718.81 2.018.96.3.15.5.225.57.345.075.12.075.69-.195 1.45z"/>
+                              </svg>
+                              Coordinar por WhatsApp
+                            </a>
+                          </div>
                         </div>
                       ) : slots.length < people ? (
                         <div className="col-span-full text-center py-6 px-4 bg-[var(--accent-soft)]/20 border border-[var(--accent-border)] rounded-xl space-y-3.5 animate-fade-in">
