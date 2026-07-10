@@ -11,6 +11,9 @@ type Stats = {
   barbers: number;
   todayAppointments: number;
   pendingCount: number;
+  noShowCount: number;
+  confirmationRate: number;
+  riskCount: number;
 };
 
 type Branch = {
@@ -21,6 +24,8 @@ type Branch = {
 type DashboardAppointment = {
   appointment_date: string;
   status: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show";
+  attendance_status?: "pending" | "confirmed" | "declined" | "expired";
+  start_time?: string;
   branch_id: string;
   barber?: { full_name: string } | null;
   service?: { name: string; price: number } | null;
@@ -780,7 +785,15 @@ function AreaChartSemiFilled({ data }: { data: { date: Date; value: number }[] }
 export default function AdminDashboardPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState("");
-  const [stats, setStats] = useState<Stats>({ services: 0, barbers: 0, todayAppointments: 0, pendingCount: 0 });
+  const [stats, setStats] = useState<Stats>({
+    services: 0,
+    barbers: 0,
+    todayAppointments: 0,
+    pendingCount: 0,
+    noShowCount: 0,
+    confirmationRate: 0,
+    riskCount: 0,
+  });
   const [appointments, setAppointments] = useState<DashboardAppointment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -811,6 +824,15 @@ export default function AdminDashboardPage() {
       const appts = aJson.items ?? [];
       const todayAppts = appts.filter((a) => a.appointment_date === today);
       const pending = appts.filter((a) => a.status === "pending");
+      const noShows = appts.filter((a) => a.status === "no_show");
+      const confirmable = appts.filter((a) => ["pending", "confirmed"].includes(a.status));
+      const confirmedAttendance = confirmable.filter((a) => a.attendance_status === "confirmed");
+      const risk = confirmable.filter((a) => {
+        if ((a.attendance_status ?? "pending") !== "pending" || !a.start_time) return false;
+        const startsAt = new Date(`${a.appointment_date}T${a.start_time.slice(0, 5)}:00`).getTime();
+        const diff = startsAt - Date.now();
+        return diff > 0 && diff <= 24 * 60 * 60 * 1000;
+      });
 
       setAppointments(appts);
       setStats({
@@ -818,6 +840,9 @@ export default function AdminDashboardPage() {
         barbers: (bJson.items ?? []).length,
         todayAppointments: todayAppts.length,
         pendingCount: pending.length,
+        noShowCount: noShows.length,
+        confirmationRate: confirmable.length > 0 ? Math.round((confirmedAttendance.length / confirmable.length) * 100) : 0,
+        riskCount: risk.length,
       });
       setLoading(false);
     }
@@ -967,6 +992,9 @@ export default function AdminDashboardPage() {
     { label: "Barberos Activos", value: stats.barbers, icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", color: "#a855f7", href: "/admin/barbers" },
     { label: "Citas Hoy", value: stats.todayAppointments, icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", color: "#22c55e", href: "/admin/appointments" },
     { label: "Pendientes", value: stats.pendingCount, icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", color: "#f59e0b", href: "/admin/appointments" },
+    { label: "No-shows", value: stats.noShowCount, icon: "M18 6 6 18M6 6l12 12", color: "#94a3b8", href: "/admin/appointments" },
+    { label: "Confirmación", value: `${stats.confirmationRate}%`, icon: "M5 13l4 4L19 7", color: "#14b8a6", href: "/admin/appointments" },
+    { label: "Citas en Riesgo", value: stats.riskCount, icon: "M12 9v2m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z", color: "#f97316", href: "/admin/appointments" },
   ];
 
   return (
@@ -1015,7 +1043,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stats Quick Cards Grid */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((c) => (
           <Link 
             key={c.label} 
@@ -1227,6 +1255,7 @@ export default function AdminDashboardPage() {
             { label: "Gestionar Barberos", href: "/admin/barbers", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
             { label: "Configurar Horarios", href: "/admin/business-hours", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
             { label: "Ver Todas las Citas", href: "/admin/appointments", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
+            { label: "Recuperar Cupos", href: "/admin/appointments?show_waitlist=1", icon: "M5 13l4 4L19 7M5 6h14M5 18h8" },
           ].map((a) => (
             <Link
               key={a.href}

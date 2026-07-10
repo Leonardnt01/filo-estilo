@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   FaBan,
@@ -40,6 +41,9 @@ type Appointment = {
   created_at?: string;
   updated_at?: string;
   status: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show";
+  attendance_status?: "pending" | "confirmed" | "declined" | "expired";
+  attendance_confirmed_at?: string | null;
+  release_reason?: string | null;
   notes: string | null;
   barber_id?: string;
   service_id?: string;
@@ -51,7 +55,25 @@ type Appointment = {
 
 type OptionItem = { id: string; full_name?: string; name?: string };
 type Branch = { id: string; name: string };
-type QuickStatusFilter = "all" | "to_start" | "in_progress" | "finished" | "cancelled";
+type WaitlistItem = {
+  id: string;
+  branch_id: string;
+  service_id: string;
+  barber_id: string | null;
+  desired_date: string;
+  desired_start_from: string | null;
+  desired_start_to: string | null;
+  status: string;
+  source_appointment_id: string | null;
+  promoted_appointment_id: string | null;
+  offer_expires_at: string | null;
+  notes: string | null;
+  created_at: string;
+  branch?: { name?: string | null } | null;
+  barber?: { full_name?: string | null } | null;
+  service?: { name?: string | null; price?: number | null } | null;
+};
+type QuickStatusFilter = "all" | "to_start" | "risk" | "in_progress" | "finished" | "cancelled" | "no_show";
 type PaymentFilter = "all" | "yape" | "card" | "processing";
 type ViewMode = "detailed" | "compact";
 type DateShortcut = "all" | "today" | "week" | "month";
@@ -206,7 +228,24 @@ function getCustomerInitials(name: string | null) {
     .join("");
 }
 
-function getAdminActions(status: Appointment["status"]) {
+function isPastAppointment(item: Appointment) {
+  return new Date(`${item.appointment_date}T${item.start_time.slice(0, 5)}:00`).getTime() <= Date.now();
+}
+
+function isRiskAppointment(item: Appointment, status: Appointment["status"]) {
+  if (!["pending", "confirmed"].includes(status)) return false;
+  if ((item.attendance_status ?? "pending") !== "pending") return false;
+
+  const appointmentTime = new Date(`${item.appointment_date}T${item.start_time.slice(0, 5)}:00`).getTime();
+  const diff = appointmentTime - Date.now();
+  return diff > 0 && diff <= 24 * 60 * 60 * 1000;
+}
+
+function getAdminActions(item: Appointment, status: Appointment["status"]) {
+  if ((status === "pending" || status === "confirmed") && isPastAppointment(item)) {
+    return [{ label: "Marcar no asistió", nextStatus: "no_show" as const, tone: "danger" as const }];
+  }
+
   if (status === "confirmed") {
     return [
       { label: "Iniciar", nextStatus: "in_progress" as const, tone: "primary" as const },
@@ -219,6 +258,10 @@ function getAdminActions(status: Appointment["status"]) {
   }
 
   return [];
+}
+
+function canPromoteReleasedSlot(status: Appointment["status"]) {
+  return status === "cancelled" || status === "no_show";
 }
 
 function getTimelineSteps(status: Appointment["status"]) {
@@ -349,6 +392,25 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
+const waitlistStatusConfig: Record<string, { label: string; tone: string; bg: string }> = {
+  active: { label: "En espera", tone: "text-amber-300", bg: "bg-amber-500/10 border-amber-500/20" },
+  offered: { label: "Cupo ofertado", tone: "text-sky-300", bg: "bg-sky-500/10 border-sky-500/20" },
+  accepted: { label: "Aceptada", tone: "text-emerald-300", bg: "bg-emerald-500/10 border-emerald-500/20" },
+  rejected: { label: "Rechazada", tone: "text-rose-300", bg: "bg-rose-500/10 border-rose-500/20" },
+  expired: { label: "Expirada", tone: "text-slate-300", bg: "bg-slate-500/10 border-slate-500/20" },
+  fulfilled: { label: "Convertida en cita", tone: "text-emerald-300", bg: "bg-emerald-500/10 border-emerald-500/20" },
+  cancelled: { label: "Cancelada", tone: "text-rose-300", bg: "bg-rose-500/10 border-rose-500/20" },
+};
+
+function formatWaitlistWindow(item: WaitlistItem) {
+  if (item.desired_start_from && item.desired_start_to) {
+    return `${item.desired_start_from} - ${item.desired_start_to}`;
+  }
+  if (item.desired_start_from) return `Desde ${item.desired_start_from}`;
+  if (item.desired_start_to) return `Hasta ${item.desired_start_to}`;
+  return "Cualquier horario";
+}
+
 function loadAdminAppointmentsPreferences(): Partial<AdminAppointmentsPreferences> | null {
   if (typeof window === "undefined") return null;
 
@@ -362,10 +424,16 @@ function loadAdminAppointmentsPreferences(): Partial<AdminAppointmentsPreference
   }
 }
 
+function loadSourceAppointmentIdFromLocation() {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("source_appointment_id") ?? "";
+}
+
 export default function AdminAppointmentsPage() {
   const { toast } = useToast();
   const storedPreferences = useMemo(() => loadAdminAppointmentsPreferences(), []);
   const [items, setItems] = useState<Appointment[]>([]);
+  const [waitlistItems, setWaitlistItems] = useState<WaitlistItem[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchFilter, setBranchFilter] = useState<string | undefined>(undefined);
   const [barbers, setBarbers] = useState<OptionItem[]>([]);
@@ -382,10 +450,13 @@ export default function AdminAppointmentsPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(storedPreferences?.showFilters ?? false);
   const [loading, setLoading] = useState(false);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistOfferingId, setWaitlistOfferingId] = useState<string | null>(null);
   const [branchesLoading, setBranchesLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>(storedPreferences?.viewMode ?? "detailed");
   const [visibleCount, setVisibleCount] = useState(15);
   const [dateShortcut, setDateShortcut] = useState<DateShortcut>(storedPreferences?.dateShortcut ?? "all");
+  const [sourceAppointmentId, setSourceAppointmentId] = useState(loadSourceAppointmentIdFromLocation);
 
   async function loadOptions() {
     try {
@@ -422,6 +493,35 @@ export default function AdminAppointmentsPage() {
     }
   }
 
+  async function loadWaitlistCandidates() {
+    if (!sourceAppointmentId) {
+      setWaitlistItems([]);
+      return;
+    }
+
+    setWaitlistLoading(true);
+    try {
+      const params = new URLSearchParams({
+        source_appointment_id: sourceAppointmentId,
+        status: "active",
+      });
+      if (branchFilter) {
+        params.set("branch_id", branchFilter);
+      }
+
+      const json = await fetchCachedJson<{ items?: WaitlistItem[] }>(
+        `/api/admin/waitlist?${params.toString()}`,
+        { ttlMs: 5_000, force: true },
+      );
+      setWaitlistItems(json.items ?? []);
+    } catch (error) {
+      setWaitlistItems([]);
+      toast(error instanceof Error ? error.message : "No se pudo cargar la lista de espera.", "error");
+    } finally {
+      setWaitlistLoading(false);
+    }
+  }
+
   useEffect(() => {
     async function loadBranches() {
       setBranchesLoading(true);
@@ -451,6 +551,12 @@ export default function AdminAppointmentsPage() {
       void load();
     }
   }, [branchFilter]);
+
+  useEffect(() => {
+    if (branchFilter !== undefined) {
+      void loadWaitlistCandidates();
+    }
+  }, [branchFilter, sourceAppointmentId]);
 
   useEffect(() => {
     if (branchFilter !== undefined) {
@@ -528,6 +634,37 @@ export default function AdminAppointmentsPage() {
     }
   }
 
+  async function offerReleasedSlot(waitlistId: string, expiresInHours = 2) {
+    if (!sourceAppointmentId) {
+      toast("Selecciona una cita liberada antes de ofertar un cupo.", "error");
+      return;
+    }
+
+    setWaitlistOfferingId(waitlistId);
+    try {
+      const res = await fetch(`/api/admin/waitlist/${waitlistId}/offer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_appointment_id: sourceAppointmentId,
+          expires_in_hours: expiresInHours,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast(json.error ?? "No se pudo ofertar el cupo liberado.", "error");
+        return;
+      }
+
+      invalidateCacheByPrefix("/api/admin/waitlist");
+      toast("El cupo liberado fue ofertado correctamente.");
+      await loadWaitlistCandidates();
+    } finally {
+      setWaitlistOfferingId(null);
+    }
+  }
+
   async function changeStatus(id: string, status: Appointment["status"]) {
     setSavingId(id);
     const res = await fetch(`/api/admin/appointments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
@@ -552,9 +689,11 @@ export default function AdminAppointmentsPage() {
     const counts = {
       all: sortedItems.length,
       to_start: 0,
+      risk: 0,
       in_progress: 0,
       finished: 0,
       cancelled: 0,
+      no_show: 0,
     };
 
     for (const item of sortedItems) {
@@ -563,9 +702,11 @@ export default function AdminAppointmentsPage() {
       const effectiveStatus = getEffectiveAppointmentStatus(item, isPrepaid);
 
       if (effectiveStatus === "confirmed") counts.to_start += 1;
+      if (isRiskAppointment(item, effectiveStatus)) counts.risk += 1;
       if (effectiveStatus === "in_progress") counts.in_progress += 1;
       if (effectiveStatus === "completed") counts.finished += 1;
       if (effectiveStatus === "cancelled") counts.cancelled += 1;
+      if (effectiveStatus === "no_show") counts.no_show += 1;
     }
 
     return counts;
@@ -606,9 +747,11 @@ export default function AdminAppointmentsPage() {
       const matchesQuickStatus =
         quickStatusFilter === "all" ||
         (quickStatusFilter === "to_start" && effectiveStatus === "confirmed") ||
+        (quickStatusFilter === "risk" && isRiskAppointment(item, effectiveStatus)) ||
         (quickStatusFilter === "in_progress" && effectiveStatus === "in_progress") ||
         (quickStatusFilter === "finished" && effectiveStatus === "completed") ||
-        (quickStatusFilter === "cancelled" && effectiveStatus === "cancelled");
+        (quickStatusFilter === "cancelled" && effectiveStatus === "cancelled") ||
+        (quickStatusFilter === "no_show" && effectiveStatus === "no_show");
 
       if (!matchesQuickStatus) return false;
 
@@ -644,9 +787,11 @@ export default function AdminAppointmentsPage() {
     if (quickStatusFilter !== "all") {
       const quickLabels: Record<Exclude<QuickStatusFilter, "all">, string> = {
         to_start: "Por iniciar",
+        risk: "En riesgo",
         in_progress: "En atención",
         finished: "Finalizados",
         cancelled: "Cancelados",
+        no_show: "No asistieron",
       };
       chips.push({ key: "quick-status", label: quickLabels[quickStatusFilter as Exclude<QuickStatusFilter, "all">], clear: () => setQuickStatusFilter("all") });
     }
@@ -757,9 +902,11 @@ export default function AdminAppointmentsPage() {
             {[
               { key: "all", label: "Todas", count: quickFilterCounts.all },
               { key: "to_start", label: "Por iniciar", count: quickFilterCounts.to_start },
+              { key: "risk", label: "En riesgo", count: quickFilterCounts.risk },
               { key: "in_progress", label: "En atención", count: quickFilterCounts.in_progress },
               { key: "finished", label: "Finalizados", count: quickFilterCounts.finished },
               { key: "cancelled", label: "Cancelados", count: quickFilterCounts.cancelled },
+              { key: "no_show", label: "No asistieron", count: quickFilterCounts.no_show },
             ].map((filterItem) => (
               <button
                 key={filterItem.key}
@@ -768,12 +915,16 @@ export default function AdminAppointmentsPage() {
                   quickStatusFilter === filterItem.key
                     ? filterItem.key === "to_start"
                       ? "bg-amber-500/10 text-amber-300 border-amber-500/40 shadow-md"
+                      : filterItem.key === "risk"
+                      ? "bg-orange-500/10 text-orange-300 border-orange-500/40 shadow-md"
                       : filterItem.key === "in_progress"
                       ? "bg-purple-500/10 text-purple-300 border-purple-500/40 shadow-md"
                       : filterItem.key === "finished"
                       ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/40 shadow-md"
                       : filterItem.key === "cancelled"
                       ? "bg-red-500/10 text-red-300 border-red-500/40 shadow-md"
+                      : filterItem.key === "no_show"
+                      ? "bg-slate-500/10 text-slate-300 border-slate-500/40 shadow-md"
                       : "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)] shadow-md"
                     : "bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent-border)] hover:bg-white/[0.02]"
                 }`}
@@ -783,12 +934,16 @@ export default function AdminAppointmentsPage() {
                   quickStatusFilter === filterItem.key
                     ? filterItem.key === "to_start"
                       ? "bg-amber-400 text-[var(--bg-primary)]"
+                      : filterItem.key === "risk"
+                      ? "bg-orange-400 text-[var(--bg-primary)]"
                       : filterItem.key === "in_progress"
                       ? "bg-purple-400 text-[var(--bg-primary)]"
                       : filterItem.key === "finished"
                       ? "bg-emerald-400 text-[var(--bg-primary)]"
                       : filterItem.key === "cancelled"
                       ? "bg-red-400 text-[var(--bg-primary)]"
+                      : filterItem.key === "no_show"
+                      ? "bg-slate-300 text-[var(--bg-primary)]"
                       : "bg-[var(--accent)] text-[var(--bg-primary)]"
                     : "bg-white/5 text-[var(--text-muted)]"
                 }`}>
@@ -974,6 +1129,128 @@ export default function AdminAppointmentsPage() {
             </div>
           )}
 
+          <div className="admin-card border border-sky-500/15 bg-[var(--bg-surface)]">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-300">Recuperación de cupos</p>
+                <h3 className="mt-2 text-lg font-bold text-[var(--text-primary)]" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                  Candidatos de lista de espera
+                </h3>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                  Vincula una cita cancelada o marcada como no-show para recuperar el horario con clientes en espera.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  value={sourceAppointmentId}
+                  onChange={(e) => setSourceAppointmentId(e.target.value.trim())}
+                  placeholder="UUID de cita liberada"
+                  className="min-w-[240px] rounded-xl border border-[var(--border-strong)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-border)]"
+                />
+                <button
+                  type="button"
+                  onClick={() => void loadWaitlistCandidates()}
+                  className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-sky-300 transition-all hover:bg-sky-500/15"
+                >
+                  Buscar candidatos
+                </button>
+                {sourceAppointmentId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSourceAppointmentId("");
+                      setWaitlistItems([]);
+                    }}
+                    className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-secondary)] px-4 py-2 text-xs font-black uppercase tracking-wider text-[var(--text-secondary)] transition-all hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {sourceAppointmentId ? (
+              <div className="mt-4 space-y-3">
+                {waitlistLoading ? (
+                  <div className="rounded-2xl border border-white/5 bg-[var(--bg-secondary)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+                    Cargando candidatos de waitlist...
+                  </div>
+                ) : waitlistItems.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--bg-secondary)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+                    No se encontraron clientes activos para ese cupo liberado.
+                  </div>
+                ) : (
+                  waitlistItems.map((entry) => {
+                    const status = waitlistStatusConfig[entry.status] ?? waitlistStatusConfig.active;
+                    const branchName = entry.branch && typeof entry.branch === "object" && "name" in entry.branch ? String(entry.branch.name ?? "Sede") : "Sede";
+                    const barberName = entry.barber && typeof entry.barber === "object" && "full_name" in entry.barber ? String(entry.barber.full_name ?? "Cualquier barbero") : "Cualquier barbero";
+                    const serviceName = entry.service && typeof entry.service === "object" && "name" in entry.service ? String(entry.service.name ?? "Servicio") : "Servicio";
+
+                    return (
+                      <div
+                        key={entry.id}
+                        className="rounded-2xl border border-white/5 bg-[var(--bg-secondary)] p-4"
+                      >
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider ${status.bg} ${status.tone}`}>
+                                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                                {status.label}
+                              </span>
+                              <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                                #{entry.id.slice(0, 8).toUpperCase()}
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-[var(--text-primary)]">{serviceName}</p>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--text-secondary)]">
+                              <span className="inline-flex items-center gap-1.5">
+                                <FaLocationDot className="h-3.5 w-3.5 text-[var(--accent)]" />
+                                {branchName}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <FaUserTie className="h-3.5 w-3.5 text-[var(--accent)]" />
+                                {barberName}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <FaClock className="h-3.5 w-3.5 text-[var(--accent)]" />
+                                {entry.desired_date} · {formatWaitlistWindow(entry)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 xl:justify-end">
+                            <button
+                              type="button"
+                              onClick={() => void offerReleasedSlot(entry.id, 2)}
+                              disabled={waitlistOfferingId === entry.id}
+                              className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[var(--accent)] transition-all hover:border-[var(--accent)] disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {waitlistOfferingId === entry.id ? "Ofertando..." : "Ofertar 2h"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void offerReleasedSlot(entry.id, 4)}
+                              disabled={waitlistOfferingId === entry.id}
+                              className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-sky-300 transition-all hover:bg-sky-500/15 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              Ofertar 4h
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-[var(--text-muted)]">
+                Tip: desde una cita cancelada o no-show usa el botón <strong className="text-[var(--text-primary)]">Ver candidatos</strong> para cargar automáticamente esta sección.
+              </p>
+            )}
+          </div>
+
           {loading ? (
             <AdminAppointmentsSkeleton rows={6} />
           ) : visibleItems.length === 0 ? (
@@ -1006,9 +1283,21 @@ export default function AdminAppointmentsPage() {
             const isPrepaid = !!payment?.isPrepaid;
             const effectiveStatus = getEffectiveAppointmentStatus(item, isPrepaid);
             const config = getDetailedStatusConfig(effectiveStatus, isPrepaid);
-            const actions = getAdminActions(effectiveStatus);
+            const actions = getAdminActions(item, effectiveStatus);
             const paymentVisual = payment ? getPaymentVisual(payment.method) : null;
             const timelineSteps = getTimelineSteps(effectiveStatus);
+            const attendanceLabel =
+              item.attendance_status === "confirmed"
+                ? "Asistencia confirmada"
+                : item.attendance_status === "declined"
+                ? "Asistencia rechazada"
+                : item.attendance_status === "expired"
+                ? "Confirmación expirada"
+                : "Pendiente de confirmar";
+            const waitlistHref = canPromoteReleasedSlot(effectiveStatus)
+              ? `/admin/appointments?source_appointment_id=${item.id}`
+              : null;
+            const isRisk = isRiskAppointment(item, effectiveStatus);
 
             // ─── COMPACT VIEW ───
             if (viewMode === "compact") {
@@ -1112,6 +1401,15 @@ export default function AdminAppointmentsPage() {
                         <span className="h-1.5 w-1.5 rounded-full bg-current" />
                         {config.label}
                       </span>
+                      <p className="mt-1 text-[10px] font-semibold text-[var(--text-muted)]">
+                        {attendanceLabel}
+                      </p>
+                      {isRisk && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300 animate-pulse">
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                          En riesgo
+                        </span>
+                      )}
                     </div>
                     {/* Actions */}
                     <div className="flex items-center justify-end gap-1.5">
@@ -1131,6 +1429,15 @@ export default function AdminAppointmentsPage() {
                       ))}
                       {actions.length === 0 && (
                         <span className="text-[10px] text-[var(--text-muted)] font-mono">#{item.id.slice(0, 6)}</span>
+                      )}
+                      {waitlistHref && (
+                        <Link
+                          href={waitlistHref}
+                          onClick={() => setSourceAppointmentId(item.id)}
+                          className="rounded-lg border border-sky-500/20 bg-sky-500/10 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-sky-300 transition-all hover:bg-sky-500/15"
+                        >
+                          Waitlist
+                        </Link>
                       )}
                     </div>
                   </div>
@@ -1234,6 +1541,14 @@ export default function AdminAppointmentsPage() {
                       </span>
                     )}
 
+                    {/* Risk badge — attendance not confirmed within 24h */}
+                    {isRisk && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-[10px] font-black uppercase tracking-wider text-amber-300 animate-pulse">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                        En riesgo · Sin confirmar asistencia
+                      </span>
+                    )}
+
                     {/* Status badge pill and buttons */}
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <span 
@@ -1259,6 +1574,15 @@ export default function AdminAppointmentsPage() {
                           {savingId === item.id ? "Guardando..." : action.label}
                         </button>
                       ))}
+                      {waitlistHref && (
+                        <Link
+                          href={waitlistHref}
+                          onClick={() => setSourceAppointmentId(item.id)}
+                          className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-sky-300 transition-all hover:bg-sky-500/15"
+                        >
+                          Ver candidatos
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1398,6 +1722,34 @@ export default function AdminAppointmentsPage() {
                       Pago y Acompañantes
                     </h4>
                     <div className="space-y-3 text-xs">
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-[var(--accent)]">
+                          Asistencia
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-[var(--text-primary)]">
+                          {attendanceLabel}
+                        </p>
+                        {item.attendance_confirmed_at && (
+                          <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                            Confirmada el {new Date(item.attendance_confirmed_at).toLocaleString("es-PE")}
+                          </p>
+                        )}
+                        {item.release_reason && (
+                          <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                            Motivo de liberación: <span className="font-semibold text-[var(--text-primary)]">{item.release_reason}</span>
+                          </p>
+                        )}
+                        {waitlistHref && (
+                          <Link
+                            href={waitlistHref}
+                            onClick={() => setSourceAppointmentId(item.id)}
+                            className="mt-3 inline-flex items-center rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-sky-300 transition-all hover:bg-sky-500/15"
+                          >
+                            Revisar waitlist para este cupo
+                          </Link>
+                        )}
+                      </div>
+
                       {/* Companions indicator */}
                       {companions != null && companions > 1 ? (
                         <div className="flex flex-col gap-2.5 p-3 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)]">

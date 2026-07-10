@@ -46,16 +46,46 @@ export async function GET(request: Request) {
 
   const selectVariants: string[] = [
     `
-      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at,
       barber:barbers(full_name, image_url),
       service:services(name, price, image_url),
       branch:branches(name)
     `,
     `
-      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at,
       barber:barbers(full_name, image_url),
       service:services(name, price),
       branch:branches(name)
+    `,
+    `
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at,
+      barber:barbers(full_name),
+      service:services(name, price),
+      branch:branches(name)
+    `,
+    `
+      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at
+    `,
+    `
+      id, profile_id, barber_id, service_id, branch_id, customer_name, customer_phone, appointment_date, appointment_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
+      barber:barbers(full_name, image_url),
+      service:services(name, price, image_url),
+      branch:branches(name)
+    `,
+    `
+      id, profile_id, barber_id, service_id, branch_id, customer_name, customer_phone, appointment_date, appointment_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
+      barber:barbers(full_name, image_url),
+      service:services(name, price),
+      branch:branches(name)
+    `,
+    `
+      id, profile_id, barber_id, service_id, branch_id, customer_name, appointment_date, appointment_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
+      barber:barbers(full_name),
+      service:services(name, price),
+      branch:branches(name)
+    `,
+    `
+      id, profile_id, barber_id, service_id, branch_id, appointment_date, appointment_time, status, attendance_status, attendance_confirmed_at, last_reminder_at, reminder_count, release_reason, notes, created_at, updated_at, people, payment_method, payment_status, total_price
     `,
     `
       id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at,
@@ -64,28 +94,10 @@ export async function GET(request: Request) {
       branch:branches(name)
     `,
     `
-      id, client_id, barber_id, service_id, branch_id, customer_name, customer_phone, customer_email, appointment_date, start_time, end_time, status, notes, created_at, updated_at
-    `,
-    `
       id, profile_id, barber_id, service_id, branch_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
-      barber:barbers(full_name, image_url),
-      service:services(name, price, image_url),
-      branch:branches(name)
-    `,
-    `
-      id, profile_id, barber_id, service_id, branch_id, customer_name, customer_phone, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
-      barber:barbers(full_name, image_url),
-      service:services(name, price),
-      branch:branches(name)
-    `,
-    `
-      id, profile_id, barber_id, service_id, branch_id, customer_name, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price,
       barber:barbers(full_name),
       service:services(name, price),
       branch:branches(name)
-    `,
-    `
-      id, profile_id, barber_id, service_id, branch_id, appointment_date, appointment_time, status, notes, created_at, updated_at, people, payment_method, payment_status, total_price
     `,
   ];
 
@@ -132,7 +144,7 @@ export async function GET(request: Request) {
   }
 
   const items = (data ?? []).map((item) =>
-    normalizeAppointmentForClient(item as Record<string, unknown>),
+    normalizeAppointmentForClient(item as unknown as Record<string, unknown>),
   );
 
   return NextResponse.json({ ok: true, count: items.length, items });

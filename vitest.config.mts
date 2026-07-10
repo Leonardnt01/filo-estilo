@@ -9,5 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    include: ["tests/unit/**/*.test.ts"],
+    exclude: ["tests/playwright/**", "node_modules/**"],
   },
 });

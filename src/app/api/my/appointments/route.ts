@@ -140,5 +140,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, item: normalizeAppointmentForClient(data) }, { status: 201 });
+  return NextResponse.json({ ok: true, item: normalizeAppointmentForClient(data as unknown as Record<string, unknown>) }, { status: 201 });
 }

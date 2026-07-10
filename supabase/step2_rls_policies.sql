@@ -211,7 +211,7 @@ on public.appointments
 for select
 to authenticated
 using (
-  client_id = auth.uid()
+  profile_id = auth.uid()
   or public.can_manage_branch(branch_id)
 );
 
@@ -220,7 +220,7 @@ on public.appointments
 for insert
 to authenticated
 with check (
-  client_id = auth.uid()
+  profile_id = auth.uid()
   or public.can_manage_branch(branch_id)
 );
 
@@ -238,7 +238,7 @@ to authenticated
 using (public.can_manage_branch(branch_id));
 
 create unique index if not exists appointments_unique_active_slot
-on public.appointments (barber_id, appointment_date, start_time)
+on public.appointments (barber_id, appointment_date, appointment_time)
 where status in ('pending', 'confirmed', 'in_progress');
 
 do $$

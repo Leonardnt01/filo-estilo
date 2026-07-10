@@ -20,17 +20,17 @@ create index if not exists business_hours_active_lookup_idx
   where is_active = true;
 
 create index if not exists appointments_active_availability_lookup_idx
-  on public.appointments (branch_id, barber_id, appointment_date, start_time)
+  on public.appointments (branch_id, barber_id, appointment_date, appointment_time)
   where status in ('pending', 'confirmed', 'in_progress');
 
-create index if not exists appointments_client_history_idx
-  on public.appointments (client_id, appointment_date desc, start_time desc);
+create index if not exists appointments_profile_history_idx
+  on public.appointments (profile_id, appointment_date desc, appointment_time desc);
 
 commit;
 
 -- Suggested validation:
 -- explain analyze
--- select id, start_time
+-- select id, appointment_time
 -- from public.appointments
 -- where branch_id = '00000000-0000-0000-0000-000000000000'
 --   and barber_id = '00000000-0000-0000-0000-000000000000'
