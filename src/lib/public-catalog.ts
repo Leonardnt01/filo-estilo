@@ -3,15 +3,26 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const getPublicCatalogDataImpl = cache(async (branchId?: string) => {
-  let supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
+type PublicCatalogResult = {
+  ok: true;
+  branches: Array<Record<string, unknown>>;
+  services: Array<Record<string, unknown>>;
+  barbers: Array<Record<string, unknown>>;
+};
 
-  try {
-    supabase = createAdminClient();
-  } catch {
-    supabase = await createClient();
-  }
+function getEmptyPublicCatalogData(): PublicCatalogResult {
+  return {
+    ok: true,
+    branches: [],
+    services: [],
+    barbers: [],
+  };
+}
 
+async function loadPublicCatalogDataWithClient(
+  supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>,
+  branchId?: string,
+): Promise<PublicCatalogResult> {
   let servicesQuery = supabase
     .from("services")
     .select("id, name, description, price, duration_minutes, image_url, branch_id")
@@ -92,6 +103,23 @@ const getPublicCatalogDataImpl = cache(async (branchId?: string) => {
     services: servicesRes.data ?? [],
     barbers: barbersRes.data ?? [],
   };
+}
+
+const getPublicCatalogDataImpl = cache(async (branchId?: string) => {
+  try {
+    return await loadPublicCatalogDataWithClient(createAdminClient(), branchId);
+  } catch (adminError) {
+    try {
+      return await loadPublicCatalogDataWithClient(await createClient(), branchId);
+    } catch (serverError) {
+      console.error("[public-catalog] failed to load public catalog", {
+        branchId: branchId ?? null,
+        adminError: adminError instanceof Error ? adminError.message : String(adminError),
+        serverError: serverError instanceof Error ? serverError.message : String(serverError),
+      });
+      return getEmptyPublicCatalogData();
+    }
+  }
 });
 
 export async function getPublicCatalogData(branchId?: string) {

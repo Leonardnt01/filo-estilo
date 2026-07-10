@@ -8,15 +8,37 @@ type SiteSettingsRow = {
   value: Record<string, unknown>;
 };
 
-const getPublicHomeDataImpl = cache(async () => {
-  let supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
+type PublicHomeResult = {
+  ok: true;
+  branches: Array<Record<string, unknown>>;
+  services: Array<Record<string, unknown>>;
+  featured_services: Array<Record<string, unknown>>;
+  testimonials: Array<Record<string, unknown>>;
+  promotions: Array<Record<string, unknown>>;
+  site_settings: {
+    public_footer: Record<string, unknown>;
+    public_home: Record<string, unknown>;
+  };
+};
 
-  try {
-    supabase = createAdminClient();
-  } catch {
-    supabase = await createClient();
-  }
+function getEmptyPublicHomeData(): PublicHomeResult {
+  return {
+    ok: true,
+    branches: [],
+    services: [],
+    featured_services: [],
+    testimonials: [],
+    promotions: [],
+    site_settings: {
+      public_footer: {},
+      public_home: {},
+    },
+  };
+}
 
+async function loadPublicHomeDataWithClient(
+  supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>,
+): Promise<PublicHomeResult> {
   const [branchesRes, servicesRes, featuredRes, testimonialsRes, promotionsRes, settingsRes] = await Promise.all([
     supabase
       .from("branches")
@@ -78,6 +100,22 @@ const getPublicHomeDataImpl = cache(async () => {
       public_home: settingsMap.get("public_home") ?? {},
     },
   };
+}
+
+const getPublicHomeDataImpl = cache(async () => {
+  try {
+    return await loadPublicHomeDataWithClient(createAdminClient());
+  } catch (adminError) {
+    try {
+      return await loadPublicHomeDataWithClient(await createClient());
+    } catch (serverError) {
+      console.error("[public-home] failed to load public data", {
+        adminError: adminError instanceof Error ? adminError.message : String(adminError),
+        serverError: serverError instanceof Error ? serverError.message : String(serverError),
+      });
+      return getEmptyPublicHomeData();
+    }
+  }
 });
 
 export async function getPublicHomeData() {
