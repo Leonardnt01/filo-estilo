@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 type FooterSettings = {
   brand_name?: string;
@@ -24,8 +25,10 @@ type FooterProps = {
 };
 
 export function Footer({ initialSettings, initialBranchContact = null }: FooterProps) {
+  const pathname = usePathname();
   const settings = initialSettings ?? {};
   const branchContact = initialBranchContact;
+  const isHomePage = pathname === "/";
 
   const brandName = settings.brand_name?.trim() || "Filo Estilo";
   const [brandMain, ...rest] = brandName.split(" ");
@@ -51,68 +54,61 @@ export function Footer({ initialSettings, initialBranchContact = null }: FooterP
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-5">
           <div>
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="relative">
-                <div className="absolute inset-0 bg-[var(--accent)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
-                <svg className="relative h-8 w-8 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M6 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                  <path d="M18 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                  <path d="M12 12 3 3" />
-                  <path d="M12 12l9-9" />
-                  <path d="M12 12v10" />
-                  <path d="m15 19-3 3-3-3" />
-                </svg>
+            {isHomePage ? (
+              <div className="flex items-center gap-3 group">
+                <FooterBrand brandAccent={brandAccent} brandMain={brandMain} />
               </div>
-              <span className="text-xl font-bold tracking-tight" style={{ fontFamily: "var(--font-playfair), serif", color: "var(--text-primary)" }}>
-                {brandMain} <span className="text-[var(--accent)]">{brandAccent}</span>
-              </span>
-            </Link>
-            <p className="mt-6 text-sm text-[var(--text-muted)] leading-relaxed max-w-xs">
+            ) : (
+              <Link href="/#inicio" className="flex items-center gap-3 group">
+                <FooterBrand brandAccent={brandAccent} brandMain={brandMain} />
+              </Link>
+            )}
+            <p className="mt-6 max-w-xs text-sm leading-relaxed text-[var(--text-muted-strong)]">
               Redefiniendo el estándar del cuidado masculino. Maestría técnica y atención personalizada en cada visita.
             </p>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Navegación</h3>
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-white">Navegación</p>
             <ul className="space-y-2.5">
-              <li><Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Inicio</Link></li>
-              <li><Link href="/sedes" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Nuestras Sedes</Link></li>
-              <li><Link href="/#servicios" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Servicios Premium</Link></li>
-              <li><Link href="/#quienes" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Quiénes Somos</Link></li>
-              <li><Link href="/reservar" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Reservar Cita</Link></li>
+              <li><Link href="/#inicio" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Inicio</Link></li>
+              <li><Link href="/sedes" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Nuestras Sedes</Link></li>
+              <li><Link href="/#servicios" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Servicios Premium</Link></li>
+              <li><Link href="/#quienes" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Quiénes Somos</Link></li>
+              <li><Link href="/reservar" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Reservar Cita</Link></li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Cuenta</h3>
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-white">Cuenta</p>
             <ul className="space-y-2.5">
-              <li><Link href="/login" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Iniciar Sesión</Link></li>
-              <li><Link href="/register" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Registrarse</Link></li>
-              <li><Link href="/mis-citas" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Mis Citas</Link></li>
+              <li><Link href="/login" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Iniciar Sesión</Link></li>
+              <li><Link href="/register" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Registrarse</Link></li>
+              <li><Link href="/mis-citas" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Mis Citas</Link></li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Legal</h3>
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-white">Legal</p>
             <ul className="space-y-2.5">
-              <li><Link href="/terminos-condiciones" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Términos y Condiciones</Link></li>
-              <li><Link href="/politica-cambios-devoluciones" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Política de Cambios y Devoluciones</Link></li>
-              <li><Link href="/libro-de-reclamaciones" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]">Libro de Reclamaciones</Link></li>
+              <li><Link href="/terminos-condiciones" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Términos y Condiciones</Link></li>
+              <li><Link href="/politica-cambios-devoluciones" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Política de Cambios y Devoluciones</Link></li>
+              <li><Link href="/libro-de-reclamaciones" className="text-sm text-[var(--text-muted-strong)] hover:text-[var(--accent)]">Libro de Reclamaciones</Link></li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Contacto Central</h3>
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-white">Contacto Central</p>
             <ul className="space-y-3">
-              <li className="text-sm text-[var(--text-muted)]">{mainAddress}</li>
-              <li className="text-sm text-[var(--text-muted)]">{mainPhone}</li>
-              <li className="text-sm text-[var(--text-muted)]">WhatsApp: {mainWa}</li>
+              <li className="text-sm text-[var(--text-muted-strong)]">{mainAddress}</li>
+              <li className="text-sm text-[var(--text-muted-strong)]">{mainPhone}</li>
+              <li className="text-sm text-[var(--text-muted-strong)]">WhatsApp: {mainWa}</li>
             </ul>
           </div>
         </div>
 
         <div className="mt-12 border-t border-[var(--border)] pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-[var(--text-muted)]">© {new Date().getFullYear()} {brandName}. Todos los derechos reservados.</p>
+          <p className="text-xs text-[var(--text-muted-strong)]">© {new Date().getFullYear()} {brandName}. Todos los derechos reservados.</p>
           <div className="flex gap-4">
             {visibleSocials.map((social) => (
               <SocialIcon key={social.label} label={social.label} links={links} d={social.path} />
@@ -126,9 +122,31 @@ export function Footer({ initialSettings, initialBranchContact = null }: FooterP
 
 function SocialIcon({ label, d, links }: { label: string; d: string; links: Record<string, string> }) {
   return (
-    <a href={links[label] ?? "#"} target="_blank" rel="noreferrer" className="text-[var(--text-muted)] hover:text-[var(--accent)]" aria-label={label}>
-      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d={d} /></svg>
+    <a href={links[label] ?? "#"} target="_blank" rel="noreferrer" className="text-[var(--text-muted-strong)] hover:text-[var(--accent)]">
+      <span className="sr-only">{label}</span>
+      <svg aria-hidden="true" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d={d} /></svg>
     </a>
+  );
+}
+
+function FooterBrand({ brandMain, brandAccent }: { brandMain: string; brandAccent: string }) {
+  return (
+    <>
+      <div className="relative">
+        <div className="absolute inset-0 bg-[var(--accent)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
+        <svg className="relative h-8 w-8 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+          <path d="M18 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+          <path d="M12 12 3 3" />
+          <path d="M12 12l9-9" />
+          <path d="M12 12v10" />
+          <path d="m15 19-3 3-3-3" />
+        </svg>
+      </div>
+      <span className="text-xl font-bold tracking-tight" style={{ fontFamily: "var(--font-playfair), serif", color: "var(--text-primary)" }}>
+        {brandMain} <span className="text-[var(--accent)]">{brandAccent}</span>
+      </span>
+    </>
   );
 }
 

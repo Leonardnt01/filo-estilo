@@ -131,7 +131,7 @@ export default function HomePageInteractive({
                 <div className="grid lg:grid-cols-2">
                   <Image
                     src={serviceSlides[activeService % serviceSlides.length]}
-                    alt={keyServices[activeService].name}
+                    alt=""
                     width={1200}
                     height={880}
                     priority={activeService === 0}
@@ -145,9 +145,9 @@ export default function HomePageInteractive({
                     }
                   />
                   <div className="p-8 lg:p-10 flex flex-col justify-center">
-                    <p className="text-sm uppercase tracking-wider text-[var(--accent)] font-semibold">Servicio destacado</p>
+                    <p className="text-sm font-semibold uppercase tracking-wider text-[#f8e1a7]">Servicio destacado</p>
                     <h3 className="mt-2 text-3xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>{keyServices[activeService].name}</h3>
-                    <p className="mt-3 text-[var(--text-secondary)]">{keyServices[activeService].description ?? "Servicio profesional con acabado premium."}</p>
+                    <p className="mt-3 text-[var(--text-secondary-strong)]">{keyServices[activeService].description ?? "Servicio profesional con acabado premium."}</p>
                     <p className="mt-4 text-lg font-semibold text-[var(--accent)]">
                       S/ {keyServices[activeService].price} · {keyServices[activeService].duration_minutes} min
                     </p>
@@ -159,7 +159,7 @@ export default function HomePageInteractive({
                         <button
                           key={idx}
                           onClick={() => setActiveService(idx)}
-                          className={`h-2.5 rounded-full transition-all ${activeService === idx ? "w-8 bg-[var(--accent)]" : "w-2.5 bg-[var(--border-strong)]"}`}
+                          className={`h-2.5 rounded-full transition-all ${activeService === idx ? "w-8 bg-[var(--accent)]" : "w-2.5 bg-white/55 hover:bg-white/80"}`}
                           aria-label={`Ver servicio ${idx + 1}`}
                         />
                       ))}
@@ -181,7 +181,7 @@ export default function HomePageInteractive({
                       >
                         <Image
                           src={serviceSlides[idx % serviceSlides.length]}
-                          alt={service.name}
+                          alt=""
                           fill
                           sizes="100vw"
                           className="absolute inset-0 h-full w-full object-cover"
@@ -193,14 +193,14 @@ export default function HomePageInteractive({
                             })
                           }
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/60 to-black/15" />
                         <div className="relative z-10 flex h-full flex-col justify-end p-4">
-                          <p className="text-xs uppercase tracking-wider text-[var(--accent)]">Servicio</p>
-                          <h3 className="mt-1 text-lg font-semibold text-white">{service.name}</h3>
-                          <p className="mt-1 text-xs text-white/80 line-clamp-2">{service.description ?? "Cuidado profesional para tu estilo."}</p>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-[#f8e1a7]">Servicio</p>
+                          <p className="mt-1 text-lg font-semibold text-white">{service.name}</p>
+                          <p className="mt-1 text-xs text-white line-clamp-2">{service.description ?? "Cuidado profesional para tu estilo."}</p>
                           <div className="mt-3 flex items-center justify-between">
                             <span className="text-base font-bold text-[var(--accent)]">S/ {service.price}</span>
-                            <span className="text-xs text-white/90">{service.duration_minutes} min</span>
+                            <span className="text-xs font-medium text-white">{service.duration_minutes} min</span>
                           </div>
                           <Link
                             href={`/reservar?service_id=${service.id}`}
@@ -248,10 +248,10 @@ export default function HomePageInteractive({
                     key={service.id}
                     className="group relative overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] min-h-[260px]"
                   >
-                    <Image
-                      src={serviceSlides[idx % serviceSlides.length]}
-                      alt={service.name}
-                      fill
+                        <Image
+                          src={serviceSlides[idx % serviceSlides.length]}
+                          alt=""
+                          fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                       onError={(e) =>
@@ -262,20 +262,20 @@ export default function HomePageInteractive({
                         })
                       }
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/60 to-black/15" />
                     <div className="relative z-10 flex h-full flex-col justify-end p-4">
-                      <p className="text-xs uppercase tracking-wider text-[var(--accent)]">Servicio</p>
-                      <h3 className="mt-1 text-base font-semibold text-white">{service.name}</h3>
-                      <p className="mt-1 text-xs text-white/75 line-clamp-2">{service.description ?? "Cuidado profesional para tu estilo."}</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#f8e1a7]">Servicio</p>
+                      <p className="mt-1 text-base font-semibold text-white">{service.name}</p>
+                      <p className="mt-1 text-xs text-white line-clamp-2">{service.description ?? "Cuidado profesional para tu estilo."}</p>
                       <div className="mt-3 flex items-center justify-between">
                         <span className="text-sm font-bold text-[var(--accent)]">S/ {service.price}</span>
-                        <span className="translate-y-3 opacity-0 text-xs text-white transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+                        <span className="text-xs font-medium text-white/95">
                           {service.duration_minutes} min
                         </span>
                       </div>
                       <Link
                         href={`/reservar?service_id=${service.id}`}
-                        className="mt-3 inline-flex w-fit translate-y-3 items-center gap-1 rounded-full border border-[var(--accent-border)] bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--bg-primary)] opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
+                        className="mt-3 inline-flex w-fit items-center gap-1 rounded-full border border-[var(--accent-border)] bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--bg-primary)] transition-all duration-300 hover:brightness-105"
                       >
                         Reservar
                       </Link>
@@ -303,7 +303,7 @@ export default function HomePageInteractive({
                   <div className="rounded-full border-2 border-[var(--accent-border)] p-2 shadow-2xl">
                     <Image
                       src={successStories[activeStory].image}
-                      alt={successStories[activeStory].name}
+                      alt=""
                       width={176}
                       height={176}
                       sizes="176px"
@@ -345,32 +345,32 @@ export default function HomePageInteractive({
             <div className="grid gap-8 lg:grid-cols-2 lg:items-start relative z-10">
               <div>
                 <span className="section-label">Contacto</span>
-                <h3 className="mt-4 text-3xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                <h2 className="mt-4 text-3xl font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
                   {content.contact_title}
-                </h3>
-                <p className="mt-3 text-[var(--text-secondary)]">
+                </h2>
+                <p className="mt-3 text-[var(--text-secondary-strong)]">
                   {content.contact_subtitle}
                 </p>
 
                 <div className="mt-6 grid gap-3">
                   <a href={selectedBranch.mapsUrl} target="_blank" rel="noreferrer" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4 hover:border-[var(--accent-border)] transition-colors">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">Dirección principal</p>
-                      <span className="text-sm text-[var(--text-secondary)]">{selectedBranch.address}</span>
+                      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted-strong)]">Dirección principal</p>
+                      <span className="text-sm text-[var(--text-secondary-strong)]">{selectedBranch.address}</span>
                     </div>
                     <span className="text-[var(--accent)] font-semibold text-sm sm:text-base">Ver mapa</span>
                   </a>
                   <a href={`tel:${selectedBranch.phone.replace(/\s+/g, "")}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4 hover:border-[var(--accent-border)] transition-colors">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">{content.central_phone_label}</p>
-                      <span className="text-sm text-[var(--text-secondary)]">{content.central_phone_schedule}</span>
+                      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted-strong)]">{content.central_phone_label}</p>
+                      <span className="text-sm text-[var(--text-secondary-strong)]">{content.central_phone_schedule}</span>
                     </div>
                     <span className="text-[var(--accent)] font-semibold text-sm sm:text-base whitespace-nowrap">{selectedBranch.phone}</span>
                   </a>
                   <a href={selectedBranch.waUrl} target="_blank" rel="noreferrer" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4 hover:border-[var(--accent-border)] transition-colors">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-1">{content.whatsapp_label}</p>
-                      <span className="text-sm text-[var(--text-secondary)]">{content.whatsapp_help_text}</span>
+                      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[var(--text-muted-strong)]">{content.whatsapp_label}</p>
+                      <span className="text-sm text-[var(--text-secondary-strong)]">{content.whatsapp_help_text}</span>
                     </div>
                     <span className="text-[var(--accent)] font-semibold text-sm sm:text-base whitespace-nowrap">{selectedBranch.whatsapp}</span>
                   </a>
@@ -378,43 +378,76 @@ export default function HomePageInteractive({
               </div>
 
               <form className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 md:p-6 space-y-4">
-                <h4 className="text-lg font-semibold">Envíanos tu consulta</h4>
+                <p className="text-lg font-semibold text-white">Envíanos tu consulta</p>
                 <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="contact-full-name" className="text-sm font-medium text-[var(--text-primary)]">
+                      Nombre completo
+                    </label>
+                    <input
+                      id="contact-full-name"
+                      type="text"
+                      placeholder="Nombre completo"
+                      autoComplete="name"
+                      className="input-dark"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="contact-phone" className="text-sm font-medium text-[var(--text-primary)]">
+                      Celular
+                    </label>
+                    <input
+                      id="contact-phone"
+                      type="tel"
+                      placeholder="Celular"
+                      autoComplete="tel"
+                      className="input-dark"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="contact-email" className="text-sm font-medium text-[var(--text-primary)]">
+                    Correo electrónico
+                  </label>
                   <input
-                    type="text"
-                    placeholder="Nombre completo"
-                    className="input-dark"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Celular"
+                    id="contact-email"
+                    type="email"
+                    placeholder="Correo electrónico"
+                    autoComplete="email"
                     className="input-dark"
                   />
                 </div>
-                <input
-                  type="email"
-                  placeholder="Correo electrónico"
-                  className="input-dark"
-                />
-                <select
-                  className="input-dark"
-                  value={contactBranch}
-                  onChange={(e) => setContactBranch(e.target.value)}
-                >
-                  {branchContacts.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </select>
-                <textarea
-                  placeholder="Cuéntanos qué servicio buscas o en qué horario te gustaría reservar"
-                  className="input-dark min-h-[120px] resize-none"
-                />
+                <div className="space-y-2">
+                  <label htmlFor="contact-branch" className="text-sm font-medium text-[var(--text-primary)]">
+                    Sede de interés
+                  </label>
+                  <select
+                    id="contact-branch"
+                    className="input-dark"
+                    value={contactBranch}
+                    onChange={(e) => setContactBranch(e.target.value)}
+                  >
+                    {branchContacts.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="contact-message" className="text-sm font-medium text-[var(--text-primary)]">
+                    Tu consulta
+                  </label>
+                  <textarea
+                    id="contact-message"
+                    placeholder="Cuéntanos qué servicio buscas o en qué horario te gustaría reservar"
+                    className="input-dark min-h-[120px] resize-none"
+                  />
+                </div>
                 <button type="button" className="btn-gold w-full justify-center">
                   Enviar consulta
                 </button>
-                <p className="text-xs text-[var(--text-muted)]">
+                <p className="text-xs text-[var(--text-muted-strong)]">
                   También puedes reservar al instante por WhatsApp si prefieres respuesta inmediata.
                 </p>
               </form>
@@ -427,11 +460,11 @@ export default function HomePageInteractive({
         href={selectedBranch?.waUrl ?? `https://wa.me/${floatingWa}`}
         target="_blank"
         rel="noreferrer"
-        aria-label="WhatsApp"
         className="group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#25D366] px-3 py-2 text-white shadow-[0_14px_40px_rgba(37,211,102,0.45)] transition-all duration-300 hover:scale-105 hover:brightness-105"
       >
+        <span className="sr-only">{`Abrir WhatsApp de ${selectedBranch?.name ?? "Filo Estilo"}`}</span>
         <span className="absolute -inset-1 -z-10 rounded-full bg-[#25D366]/30 blur-lg opacity-70 transition-opacity group-hover:opacity-100" />
-        <SiWhatsapp className="h-7 w-7 shrink-0 text-white" />
+        <SiWhatsapp aria-hidden="true" className="h-7 w-7 shrink-0 text-white" />
         <span className="hidden pr-1 text-sm font-semibold sm:inline">WhatsApp</span>
       </a>
 
