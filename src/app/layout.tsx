@@ -28,7 +28,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Filo Estilo | Barbería Premium",
+  title: "Filo Estilo | Barbería Premium ",
   description:
     "Tu barbería de confianza. Cortes profesionales, atención personalizada y reservas online.",
 };
