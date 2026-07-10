@@ -80,46 +80,26 @@ export function Navbar() {
 
   const overHero = pathname === "/" && !scrolled;
   const isAdminUser = user?.role === "admin" || !!user?.is_staff;
+  const isHomePage = pathname === "/";
 
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50 border-b shadow-[0_10px_40px_rgba(0,0,0,0.28)] transition-all duration-300 backdrop-blur-xl"
       style={{
         borderColor: "var(--border)",
-        background: (overHero && !menuOpen) ? "rgba(5,8,17,0.62)" : "var(--nav-bg-scroll)",
+        background: (overHero && !menuOpen) ? "rgba(5,8,17,0.88)" : "var(--nav-bg-scroll)",
       }}
     >
       <nav className="relative mx-auto flex min-h-[76px] max-w-7xl items-center justify-between px-4 py-3 md:px-6">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="relative">
-            <div className="absolute inset-0 bg-[var(--accent)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
-            <svg
-              className="relative h-9 w-9 text-[var(--accent)] transition-all duration-500 group-hover:rotate-[15deg] group-hover:scale-110"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M6 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-              <path d="M18 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-              <path d="M12 12 3 3" />
-              <path d="M12 12l9-9" />
-              <path d="M12 12v10" />
-              <path d="m15 19-3 3-3-3" />
-            </svg>
+        {isHomePage ? (
+          <div className="flex items-center gap-3 group">
+            <BrandMark overHero={overHero} />
           </div>
-          <span
-            className="text-2xl font-bold tracking-tight transition-colors"
-            style={{ 
-              fontFamily: "var(--font-playfair), serif", 
-              color: overHero ? "#f5f5f7" : "var(--text-primary)" 
-            }}
-          >
-            Filo <span className="text-[var(--accent)]">Estilo</span>
-          </span>
-        </Link>
+        ) : (
+          <Link href="/#inicio" className="flex items-center gap-3 group">
+            <BrandMark overHero={overHero} />
+          </Link>
+        )}
 
         <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 xl:flex items-center gap-1 rounded-full border px-2 py-1.5 backdrop-blur-md transition-all"
           style={{ 
@@ -127,7 +107,7 @@ export function Navbar() {
             background: overHero ? "rgba(255,255,255,0.05)" : "var(--bg-surface)", 
             opacity: 0.95 
           }}>
-          <NavLink href="/" active={pathname === "/" && activeSection === "inicio"} overHero={overHero}>Inicio</NavLink>
+          <NavLink href="/#inicio" active={pathname === "/" && activeSection === "inicio"} overHero={overHero}>Inicio</NavLink>
           <NavLink href="/#quienes" active={pathname === "/" && activeSection === "quienes"} overHero={overHero}>Quiénes Somos</NavLink>
           <NavLink href="/sedes" active={pathname.startsWith("/sedes")} overHero={overHero}>Sedes</NavLink>
           <NavLink href="/servicios" active={pathname.startsWith("/servicios")} overHero={overHero}>Servicios</NavLink>
@@ -141,31 +121,32 @@ export function Navbar() {
           {!user && (
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => open("login")}
                 className="hidden xl:inline-flex rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:border-[var(--accent-border)] hover:text-[var(--accent)] transition-colors"
               >
                 Iniciar sesión
               </button>
               <button
+                type="button"
                 onClick={() => open("login")}
-                aria-label="Iniciar sesión"
-                title="Iniciar sesión"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-border)] hover:text-[var(--accent)] xl:hidden"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <span className="sr-only">Iniciar sesión</span>
+                <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </button>
-              <button onClick={() => open("register")} className="hidden xl:inline-flex btn-gold text-sm !py-2 !px-5">
+              <button type="button" onClick={() => open("register")} className="hidden xl:inline-flex btn-gold text-sm !py-2 !px-5">
                 Registrarme
               </button>
               <button
+                type="button"
                 onClick={() => open("register")}
-                aria-label="Registrarme"
-                title="Registrarme"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-border)] bg-[var(--accent)] text-[var(--bg-primary)] transition-all hover:brightness-95 xl:hidden"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <span className="sr-only">Registrarme</span>
+                <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
               </button>
@@ -183,11 +164,12 @@ export function Navbar() {
                 </Link>
               )}
               <button
+                type="button"
                 onClick={() => setProfileOpen((v) => !v)}
                 className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-all hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
-                aria-label="Menú de usuario"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <span className="sr-only">Menú de usuario</span>
+                <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </button>
@@ -205,7 +187,7 @@ export function Navbar() {
                   <Link href="/mis-citas" onClick={() => setProfileOpen(false)} className="block rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--accent)]">
                     Mis Citas
                   </Link>
-                  <button onClick={handleLogout} className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400">
+                  <button type="button" onClick={handleLogout} className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400">
                     Cerrar sesión
                   </button>
                 </div>
@@ -217,11 +199,14 @@ export function Navbar() {
         <div className="flex items-center gap-3 xl:hidden">
           <ThemeToggle />
           <button 
+            type="button"
             onClick={() => setMenuOpen(!menuOpen)} 
             className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)] transition-transform active:scale-90" 
-            aria-label="Menú"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation"
           >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <span className="sr-only">{menuOpen ? "Cerrar menú de navegación" : "Abrir menú de navegación"}</span>
+            <svg aria-hidden="true" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               {menuOpen ? <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />}
             </svg>
           </button>
@@ -230,28 +215,31 @@ export function Navbar() {
 
       {menuOpen && (
         <div
+          id="mobile-navigation"
           className="xl:hidden absolute top-full left-0 right-0 z-[90] border-b border-[var(--border)] bg-[var(--nav-bg-scroll)] shadow-2xl"
         >
           <div className="mx-auto max-w-7xl px-4 py-4 max-h-[calc(100vh-76px)] overflow-y-auto">
             <div className="space-y-2">
-            <MobileLink href="/" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" strokeWidth="2"/></svg>}>Inicio</MobileLink>
-            <MobileLink href="/sedes" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" strokeWidth="2"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" strokeWidth="2"/></svg>}>Sedes</MobileLink>
-            <MobileLink href="/#quienes" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" strokeWidth="2"/></svg>}>Quiénes Somos</MobileLink>
-            <MobileLink href="/servicios" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" strokeWidth="2"/></svg>}>Servicios</MobileLink>
-            <MobileLink href="/#casos" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" strokeWidth="2"/></svg>}>Casos</MobileLink>
-            <MobileLink href="/#contacto" onClick={() => setMenuOpen(false)} icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" strokeWidth="2"/></svg>}>Contacto</MobileLink>
+            <MobileLink href="/#inicio" onClick={() => setMenuOpen(false)} icon={<svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" strokeWidth="2"/></svg>}>Inicio</MobileLink>
+            <MobileLink href="/sedes" onClick={() => setMenuOpen(false)} icon={<svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" strokeWidth="2"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" strokeWidth="2"/></svg>}>Sedes</MobileLink>
+            <MobileLink href="/#quienes" onClick={() => setMenuOpen(false)} icon={<svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" strokeWidth="2"/></svg>}>Quiénes Somos</MobileLink>
+            <MobileLink href="/servicios" onClick={() => setMenuOpen(false)} icon={<svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" strokeWidth="2"/></svg>}>Servicios</MobileLink>
+            <MobileLink href="/#casos" onClick={() => setMenuOpen(false)} icon={<svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" strokeWidth="2"/></svg>}>Casos</MobileLink>
+            <MobileLink href="/#contacto" onClick={() => setMenuOpen(false)} icon={<svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" strokeWidth="2"/></svg>}>Contacto</MobileLink>
             </div>
 
             <div className="mt-6 pt-6 border-t border-[var(--border-strong)] space-y-4">
               {!user ? (
                 <div className="grid gap-3">
                   <button
+                    type="button"
                     onClick={() => { setMenuOpen(false); open("login"); }}
                     className="w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] py-3.5 text-center text-base font-semibold text-[var(--text-secondary)] active:scale-95 transition-all"
                   >
                     Iniciar sesión
                   </button>
                   <button
+                    type="button"
                     onClick={() => { setMenuOpen(false); open("register"); }}
                     className="btn-gold w-full py-3.5 text-center text-base font-bold shadow-xl active:scale-95 transition-all"
                   >
@@ -266,7 +254,7 @@ export function Navbar() {
                     </Link>
                   )}
                   <Link href="/perfil" onClick={() => setMenuOpen(false)} className="w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] py-3.5 text-center text-base font-semibold text-[var(--text-secondary)]">Mi Perfil</Link>
-                  <button onClick={handleLogout} className="w-full rounded-2xl bg-red-500/10 py-3.5 text-center text-base font-semibold text-red-400">Cerrar sesión</button>
+                  <button type="button" onClick={handleLogout} className="w-full rounded-2xl bg-red-500/10 py-3.5 text-center text-base font-semibold text-red-400">Cerrar sesión</button>
                 </div>
               )}
             </div>
@@ -310,9 +298,45 @@ function MobileLink({ href, onClick, icon, children }: { href: string; onClick: 
         </div>
         <span>{children}</span>
       </div>
-      <svg className="h-5 w-5 text-[var(--text-muted)] group-active:text-[var(--accent)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg aria-hidden="true" className="h-5 w-5 text-[var(--text-muted)] group-active:text-[var(--accent)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path d="M9 5l7 7-7 7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </Link>
+  );
+}
+
+function BrandMark({ overHero }: { overHero: boolean }) {
+  return (
+    <>
+      <div className="relative">
+        <div className="absolute inset-0 bg-[var(--accent)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity" />
+        <svg
+          aria-hidden="true"
+          className="relative h-9 w-9 text-[var(--accent)] transition-all duration-500 group-hover:rotate-[15deg] group-hover:scale-110"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M6 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+          <path d="M18 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+          <path d="M12 12 3 3" />
+          <path d="M12 12l9-9" />
+          <path d="M12 12v10" />
+          <path d="m15 19-3 3-3-3" />
+        </svg>
+      </div>
+      <span
+        className="text-2xl font-bold tracking-tight transition-colors"
+        style={{
+          fontFamily: "var(--font-playfair), serif",
+          color: overHero ? "#f5f5f7" : "var(--text-primary)",
+        }}
+      >
+        Filo <span className="text-[var(--accent)]">Estilo</span>
+      </span>
+    </>
   );
 }

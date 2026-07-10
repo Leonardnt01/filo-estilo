@@ -24,7 +24,7 @@ export default function HomePageStatic({
 
   return (
     <>
-      <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
+      <section id="inicio" className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <Image
             src="/hero-bg.png"
@@ -34,7 +34,7 @@ export default function HomePageStatic({
             sizes="100vw"
             className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/60" />
+          <div className="absolute inset-0 bg-black/75" />
           <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 70%, var(--bg-primary) 100%)" }} />
         </div>
 
@@ -45,7 +45,7 @@ export default function HomePageStatic({
             <br />
             {content.hero_title_line_2}
           </h1>
-          <p className="mt-6 text-lg text-white/85 max-w-2xl mx-auto">
+          <p className="mt-6 max-w-2xl mx-auto text-lg text-white">
             {content.hero_subtitle}
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -55,8 +55,12 @@ export default function HomePageStatic({
         </div>
 
         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 animate-bounce">
-          <Link href="/#quienes" className="group flex items-center justify-center h-14 w-14 rounded-full border-2 border-[var(--accent)] bg-[#0b0b10] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-all hover:scale-110 shadow-2xl">
-            <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+          <Link
+            href="/#quienes"
+            className="group flex items-center justify-center h-14 w-14 rounded-full border-2 border-[var(--accent)] bg-[#0b0b10] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-all hover:scale-110 shadow-2xl"
+          >
+            <span className="sr-only">Ir a la sección Quiénes Somos</span>
+            <svg aria-hidden="true" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
               <path d="M19 14l-7 7-7-7" />
             </svg>
           </Link>
@@ -69,7 +73,7 @@ export default function HomePageStatic({
             <div className="grid grid-cols-2 gap-4">
               <Image
                 src={content.who_image_1}
-                alt="Barbero trabajando"
+                alt=""
                 width={840}
                 height={840}
                 sizes="(max-width: 1024px) 50vw, 420px"
@@ -77,7 +81,7 @@ export default function HomePageStatic({
               />
               <Image
                 src={content.who_image_2}
-                alt="Detalle de corte"
+                alt=""
                 width={840}
                 height={840}
                 sizes="(max-width: 1024px) 50vw, 420px"
@@ -172,7 +176,7 @@ export default function HomePageStatic({
             </div>
             <Image
               src={content.experience_image}
-              alt="Barbero en acción"
+              alt=""
               width={960}
               height={840}
               sizes="(max-width: 1024px) 100vw, 50vw"
