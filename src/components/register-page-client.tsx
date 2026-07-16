@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Footer } from "@/components/footer";
+import GoogleAuthButton from "@/components/google-auth-button";
 
 type FooterSettings = {
   brand_name?: string;
@@ -198,6 +199,10 @@ export default function RegisterPageClient({
               {loading ? "Creando cuenta..." : "Registrarme"}
             </button>
           </form>
+
+          <div className="mt-5">
+            <GoogleAuthButton label="Registrarme con Google" />
+          </div>
 
           <p className="mt-6 text-center text-sm text-[var(--text-muted)]">
             Ya tienes cuenta?{" "}

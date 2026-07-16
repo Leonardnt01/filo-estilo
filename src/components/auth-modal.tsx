@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthSession } from "@/components/auth-session-provider";
 import { useToast } from "@/components/toast";
+import GoogleAuthButton from "@/components/google-auth-button";
 
 type Mode = "login" | "register";
 
@@ -305,6 +306,10 @@ function AuthModal({
             {loading ? "Procesando..." : mode === "login" ? "Ingresar" : "Crear cuenta"}
           </button>
         </form>
+
+        <div className="mt-5">
+          <GoogleAuthButton />
+        </div>
       </div>
     </div>
   );

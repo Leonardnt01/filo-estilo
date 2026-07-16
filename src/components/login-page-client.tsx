@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Footer } from "@/components/footer";
+import GoogleAuthButton from "@/components/google-auth-button";
 
 type FooterSettings = {
   brand_name?: string;
@@ -169,6 +170,10 @@ export default function LoginPageClient({
               {loading ? "Ingresando..." : "Iniciar sesion"}
             </button>
           </form>
+
+          <div className="mt-5">
+            <GoogleAuthButton />
+          </div>
 
           <p className="mt-6 text-center text-sm text-[var(--text-muted)]">
             No tienes cuenta?{" "}
