@@ -3,8 +3,51 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { canManageBranch, getManageableBranchIds, isGlobalAdmin } from "@/lib/auth/session";
+import { classifyClientReliability } from "@/lib/client-reliability";
 import { normalizeAppointmentForClient } from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+async function loadClientReliabilityMap(
+  supabase: SupabaseServerClient,
+  clientIds: string[],
+) {
+  const reliabilityMap = new Map<string, ReturnType<typeof classifyClientReliability>>();
+  if (clientIds.length === 0) return reliabilityMap;
+
+  // Modern schema uses client_id; legacy uses profile_id. Try both.
+  for (const clientColumn of ["client_id", "profile_id"] as const) {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(`${clientColumn}, status`)
+      .in(clientColumn, clientIds)
+      .in("status", ["completed", "no_show"]);
+
+    if (error) continue;
+
+    const statsByClient = new Map<string, { completed: number; noShows: number }>();
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const id = typeof row[clientColumn] === "string" ? (row[clientColumn] as string) : null;
+      if (!id) continue;
+      const stats = statsByClient.get(id) ?? { completed: 0, noShows: 0 };
+      if (row.status === "completed") stats.completed += 1;
+      if (row.status === "no_show") stats.noShows += 1;
+      statsByClient.set(id, stats);
+    }
+
+    for (const id of clientIds) {
+      reliabilityMap.set(
+        id,
+        classifyClientReliability(statsByClient.get(id) ?? { completed: 0, noShows: 0 }),
+      );
+    }
+
+    return reliabilityMap;
+  }
+
+  return reliabilityMap;
+}
 
 const appointmentStatus = z.enum([
   "pending",
@@ -135,5 +178,21 @@ export async function GET(request: Request) {
     normalizeAppointmentForClient(item as Record<string, unknown>),
   );
 
-  return NextResponse.json({ ok: true, count: items.length, items });
+  // Attach the client reliability indicator (confiable / neutral / alerta)
+  // so the admin can see attendance history at a glance.
+  const uniqueClientIds = [
+    ...new Set(
+      items
+        .map((item) => (typeof item.client_id === "string" ? item.client_id : null))
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const reliabilityMap = await loadClientReliabilityMap(supabase, uniqueClientIds);
+  const itemsWithReliability = items.map((item) => ({
+    ...item,
+    client_reliability:
+      typeof item.client_id === "string" ? reliabilityMap.get(item.client_id) ?? null : null,
+  }));
+
+  return NextResponse.json({ ok: true, count: itemsWithReliability.length, items: itemsWithReliability });
 }

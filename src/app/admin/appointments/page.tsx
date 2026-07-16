@@ -47,7 +47,38 @@ type Appointment = {
   barber?: { full_name: string; image_url?: string | null } | null;
   service?: { name: string; price: number; image_url?: string | null } | null;
   branch?: { name: string } | null;
+  client_reliability?: {
+    level: "confiable" | "neutral" | "alerta";
+    label: string;
+    description: string;
+    completed: number;
+    no_shows: number;
+  } | null;
 };
+
+const RELIABILITY_STYLES: Record<
+  "confiable" | "neutral" | "alerta",
+  { color: string; bg: string; border: string }
+> = {
+  confiable: { color: "#34d399", bg: "rgba(52, 211, 153, 0.12)", border: "rgba(52, 211, 153, 0.35)" },
+  neutral: { color: "#94a3b8", bg: "rgba(148, 163, 184, 0.12)", border: "rgba(148, 163, 184, 0.3)" },
+  alerta: { color: "#f87171", bg: "rgba(248, 113, 113, 0.14)", border: "rgba(248, 113, 113, 0.4)" },
+};
+
+function ReliabilityBadge({ reliability }: { reliability: Appointment["client_reliability"] }) {
+  if (!reliability) return null;
+  const style = RELIABILITY_STYLES[reliability.level];
+  return (
+    <span
+      title={reliability.description}
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider cursor-help"
+      style={{ color: style.color, background: style.bg, border: `1px solid ${style.border}` }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {reliability.label}
+    </span>
+  );
+}
 
 type OptionItem = { id: string; full_name?: string; name?: string };
 type Branch = { id: string; name: string };
@@ -1036,7 +1067,10 @@ export default function AdminAppointmentsPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-bold text-[var(--text-primary)]">{item.customer_name ?? "Sin nombre"}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-sm font-bold text-[var(--text-primary)]">{item.customer_name ?? "Sin nombre"}</p>
+                          <ReliabilityBadge reliability={item.client_reliability} />
+                        </div>
                         <p className="text-[11px] text-[var(--text-secondary)]">{item.service?.name ?? "Servicio"} · {item.barber?.full_name ?? "Barbero"}</p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -1072,7 +1106,10 @@ export default function AdminAppointmentsPage() {
                     </div>
                     {/* Customer */}
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">{item.customer_name ?? "Sin nombre"}</p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-bold text-[var(--text-primary)] truncate">{item.customer_name ?? "Sin nombre"}</p>
+                        <ReliabilityBadge reliability={item.client_reliability} />
+                      </div>
                       <p className="text-[11px] text-[var(--text-secondary)] truncate">{item.customer_email ?? item.customer_phone ?? ""}</p>
                     </div>
                     {/* Service & Barber */}
@@ -1278,11 +1315,14 @@ export default function AdminAppointmentsPage() {
                           </span>
                         </div>
                         <div>
-                          <p className="text-base font-bold text-[var(--text-primary)]">
-                            {item.customer_name ?? "Cliente sin nombre"}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-base font-bold text-[var(--text-primary)]">
+                              {item.customer_name ?? "Cliente sin nombre"}
+                            </p>
+                            <ReliabilityBadge reliability={item.client_reliability} />
+                          </div>
                           <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                            Cliente registrado
+                            {item.client_reliability?.description ?? "Cliente registrado"}
                           </p>
                         </div>
                       </div>
