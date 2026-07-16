@@ -32,7 +32,7 @@ export async function GET() {
   const { data: appointments, error: appointmentsError } = await supabase
     .from("appointments")
     .select("status, appointment_date")
-    .eq("profile_id", user.id);
+    .eq("client_id", user.id);
 
   if (appointmentsError) {
     return NextResponse.json({ error: appointmentsError.message }, { status: 500 });
