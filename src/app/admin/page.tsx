@@ -192,9 +192,9 @@ function PieDonutChart({ items }: { items: PieItem[] }) {
         </div>
       </div>
 
-      {/* Legend Column */}
+      {/* Legend Column — show every status so the rows always add up to TOTAL */}
       <div className="flex-1 space-y-1.5 w-full">
-        {items.slice(0, 4).map((item, idx) => {
+        {items.map((item, idx) => {
           const pct = total > 0 ? (item.value / total) * 100 : 0;
           return (
             <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-[var(--border)] last:border-b-0">
@@ -809,7 +809,9 @@ export default function AdminDashboardPage() {
 
       const today = new Date().toISOString().slice(0, 10);
       const appts = aJson.items ?? [];
-      const todayAppts = appts.filter((a) => a.appointment_date === today);
+      const todayAppts = appts.filter(
+        (a) => a.appointment_date === today && a.status !== "cancelled" && a.status !== "no_show",
+      );
       const pending = appts.filter((a) => a.status === "pending");
 
       setAppointments(appts);
@@ -832,9 +834,16 @@ export default function AdminDashboardPage() {
   // METRICS CALCULATIONS (DYNAMIC & REACTIVE)
   // ══════════════════════════════════════════
 
+  // Operational charts (demand, workload, revenue) only count REAL appointments:
+  // cancelled and no-show never happened / generated no service, so they are excluded.
+  // The "Distribución de Estados" donut is the ONLY chart that keeps every status,
+  // because showing that breakdown is precisely its purpose.
+  const isActiveAppt = (a: DashboardAppointment) =>
+    a.status !== "cancelled" && a.status !== "no_show";
+
   // 1. Revenues / Estimated Bookings per Branch
   const branchRevenueData: BarItem[] = branches.map((b) => {
-    const branchAppts = appointments.filter((a) => a.branch_id === b.id && a.status !== "cancelled");
+    const branchAppts = appointments.filter((a) => a.branch_id === b.id && isActiveAppt(a));
     const revenue = branchAppts.reduce((sum, a) => sum + (a.service?.price || 0), 0);
     return {
       label: b.name,
@@ -845,7 +854,7 @@ export default function AdminDashboardPage() {
 
   // 1b. Branch Revenues mapped to Bubble Logo Chart format
   const branchRevenueBubbleData: BarberRevenueItem[] = branches.map((b) => {
-    const branchAppts = appointments.filter((a) => a.branch_id === b.id && a.status !== "cancelled");
+    const branchAppts = appointments.filter((a) => a.branch_id === b.id && isActiveAppt(a));
     const revenue = branchAppts.reduce((sum, a) => sum + (a.service?.price || 0), 0);
     return {
       key: b.name,
@@ -888,7 +897,7 @@ export default function AdminDashboardPage() {
 
   // 3. Top Solicited Services
   const serviceCounts: Record<string, number> = {};
-  appointments.forEach((a) => {
+  appointments.filter(isActiveAppt).forEach((a) => {
     const name = a.service?.name || "Servicio no especificado";
     serviceCounts[name] = (serviceCounts[name] || 0) + 1;
   });
@@ -904,7 +913,7 @@ export default function AdminDashboardPage() {
 
   // 4. Appointments per Barber (Pizza/Pie Donut Chart)
   const barberCounts: Record<string, number> = {};
-  appointments.forEach((a) => {
+  appointments.filter(isActiveAppt).forEach((a) => {
     const name = a.barber?.full_name || "Cualquier Barbero";
     barberCounts[name] = (barberCounts[name] || 0) + 1;
   });
@@ -918,22 +927,34 @@ export default function AdminDashboardPage() {
     }))
     .sort((a, b) => b.value - a.value);
 
-  // 6. Weekly Rhythms (Appointments per weekday)
+  // 6. Weekly Rhythms (Appointments of the CURRENT week, Mon–Sun, excluding cancelled/no_show)
   const DAYS_OF_WEEK = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const ORDERED_WEEK = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+  // Monday of the current week at local midnight (week runs Mon → Sun)
+  const weekAnchor = new Date();
+  const daysFromMonday = (weekAnchor.getDay() + 6) % 7; // Mon=0 ... Sun=6
+  const weekStart = new Date(weekAnchor.getFullYear(), weekAnchor.getMonth(), weekAnchor.getDate() - daysFromMonday);
+  const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+
   const weekdayCounts: Record<string, number> = {
     "Lunes": 0, "Martes": 0, "Miércoles": 0, "Jueves": 0, "Viernes": 0, "Sábado": 0, "Domingo": 0
   };
 
   appointments.forEach((a) => {
     if (!a.appointment_date) return;
+    // Only real bookings count as workload: drop cancelled / no-show
+    if (!isActiveAppt(a)) return;
     const date = new Date(a.appointment_date + "T00:00");
+    // Keep only appointments that fall inside the current week
+    if (date < weekStart || date > weekEnd) return;
     const dayName = DAYS_OF_WEEK[date.getDay()];
     if (dayName in weekdayCounts) {
       weekdayCounts[dayName]++;
     }
   });
 
-  const weeklyRhythmData: VerticalBarItem[] = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"].map((day) => ({
+  const weeklyRhythmData: VerticalBarItem[] = ORDERED_WEEK.map((day) => ({
     label: day,
     value: weekdayCounts[day] || 0,
   }));
@@ -948,7 +969,7 @@ export default function AdminDashboardPage() {
   }
 
   appointments.forEach((a) => {
-    if (!a.appointment_date || a.status === "cancelled") return;
+    if (!a.appointment_date || !isActiveAppt(a)) return;
     const dateStr = a.appointment_date;
     if (dateStr in dailyRevenues) {
       dailyRevenues[dateStr] += a.service?.price || 0;

@@ -34,6 +34,10 @@ export function AuthSessionProvider({
   const fetchedRef = useRef(false);
 
   useEffect(() => {
+    // Intentional one-time hydration flag: gates the auth check below until the
+    // client has mounted. This is the standard SSR-hydration pattern, so the
+    // "setState in effect" perf rule does not apply here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrated(true);
   }, []);
 

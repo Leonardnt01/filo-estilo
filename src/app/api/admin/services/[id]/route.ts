@@ -25,7 +25,7 @@ const updateServiceSchema = z
 
 async function updateServiceWithCompat(id: string, payload: Record<string, unknown>) {
   const supabase = await createClient();
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("services")
     .update(payload)
     .eq("id", id)

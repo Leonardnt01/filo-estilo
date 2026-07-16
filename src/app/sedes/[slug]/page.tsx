@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+
 import SedeDetallePageClient from "@/components/sede-detalle-page-client";
 import { getPublicCatalogData } from "@/lib/public-catalog";
 
@@ -10,15 +12,10 @@ export default async function SedeDetallePage({
   const catalog = await getPublicCatalogData();
   const branch = (catalog.branches ?? []).find((item) => item.slug === slug) ?? null;
 
+  // A slug that matches no branch is a real 404: return the branded not-found page
+  // with the correct HTTP status instead of a 200 fallback view.
   if (!branch) {
-    return (
-      <SedeDetallePageClient
-        branch={null}
-        initialServices={[]}
-        initialBarbers={[]}
-        footerBranchContact={catalog.branches?.[0] ?? null}
-      />
-    );
+    notFound();
   }
 
   const byBranch = await getPublicCatalogData(branch.id);
