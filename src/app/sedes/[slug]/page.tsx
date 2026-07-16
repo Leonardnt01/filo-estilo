@@ -1,5 +1,9 @@
+import type { ComponentProps } from "react";
+
 import SedeDetallePageClient from "@/components/sede-detalle-page-client";
 import { getPublicCatalogData } from "@/lib/public-catalog";
+
+type ClientProps = ComponentProps<typeof SedeDetallePageClient>;
 
 export default async function SedeDetallePage({
   params,
@@ -21,13 +25,13 @@ export default async function SedeDetallePage({
     );
   }
 
-  const byBranch = await getPublicCatalogData(branch.id);
+  const byBranch = await getPublicCatalogData(branch.id as string);
 
   return (
     <SedeDetallePageClient
-      branch={branch}
-      initialServices={byBranch.services ?? []}
-      initialBarbers={byBranch.barbers ?? []}
+      branch={branch as unknown as ClientProps["branch"]}
+      initialServices={(byBranch.services ?? []) as unknown as ClientProps["initialServices"]}
+      initialBarbers={(byBranch.barbers ?? []) as unknown as ClientProps["initialBarbers"]}
       footerBranchContact={branch}
     />
   );
