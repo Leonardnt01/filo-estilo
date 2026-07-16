@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: "%s | Filo Estilo",
   },
   description:
-    "Tu barbería de confianza. Cortes profesionales, atención personalizada y reservas online.",
+    "Tu barbería de confianza. Cortes profesionales, atención personalizada y reservas online y mas.",
 };
 
 export default function RootLayout({
