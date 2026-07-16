@@ -46,7 +46,7 @@ test.describe('Flujo de Reservas - Filo y Estilo', () => {
         close() {}
       }
 
-      (window as Window & { CulqiCheckout?: unknown }).CulqiCheckout = MockCulqiCheckout;
+      (window as unknown as { CulqiCheckout?: unknown }).CulqiCheckout = MockCulqiCheckout;
     });
 
     await page.route('**/api/payments/culqi/charge', async (route) => {

@@ -23,7 +23,7 @@ const updateBarberSchema = z
 
 async function updateBarberWithCompat(id: string, payload: Record<string, unknown>) {
   const supabase = await createClient();
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("barbers")
     .update(payload)
     .eq("id", id)

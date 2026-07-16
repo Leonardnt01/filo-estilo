@@ -89,7 +89,7 @@ async function insertServiceWithCompat(payload: {
     is_active: payload.is_active,
   };
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("services")
     .insert(insertPayload)
     .select("id, name, description, price, duration_minutes, image_url, is_active, created_at, updated_at")

@@ -10,7 +10,12 @@ export function LogoutButton() {
   const { setUser } = useAuthSession();
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Best-effort: even if the request fails, still clear client state and
+      // leave the protected area rather than surface an unhandled rejection.
+    }
     setUser(null);
     broadcastLogoutEvent();
     router.push("/");

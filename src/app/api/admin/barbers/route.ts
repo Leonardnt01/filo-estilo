@@ -83,7 +83,7 @@ async function insertBarberWithCompat(payload: {
     is_active: payload.is_active,
   };
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("barbers")
     .insert(insertPayload)
     .select("id, full_name, specialty, image_url, is_active, created_at, updated_at")

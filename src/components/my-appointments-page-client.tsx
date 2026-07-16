@@ -566,8 +566,14 @@ export default function MyAppointmentsPageClient({
                     const service = services.find((s) => s.id === item.service_id);
                     const barber = barbers.find((b) => b.id === item.barber_id);
                     const branch = service ? branches.find((br) => br.id === service.branch_id) : null;
-                    const attendance = attendanceConfig[item.attendance_status] ?? attendanceConfig.pending;
+                    // A prepaid booking already implies attendance — don't nag the
+                    // client to "confirmar asistencia" on a cita they already paid.
+                    const isPrepaid = parsed.paymentState === "confirmed";
+                    const attendance = isPrepaid
+                      ? attendanceConfig.confirmed
+                      : attendanceConfig[item.attendance_status] ?? attendanceConfig.pending;
                     const canManageAttendance =
+                      !isPrepaid &&
                       ["pending", "confirmed"].includes(item.status) &&
                       item.attendance_status === "pending" &&
                       isFutureAppointment(item.appointment_date, item.start_time);

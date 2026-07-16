@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import type { ComponentProps } from "react";
 
 import MyAppointmentsPageClient from "@/components/my-appointments-page-client";
 import { getMyAppointmentsPageData } from "@/lib/account-data";
 
 type ClientProps = ComponentProps<typeof MyAppointmentsPageClient>;
+
+export const metadata: Metadata = {
+  title: "Mis Citas",
+  description: "Consulta, gestiona y revisa el estado de tus citas reservadas en Filo Estilo.",
+};
 
 export default async function MyAppointmentsPage() {
   const data = await getMyAppointmentsPageData();

@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast";
+import { useConfirm } from "@/components/confirm-modal";
 import { AdminHeaderSkeleton, AdminTableSkeleton } from "@/components/admin-skeletons";
 import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/cache/admin-client-cache";
 
@@ -21,6 +22,7 @@ type Membership = {
 
 export default function AdminStaffPage() {
   const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState("");
   const [items, setItems] = useState<Membership[]>([]);
@@ -100,6 +102,16 @@ export default function AdminStaffPage() {
   }
 
   async function toggleActive(item: Membership) {
+    if (item.is_active) {
+      const ok = await confirm({
+        title: "Desactivar miembro",
+        message: `¿Seguro que deseas desactivar a ${item.full_name ?? item.user_email ?? "este miembro"}? Perderá el acceso al panel de esta sede hasta que lo reactives.`,
+        confirmText: "Desactivar",
+        cancelText: "Volver",
+        variant: "danger",
+      });
+      if (!ok) return;
+    }
     const res = await fetch(`/api/admin/memberships/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

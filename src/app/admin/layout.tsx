@@ -24,7 +24,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return pathname === href || (href !== "/admin" && pathname.startsWith(href));
   };
 
-  const SidebarContent = () => (
+  // Rendered as a JSX value (not a nested component) so React does not remount the
+  // whole sidebar — and lose its state/focus — on every parent re-render.
+  const sidebarContent = (
     <div className="flex h-full flex-col justify-between py-6">
       <div className="space-y-6 px-6">
         {/* Logo and Brand Title */}
@@ -126,7 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         className="hidden lg:flex lg:flex-col lg:w-72 lg:fixed lg:inset-y-0 z-40 border-r"
         style={{ borderColor: "var(--border)", background: "var(--bg-secondary)" }}
       >
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* 2. MOBILE SIDEBAR DRAWER AND BACKDROP (controlled by sidebarOpen state) */}
@@ -153,7 +155,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </svg>
               </button>
             </div>
-            <SidebarContent />
+            {sidebarContent}
           </aside>
         </div>
       )}
@@ -163,7 +165,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Top Control Bar inside Content Area */}
         <header 
           className="sticky top-0 z-30 border-b flex items-center justify-between px-6 py-4 backdrop-blur-md"
-          style={{ borderColor: "var(--border)", background: "rgba(11, 11, 16, 0.72)" }}
+          style={{ borderColor: "var(--border)", background: "var(--nav-bg-scroll)" }}
         >
           {/* Hamburger toggle button & current view title */}
           <div className="flex items-center gap-4">

@@ -207,11 +207,11 @@ body {
 .btn-outline {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   padding: 0.75rem 2rem;
-  background: rgba(11, 11, 16, 0.4); color: #fff; font-weight: 700; font-size: 0.875rem;
+  background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 0.875rem;
   border: 1.5px solid var(--accent);
   border-radius: 9999px; transition: all 0.3s ease; text-decoration: none;
 }
-.btn-outline:hover { background: rgba(240, 201, 107, 0.16); border-color: var(--accent); color: #fff; }
+.btn-outline:hover { background: var(--accent); border-color: var(--accent); color: #1f1605; }
 
 /* ── Section label ── */
 .section-label {

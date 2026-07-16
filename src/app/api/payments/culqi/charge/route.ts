@@ -87,6 +87,9 @@ async function updateAppointmentNotesAfterCharge(
   notes: string,
   paymentMethodLabel: string,
 ) {
+  // A prepaid booking is already a commitment, so we mark attendance as
+  // confirmed automatically — the client should NOT be nagged to "confirmar
+  // asistencia" on an appointment they already paid for.
   const attempts = [
     () =>
       supabase
@@ -96,7 +99,15 @@ async function updateAppointmentNotesAfterCharge(
           status: "confirmed",
           payment_method: paymentMethodLabel,
           payment_status: "paid",
+          attendance_status: "confirmed",
+          attendance_confirmed_at: new Date().toISOString(),
         })
+        .in("id", appointmentIds)
+        .select("id"),
+    () =>
+      supabase
+        .from("appointments")
+        .update({ notes, status: "confirmed", attendance_status: "confirmed" })
         .in("id", appointmentIds)
         .select("id"),
     () =>

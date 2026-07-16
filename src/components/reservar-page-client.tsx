@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthSession } from "@/components/auth-session-provider";
 import { Footer } from "@/components/footer";
 import { useToast } from "@/components/toast";
+import { getPromoByKey, type UserCoupon } from "@/lib/coupons";
 
 type Service = { id: string; name: string; description: string | null; price: number; duration_minutes: number; branch_id: string | null };
 type Barber = { id: string; full_name: string; specialty: string | null; branch_id?: string | null; image_url?: string | null };
@@ -152,10 +153,6 @@ function loadCulqiCheckoutScript() {
   return window.__filoCulqiCheckoutPromise;
 }
 
-function getPaymentMethodLabel(method: PayMethod) {
-  return method === "yape" ? "Yape" : "Tarjeta";
-}
-
 function getTokenStringValue(token: CulqiToken, keys: string[]) {
   for (const key of keys) {
     const value = token[key];
@@ -254,6 +251,38 @@ function ReservarPageContent({
 
   const authEmail = user?.email ?? "";
   const isAuthenticated = !!user;
+
+  // Reward coupons the client can redeem as a free perk on this booking.
+  const [availableCoupons, setAvailableCoupons] = useState<UserCoupon[]>([]);
+  const [appliedCouponId, setAppliedCouponId] = useState<string | null>(null);
+  const appliedCoupon = availableCoupons.find((c) => c.id === appliedCouponId) ?? null;
+
+  useEffect(() => {
+    // Sync coupons to the auth state: clear on logout, fetch on login. The reset
+    // is a deliberate external-state sync, and the fetch setState runs post-await.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (!user) {
+      setAvailableCoupons([]);
+      setAppliedCouponId(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/my/coupons", { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok) {
+          setAvailableCoupons(((json.coupons ?? []) as UserCoupon[]).filter((c) => c.status === "active"));
+        }
+      } catch {
+        // Coupons are optional; ignore load errors.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [user]);
 
   const minDate = useMemo(() => {
     const now = new Date();
@@ -748,6 +777,23 @@ function ReservarPageContent({
       console.log("[CULQI][CLIENT] finalizeCulqiBooking success response", successJson);
 
       setBookingStatus("success");
+
+      // Redeem the applied reward coupon (free perk) now that the booking succeeded.
+      if (appliedCouponId) {
+        const rawId =
+          Array.isArray(successJson?.items) && successJson.items[0]?.id ? String(successJson.items[0].id) : null;
+        const isUuid = !!rawId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+        try {
+          await fetch("/api/my/coupons/redeem", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ coupon_id: appliedCouponId, appointment_id: isUuid ? rawId : null }),
+          });
+        } catch {
+          // Non-blocking: the booking already succeeded.
+        }
+      }
+
       toast(`¡Excelente! Se registraron con éxito tus ${selectedSlots.length} citas.`);
       setTimeout(() => {
         if (typeof window !== "undefined") {
@@ -1038,6 +1084,7 @@ function ReservarPageContent({
                       >
                         {/* Image Container with Hover zoom */}
                         <div className="w-24 h-20 sm:w-28 sm:h-22 rounded-lg overflow-hidden shrink-0 border border-[var(--border-strong)] relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- catalog images may be user-uploaded URLs from unconfigured hosts; <img> avoids next/image host allowlist failures */}
                           <img
                             src={serviceImage}
                             alt={s.name}
@@ -1119,6 +1166,7 @@ function ReservarPageContent({
                       }}
                       className={`group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all ${isActive ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"}`}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- catalog images may be user-uploaded URLs from unconfigured hosts; <img> avoids next/image host allowlist failures */}
                       <img
                         src={getBarberImage(b.full_name)}
                         alt={b.full_name}
@@ -1525,6 +1573,66 @@ function ReservarPageContent({
                   </div>
                 </div>
 
+                {/* Reward coupon redemption */}
+                {isAuthenticated && availableCoupons.length > 0 && (
+                  <div className="mt-6 rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)]/40 p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1.5a2 2 0 0 0 0 5V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.5a2 2 0 0 0 0-5V8Z" />
+                        </svg>
+                      </span>
+                      <h3 className="text-sm font-bold text-[var(--text-primary)]">Canjea un cupón de cortesía</h3>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {availableCoupons.map((coupon) => {
+                        const promo = getPromoByKey(coupon.promo_key);
+                        const active = appliedCouponId === coupon.id;
+                        return (
+                          <button
+                            key={coupon.id}
+                            type="button"
+                            onClick={() => setAppliedCouponId(active ? null : coupon.id)}
+                            className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                              active
+                                ? "border-[var(--accent)] bg-[var(--accent-soft)] ring-1 ring-[var(--accent)]"
+                                : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"
+                            }`}
+                          >
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]">
+                              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                                <path d={promo?.icon ?? "M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1.5a2 2 0 0 0 0 5V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.5a2 2 0 0 0 0-5V8Z"} />
+                              </svg>
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-xs font-bold text-[var(--text-primary)]">{coupon.title}</span>
+                              <span className="block text-[10px] text-[var(--text-muted)]">
+                                Gratis · vence {new Date(coupon.expires_at).toLocaleDateString("es-PE", { day: "numeric", month: "short" })}
+                              </span>
+                            </span>
+                            <span
+                              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                                active ? "border-[var(--accent)] bg-[var(--accent)] text-[#1f1605]" : "border-[var(--border-strong)]"
+                              }`}
+                            >
+                              {active && (
+                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {appliedCoupon && (
+                      <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
+                        Se agregará <span className="font-bold text-[var(--accent)]">{appliedCoupon.title}</span> como cortesía (S/ 0) a tu ticket.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Dashed Separator mimicking a coupon rip strip */}
                 <div className="relative my-6">
                   <div className="absolute left-[-32px] right-[-32px] top-1/2 -translate-y-1/2 border-t-2 border-dashed border-[var(--border-strong)]"></div>
@@ -1545,7 +1653,20 @@ function ReservarPageContent({
                     <span>IGV (18% incluido)</span>
                     <span className="font-mono text-xs text-[var(--text-muted)]">S/ {(totalServicesAmount * 0.18 / 1.18).toFixed(2)}</span>
                   </div>
-                  
+
+                  {appliedCoupon && (
+                    <div className="flex justify-between items-center">
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-500">
+                        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1.5a2 2 0 0 0 0 5V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.5a2 2 0 0 0 0-5V8Z" />
+                        </svg>
+                        <span className="max-w-[190px] truncate">{appliedCoupon.title}</span>
+                        <span className="text-[9px] font-black uppercase tracking-wider">Cortesía</span>
+                      </span>
+                      <span className="font-bold text-emerald-500">S/ 0.00</span>
+                    </div>
+                  )}
+
                   <div className="border-t border-[var(--border)] pt-4 flex justify-between items-baseline">
                     <span className="font-bold text-base text-[var(--text-primary)] font-display" style={{ fontFamily: "var(--font-playfair), serif" }}>
                       Total Neto a Pagar

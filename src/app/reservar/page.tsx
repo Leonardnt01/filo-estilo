@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ComponentProps } from "react";
 
 import ReservarPageClient from "@/components/reservar-page-client";
@@ -5,6 +6,11 @@ import { getPublicCatalogData } from "@/lib/public-catalog";
 import { getPublicHomeData } from "@/lib/public-home";
 
 type ClientProps = ComponentProps<typeof ReservarPageClient>;
+
+export const metadata: Metadata = {
+  title: "Reservar Cita",
+  description: "Reserva tu cita en línea: elige sede, servicio, barbero y horario en pocos pasos.",
+};
 
 export default async function ReservarPage() {
   const [catalogData, homeData] = await Promise.all([

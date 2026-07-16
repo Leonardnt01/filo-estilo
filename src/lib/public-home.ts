@@ -8,15 +8,69 @@ type SiteSettingsRow = {
   value: Record<string, unknown>;
 };
 
+export type PublicHomeBranch = {
+  id: string;
+  name: string;
+  slug: string;
+  address: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  maps_url: string | null;
+  hero_image_url: string | null;
+  cover_image_url: string | null;
+  is_featured?: boolean;
+};
+
+export type PublicHomeService = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  duration_minutes: number;
+  branch_id: string | null;
+};
+
+export type PublicHomeFeaturedService = {
+  id: string;
+  branch_id: string | null;
+  service_id: string | null;
+  title: string;
+  image_url: string | null;
+  sort_order: number;
+};
+
+export type PublicHomeTestimonial = {
+  id: string;
+  branch_id: string | null;
+  name: string;
+  title: string | null;
+  result: string | null;
+  quote: string;
+  image_url: string | null;
+  sort_order: number;
+};
+
+export type PublicHomePromotion = {
+  id: string;
+  branch_id: string | null;
+  title: string;
+  description: string | null;
+  discount_percent: number | null;
+  image_url: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  sort_order: number;
+};
+
 type PublicHomeResult = {
   ok: true;
-  branches: Array<Record<string, unknown>>;
-  services: Array<Record<string, unknown>>;
-  featured_services: Array<Record<string, unknown>>;
-  testimonials: Array<Record<string, unknown>>;
-  promotions: Array<Record<string, unknown>>;
+  branches: PublicHomeBranch[];
+  services: PublicHomeService[];
+  featured_services: PublicHomeFeaturedService[];
+  testimonials: PublicHomeTestimonial[];
+  promotions: PublicHomePromotion[];
   site_settings: {
-    public_footer: Record<string, unknown>;
+    public_footer: Record<string, string>;
     public_home: Record<string, unknown>;
   };
 };
@@ -90,13 +144,15 @@ async function loadPublicHomeDataWithClient(
 
   return {
     ok: true,
-    branches: branchesRes.data ?? [],
-    services: servicesRes.data ?? [],
-    featured_services: featuredRes.data ?? [],
-    testimonials: testimonialsRes.data ?? [],
-    promotions,
+    // The public Supabase client is not schema-typed, so cast the selected rows
+    // to the shapes declared above (the select() columns match these fields).
+    branches: (branchesRes.data ?? []) as unknown as PublicHomeBranch[],
+    services: (servicesRes.data ?? []) as unknown as PublicHomeService[],
+    featured_services: (featuredRes.data ?? []) as unknown as PublicHomeFeaturedService[],
+    testimonials: (testimonialsRes.data ?? []) as unknown as PublicHomeTestimonial[],
+    promotions: promotions as unknown as PublicHomePromotion[],
     site_settings: {
-      public_footer: settingsMap.get("public_footer") ?? {},
+      public_footer: (settingsMap.get("public_footer") ?? {}) as Record<string, string>,
       public_home: settingsMap.get("public_home") ?? {},
     },
   };

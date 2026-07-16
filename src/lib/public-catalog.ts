@@ -3,11 +3,41 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export type PublicCatalogBranch = {
+  id: string;
+  name: string;
+  slug: string;
+  address: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  maps_url: string | null;
+  hero_image_url: string | null;
+  cover_image_url: string | null;
+};
+
+export type PublicCatalogService = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  duration_minutes: number;
+  image_url: string | null;
+  branch_id: string | null;
+};
+
+export type PublicCatalogBarber = {
+  id: string;
+  full_name: string;
+  specialty: string | null;
+  image_url: string | null;
+  branch_id: string | null;
+};
+
 type PublicCatalogResult = {
   ok: true;
-  branches: Array<Record<string, unknown>>;
-  services: Array<Record<string, unknown>>;
-  barbers: Array<Record<string, unknown>>;
+  branches: PublicCatalogBranch[];
+  services: PublicCatalogService[];
+  barbers: PublicCatalogBarber[];
 };
 
 function getEmptyPublicCatalogData(): PublicCatalogResult {
@@ -99,9 +129,11 @@ async function loadPublicCatalogDataWithClient(
 
   return {
     ok: true,
-    branches: publicBranches,
-    services: servicesRes.data ?? [],
-    barbers: barbersRes.data ?? [],
+    // The public Supabase client is not schema-typed, so cast the selected rows
+    // to the shapes declared above (the select() columns match these fields).
+    branches: publicBranches as unknown as PublicCatalogBranch[],
+    services: (servicesRes.data ?? []) as unknown as PublicCatalogService[],
+    barbers: (barbersRes.data ?? []) as unknown as PublicCatalogBarber[],
   };
 }
 

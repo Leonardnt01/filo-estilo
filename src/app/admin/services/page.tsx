@@ -78,8 +78,10 @@ export default function AdminServicesPage() {
       }
     }
     void loadBranches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- bootstrap branches once on mount
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reload list only when the selected branch changes
   useEffect(() => { void load(); }, [branchId]);
   useEffect(() => {
     if (branchId) localStorage.setItem("admin.branch_id", branchId);
@@ -310,6 +312,16 @@ export default function AdminServicesPage() {
       {/* Services grid */}
       {loading ? (
         <AdminCardsSkeleton count={6} />
+      ) : items.length === 0 ? (
+        <div className="admin-card p-12 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl mb-4" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}>
+            <FaScissors className="h-8 w-8" style={{ color: "var(--accent)" }} />
+          </div>
+          <h3 className="text-lg font-semibold">Aún no hay servicios en esta sede</h3>
+          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Crea tu primer servicio con el botón &ldquo;Nuevo Servicio&rdquo; para que los clientes puedan reservarlo.
+          </p>
+        </div>
       ) : (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
