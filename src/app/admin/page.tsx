@@ -31,61 +31,6 @@ type DashboardAppointment = {
 // D3 PREMIUM CHART COMPONENTS
 // ══════════════════════════════════════════
 
-// 1. Horizontal Gradient Bars Chart (Sede Performance)
-type BarItem = {
-  label: string;
-  value: number;
-  sublabel?: string;
-};
-
-function HorizontalGradientBars({ items, unit = "" }: { items: BarItem[]; unit?: string }) {
-  const maxVal = d3.max(items, (d) => d.value) || 0;
-  
-  const scale = d3.scaleLinear()
-    .domain([0, Math.max(maxVal, 1)])
-    .range([0, 100]); // percentage width
-
-  return (
-    <div className="space-y-4.5">
-      {items.map((item, idx) => {
-        const pctWidth = scale(item.value);
-        return (
-          <div key={idx} className="space-y-2 group">
-            <div className="flex justify-between items-center text-xs">
-              <span className="flex items-center gap-1.5 font-bold text-[var(--text-secondary)] group-hover:text-[var(--accent)] transition-colors truncate max-w-[190px]">
-                <FaLocationDot className="h-3 w-3 shrink-0 text-[var(--accent)]" />
-                <span className="truncate">{item.label}</span>
-              </span>
-              <span className="font-black text-[var(--text-primary)]">
-                {unit}{item.value.toLocaleString("es-PE", { minimumFractionDigits: unit ? 2 : 0 })}
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="h-6 flex-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-xl overflow-hidden relative">
-                <div
-                  className="h-full rounded-r-lg transition-all duration-700 bg-gradient-to-r from-[rgba(212,168,67,0.15)] via-[var(--accent)] to-[var(--accent-hover)]"
-                  style={{
-                    width: `${pctWidth}%`,
-                    boxShadow: "0 0 12px var(--accent-soft)",
-                  }}
-                />
-                {item.sublabel && (
-                  <span className="absolute inset-y-0 left-3 flex items-center text-[10px] font-bold text-[var(--text-muted)] pointer-events-none uppercase tracking-wider">
-                    {item.sublabel}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-
-
 // 4. D3 Pie/Donut Chart Component (Dashboard de Pizza / Barber Performance)
 type PieItem = {
   label: string;
@@ -777,21 +722,34 @@ function AreaChartSemiFilled({ data }: { data: { date: Date; value: number }[] }
 // MAIN DASHBOARD COMPONENT
 // ══════════════════════════════════════════
 
+type DashboardRange = "week" | "3m" | "6m" | "all";
+
+const RANGE_OPTIONS: { key: DashboardRange; label: string }[] = [
+  { key: "week", label: "Esta semana" },
+  { key: "3m", label: "Últimos 3 meses" },
+  { key: "6m", label: "Últimos 6 meses" },
+  { key: "all", label: "Todo" },
+];
+
 export default function AdminDashboardPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [branchId, setBranchId] = useState("");
+  // The dashboard always opens on "Vista General" (all branches), regardless of
+  // the branch other admin pages remember, so the admin sees the global picture first.
+  const [branchId, setBranchId] = useState("all");
+  const [range, setRange] = useState<DashboardRange>("all");
   const [stats, setStats] = useState<Stats>({ services: 0, barbers: 0, todayAppointments: 0, pendingCount: 0 });
   const [appointments, setAppointments] = useState<DashboardAppointment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadBranches() {
-      const branchesJson = await fetchCachedJson<{ items?: Branch[] }>("/api/admin/branches", { ttlMs: 60_000 });
-      const nextBranches = branchesJson.items ?? [];
-      setBranches(nextBranches);
-      const remembered = typeof window !== "undefined" ? localStorage.getItem("admin.branch_id") : "";
-      const selected = (remembered && nextBranches.find((b) => b.id === remembered)?.id) || nextBranches[0]?.id || "";
-      if (!branchId && selected) setBranchId(selected);
+      try {
+        const branchesJson = await fetchCachedJson<{ items?: Branch[] }>("/api/admin/branches", { ttlMs: 60_000 });
+        setBranches(branchesJson.items ?? []);
+      } catch {
+        // The session may have ended (e.g. logout) while a request was in flight.
+        // Fail quietly instead of surfacing an unhandled rejection.
+      }
     }
     void loadBranches();
   }, []);
@@ -800,34 +758,42 @@ export default function AdminDashboardPage() {
     async function loadStats() {
       setLoading(true);
       const query = branchId && branchId !== "all" ? `branch_id=${branchId}` : "";
-      
-      const [sJson, bJson, aJson] = await Promise.all([
-        fetchCachedJson<{ items?: unknown[] }>(`/api/admin/services?only_active=true&${query}`, { ttlMs: 20_000 }),
-        fetchCachedJson<{ items?: unknown[] }>(`/api/admin/barbers?only_active=true&${query}`, { ttlMs: 20_000 }),
-        fetchCachedJson<{ items?: DashboardAppointment[] }>(`/api/admin/appointments?limit=200&${query}`, { ttlMs: 10_000 }),
-      ]);
 
-      const today = new Date().toISOString().slice(0, 10);
-      const appts = aJson.items ?? [];
-      const todayAppts = appts.filter(
-        (a) => a.appointment_date === today && a.status !== "cancelled" && a.status !== "no_show",
-      );
-      const pending = appts.filter((a) => a.status === "pending");
+      try {
+        const [sJson, bJson, aJson] = await Promise.all([
+          fetchCachedJson<{ items?: unknown[] }>(`/api/admin/services?only_active=true&${query}`, { ttlMs: 20_000 }),
+          fetchCachedJson<{ items?: unknown[] }>(`/api/admin/barbers?only_active=true&${query}`, { ttlMs: 20_000 }),
+          fetchCachedJson<{ items?: DashboardAppointment[] }>(`/api/admin/appointments?limit=200&${query}`, { ttlMs: 10_000 }),
+        ]);
 
-      setAppointments(appts);
-      setStats({
-        services: (sJson.items ?? []).length,
-        barbers: (bJson.items ?? []).length,
-        todayAppointments: todayAppts.length,
-        pendingCount: pending.length,
-      });
-      setLoading(false);
+        const today = new Date().toISOString().slice(0, 10);
+        const appts = aJson.items ?? [];
+        const todayAppts = appts.filter(
+          (a) => a.appointment_date === today && a.status !== "cancelled" && a.status !== "no_show",
+        );
+        const pending = appts.filter((a) => a.status === "pending");
+
+        setAppointments(appts);
+        setStats({
+          services: (sJson.items ?? []).length,
+          barbers: (bJson.items ?? []).length,
+          todayAppointments: todayAppts.length,
+          pendingCount: pending.length,
+        });
+      } catch {
+        // Session ended or a transient error occurred — don't crash the dashboard
+        // or leak an unhandled rejection into the Next.js dev overlay.
+      } finally {
+        setLoading(false);
+      }
     }
     void loadStats();
   }, [branchId]);
 
   useEffect(() => {
-    if (branchId) localStorage.setItem("admin.branch_id", branchId);
+    // Persist a real branch pick so other admin pages carry it over, but never
+    // store "all" — the dashboard's global view must not reset that memory.
+    if (branchId && branchId !== "all") localStorage.setItem("admin.branch_id", branchId);
   }, [branchId]);
 
   // ══════════════════════════════════════════
@@ -841,20 +807,73 @@ export default function AdminDashboardPage() {
   const isActiveAppt = (a: DashboardAppointment) =>
     a.status !== "cancelled" && a.status !== "no_show";
 
-  // 1. Revenues / Estimated Bookings per Branch
-  const branchRevenueData: BarItem[] = branches.map((b) => {
-    const branchAppts = appointments.filter((a) => a.branch_id === b.id && isActiveAppt(a));
-    const revenue = branchAppts.reduce((sum, a) => sum + (a.service?.price || 0), 0);
-    return {
-      label: b.name,
-      value: revenue,
-      sublabel: `${branchAppts.length} citas registradas`,
-    };
+  // ── Time-range filter ──────────────────────────────────────────────
+  // Drives the financial KPIs and the operational charts. Start of the
+  // selected window (local midnight); "all" uses the epoch so nothing is cut.
+  const rangeStart = (() => {
+    const n = new Date();
+    if (range === "week") {
+      const fromMonday = (n.getDay() + 6) % 7;
+      return new Date(n.getFullYear(), n.getMonth(), n.getDate() - fromMonday);
+    }
+    if (range === "3m") return new Date(n.getFullYear(), n.getMonth() - 3, n.getDate());
+    if (range === "6m") return new Date(n.getFullYear(), n.getMonth() - 6, n.getDate());
+    return new Date(0);
+  })();
+
+  const rangedAppointments = appointments.filter((a) => {
+    if (!a.appointment_date) return false;
+    return new Date(a.appointment_date + "T00:00") >= rangeStart;
   });
 
-  // 1b. Branch Revenues mapped to Bubble Logo Chart format
+  // ── Financial / operational KPIs (respect the selected range) ──────
+  // "Ingresos" = money actually earned → only completed appointments.
+  const rangedCompleted = rangedAppointments.filter((a) => a.status === "completed");
+  const rangedActiveCount = rangedAppointments.filter(isActiveAppt).length;
+  const revenueEarned = rangedCompleted.reduce((sum, a) => sum + (a.service?.price || 0), 0);
+  const avgTicket = rangedCompleted.length ? revenueEarned / rangedCompleted.length : 0;
+  const completionRate = rangedAppointments.length
+    ? Math.round((rangedCompleted.length / rangedAppointments.length) * 100)
+    : 0;
+  const money = (n: number) =>
+    `S/ ${n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const rangeLabel = RANGE_OPTIONS.find((r) => r.key === range)?.label ?? "Todo";
+
+  const kpiCards = [
+    {
+      label: "Ingresos ganados",
+      value: money(revenueEarned),
+      sublabel: `${rangedCompleted.length} citas completadas`,
+      icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+      color: "#22c55e",
+    },
+    {
+      label: "Citas en el rango",
+      value: String(rangedActiveCount),
+      sublabel: "reservas activas",
+      icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+      color: "#3b82f6",
+    },
+    {
+      label: "Ticket promedio",
+      value: money(avgTicket),
+      sublabel: "por cita completada",
+      icon: "M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z",
+      color: "#f59e0b",
+    },
+    {
+      label: "Tasa de finalización",
+      value: `${completionRate}%`,
+      sublabel: `${rangedCompleted.length} de ${rangedAppointments.length} citas`,
+      icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
+      color: "#a855f7",
+    },
+  ];
+
+  // 1. Branch Revenues mapped to Bubble Logo Chart format
   const branchRevenueBubbleData: BarberRevenueItem[] = branches.map((b) => {
-    const branchAppts = appointments.filter((a) => a.branch_id === b.id && isActiveAppt(a));
+    const branchAppts = rangedAppointments.filter((a) => a.branch_id === b.id && isActiveAppt(a));
     const revenue = branchAppts.reduce((sum, a) => sum + (a.service?.price || 0), 0);
     return {
       key: b.name,
@@ -885,7 +904,7 @@ export default function AdminDashboardPage() {
   // 2b. Status Pie Data for Donut Chart
   const statusPieData: PieItem[] = Object.keys(STATUS_COLORS)
     .map((status) => {
-      const count = appointments.filter((a) => a.status === status).length;
+      const count = rangedAppointments.filter((a) => a.status === status).length;
       return {
         label: STATUS_LABELS[status],
         value: count,
@@ -897,7 +916,7 @@ export default function AdminDashboardPage() {
 
   // 3. Top Solicited Services
   const serviceCounts: Record<string, number> = {};
-  appointments.filter(isActiveAppt).forEach((a) => {
+  rangedAppointments.filter(isActiveAppt).forEach((a) => {
     const name = a.service?.name || "Servicio no especificado";
     serviceCounts[name] = (serviceCounts[name] || 0) + 1;
   });
@@ -910,22 +929,6 @@ export default function AdminDashboardPage() {
     }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 5);
-
-  // 4. Appointments per Barber (Pizza/Pie Donut Chart)
-  const barberCounts: Record<string, number> = {};
-  appointments.filter(isActiveAppt).forEach((a) => {
-    const name = a.barber?.full_name || "Cualquier Barbero";
-    barberCounts[name] = (barberCounts[name] || 0) + 1;
-  });
-
-  const barberColors = ["#3b82f6", "#a855f7", "#ec4899", "#f59e0b", "#10b981", "#6b7280"];
-  const barberPieData: PieItem[] = Object.entries(barberCounts)
-    .map(([name, count], idx) => ({
-      label: name,
-      value: count,
-      color: barberColors[idx % barberColors.length],
-    }))
-    .sort((a, b) => b.value - a.value);
 
   // 6. Weekly Rhythms (Appointments of the CURRENT week, Mon–Sun, excluding cancelled/no_show)
   const DAYS_OF_WEEK = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -991,7 +994,7 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <section className="space-y-8 animate-fade-in">
+    <section className="space-y-6 animate-fade-in">
       {/* Top Banner and Tabs Selector */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-[var(--border)] pb-6">
         <div>
@@ -1035,38 +1038,90 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Stats Quick Cards Grid */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Time-range selector (drives the financial KPIs and operational charts) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mr-1">Periodo</span>
+        {RANGE_OPTIONS.map((r) => (
+          <button
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            className={`rounded-full px-4 py-1.5 text-[11px] font-bold transition-all border ${
+              range === r.key
+                ? "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)] shadow-sm"
+                : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-strong)] hover:border-[var(--accent-border)] hover:text-[var(--accent)]"
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Financial KPI Row (respects the selected period) */}
+      <div>
+        <p className="mb-3 text-[10px] font-black uppercase tracking-[0.15em] text-[var(--accent)]">
+          Indicadores de rendimiento · {rangeLabel}
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {kpiCards.map((c) => (
+            <div
+              key={c.label}
+              className="admin-card !p-4 relative overflow-hidden"
+              style={{ borderLeft: `4px solid ${c.color}` }}
+            >
+              <div className="flex items-center gap-2.5 mb-2">
+                <div
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                  style={{ background: `${c.color}15`, color: c.color }}
+                >
+                  <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d={c.icon} />
+                  </svg>
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] leading-tight">
+                  {c.label}
+                </p>
+              </div>
+              <p className="text-xl font-black leading-none" style={{ color: "var(--text-primary)" }}>
+                {loading ? <span className="opacity-20 animate-pulse">--</span> : c.value}
+              </p>
+              <p className="mt-1 text-[11px] font-semibold text-[var(--text-muted)]">{c.sublabel}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Operational Quick Cards (live totals) */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
-          <Link 
-            key={c.label} 
-            href={c.href} 
-            className="admin-card group relative overflow-hidden transition-all hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95"
+          <Link
+            key={c.label}
+            href={c.href}
+            className="admin-card !p-4 group relative overflow-hidden transition-all hover:scale-[1.02] hover:-translate-y-0.5 active:scale-95"
             style={{ borderLeft: `4px solid ${c.color}` }}
           >
-            <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2.5 mb-2">
               <div
-                className="flex h-11 w-11 items-center justify-center rounded-2xl transition-all duration-300 group-hover:scale-110"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300 group-hover:scale-110"
                 style={{ background: `${c.color}15`, color: c.color }}
               >
-                <svg className="h-5.5 w-5.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d={c.icon} />
                 </svg>
               </div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] leading-tight">
+                {c.label}
+              </p>
               {branchId === "all" && (
-                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-muted)]">
+                <span className="ml-auto text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-muted)]">
                   Global
                 </span>
               )}
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-1">
-              {c.label}
-            </p>
-            <p className="text-3xl font-black transition-all" style={{ color: "var(--text-primary)" }}>
+            <p className="text-2xl font-black leading-none transition-all" style={{ color: "var(--text-primary)" }}>
               {loading ? <span className="opacity-20 animate-pulse">--</span> : c.value}
             </p>
-            <div 
-              className="absolute -right-4 -bottom-4 h-20 w-20 opacity-[0.02] group-hover:opacity-[0.06] transition-opacity"
+            <div
+              className="absolute -right-4 -bottom-4 h-16 w-16 opacity-[0.02] group-hover:opacity-[0.06] transition-opacity"
               style={{ color: c.color }}
             >
               <svg fill="currentColor" viewBox="0 0 24 24"><path d={c.icon} /></svg>
@@ -1090,7 +1145,7 @@ export default function AdminDashboardPage() {
                 </h3>
               </div>
               <span className="text-[10px] font-bold text-[var(--text-muted)]">
-                Distribución Total
+                {rangeLabel}
               </span>
             </div>
 
@@ -1130,11 +1185,11 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ══════════════════════════════════════════
-          D3 CHARTS ROW 2: Trend & Weekly Frequency
+          D3 CHARTS ROW 2: Sales Trend · Branch Revenue (middle) · Weekly Frequency
           ══════════════════════════════════════════ */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Chart 3: Daily Sales Trend (2/3 Width) */}
-        <div className="lg:col-span-2 admin-card bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+        {/* Daily Sales Trend */}
+        <div className="admin-card bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start mb-6">
               <div>
@@ -1149,7 +1204,7 @@ export default function AdminDashboardPage() {
             </div>
 
             {loading ? (
-              <div className="h-56 flex items-center justify-center">
+              <div className="h-44 flex items-center justify-center">
                 <div className="h-6 w-6 border-2 border-[var(--accent)] border-t-transparent animate-spin rounded-full" />
               </div>
             ) : (
@@ -1158,7 +1213,32 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Chart 4: Weekly Frequency (1/3 Width) */}
+        {/* Branch Estimated Revenue (middle, between trend and weekly frequency) */}
+        <div className="admin-card bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--accent)]">Rendimiento Sede</span>
+                <h3 className="text-lg font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
+                  Ingresos Estimados por Sede
+                </h3>
+              </div>
+              <span className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Ventas (S/)</span>
+            </div>
+
+            {loading ? (
+              <div className="h-44 flex items-center justify-center">
+                <div className="h-6 w-6 border-2 border-[var(--accent)] border-t-transparent animate-spin rounded-full" />
+              </div>
+            ) : branchRevenueBubbleData.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)] italic text-center py-12">Sin datos de ventas por sede.</p>
+            ) : (
+              <BarChartHorizontalLogo data={branchRevenueBubbleData} />
+            )}
+          </div>
+        </div>
+
+        {/* Weekly Frequency */}
         <div className="admin-card bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start mb-6">
@@ -1179,92 +1259,6 @@ export default function AdminDashboardPage() {
               <VerticalBarsChart items={weeklyRhythmData} />
             )}
           </div>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════
-          D3 CHARTS ROW 3: Branch Revenues & Barber Appointments
-          ══════════════════════════════════════════ */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Column A: Branch Estimated Revenue (BarChartHorizontalLogo) */}
-        <div className="admin-card bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--accent)]">Rendimiento Sede</span>
-                <h3 className="text-base font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
-                  Ingresos Estimados por Sede
-                </h3>
-              </div>
-              <span className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Ventas (S/)</span>
-            </div>
-
-            {loading ? (
-              <div className="h-44 flex items-center justify-center">
-                <div className="h-6 w-6 border-2 border-[var(--accent)] border-t-transparent animate-spin rounded-full" />
-              </div>
-            ) : branchRevenueBubbleData.length === 0 ? (
-              <p className="text-xs text-[var(--text-muted)] italic text-center py-12">Sin datos de ventas por sede.</p>
-            ) : (
-              <BarChartHorizontalLogo data={branchRevenueBubbleData} />
-            )}
-          </div>
-        </div>
-
-        {/* Column B: Pizza/Pie Donut Chart (Citas por Barbero Quantity) */}
-        <div className="admin-card bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--accent)]">Distribución Citas</span>
-                <h3 className="text-base font-bold" style={{ fontFamily: "var(--font-playfair), serif" }}>
-                  Citas por Barbero
-                </h3>
-              </div>
-              <span className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Citas (Cant.)</span>
-            </div>
-
-            {loading ? (
-              <div className="h-44 flex items-center justify-center">
-                <div className="h-6 w-6 border-2 border-[var(--accent)] border-t-transparent animate-spin rounded-full" />
-              </div>
-            ) : barberPieData.length === 0 ? (
-              <p className="text-xs text-[var(--text-muted)] italic text-center py-12">Sin datos de citas por staff.</p>
-            ) : (
-              <PieDonutChart items={barberPieData} />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions Grid */}
-      <div className="admin-card">
-        <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: "var(--text-muted)" }}>
-          Acciones Rápidas del Administrador
-        </h3>
-        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: "Gestionar Servicios", href: "/admin/services", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
-            { label: "Gestionar Barberos", href: "/admin/barbers", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
-            { label: "Configurar Horarios", href: "/admin/business-hours", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
-            { label: "Ver Todas las Citas", href: "/admin/appointments", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
-          ].map((a) => (
-            <Link
-              key={a.href}
-              href={a.href}
-              className="flex items-center gap-3.5 rounded-2xl p-4 transition-all duration-300"
-              style={{ border: "1px solid var(--border-strong)", background: "var(--bg-surface)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent-border)"; e.currentTarget.style.background = "var(--accent-soft)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.background = "var(--bg-surface)"; }}
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d={a.icon} />
-                </svg>
-              </div>
-              <span className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{a.label}</span>
-            </Link>
-          ))}
         </div>
       </div>
     </section>

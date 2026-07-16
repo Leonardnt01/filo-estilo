@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { LibroReclamacionesForm } from "@/components/libro-reclamaciones-form";
 import { LegalPageLayout } from "@/components/legal-page-layout";
 import { getPublicHomeData } from "@/lib/public-home";
+
+export const metadata: Metadata = {
+  title: "Libro de Reclamaciones",
+  description: "Registra reclamos o quejas sobre nuestros servicios a través de este canal de atención.",
+};
 
 export default async function LibroDeReclamacionesPage() {
   const homeData = await getPublicHomeData();

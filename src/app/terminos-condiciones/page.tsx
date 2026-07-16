@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { LegalPageLayout } from "@/components/legal-page-layout";
 import { getPublicHomeData } from "@/lib/public-home";
+
+export const metadata: Metadata = {
+  title: "Términos y Condiciones",
+  description: "Términos que regulan el acceso, reserva y pago de servicios en Filo Estilo.",
+};
 
 export default async function TerminosCondicionesPage() {
   const homeData = await getPublicHomeData();

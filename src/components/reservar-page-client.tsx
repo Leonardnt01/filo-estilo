@@ -152,10 +152,6 @@ function loadCulqiCheckoutScript() {
   return window.__filoCulqiCheckoutPromise;
 }
 
-function getPaymentMethodLabel(method: PayMethod) {
-  return method === "yape" ? "Yape" : "Tarjeta";
-}
-
 function getTokenStringValue(token: CulqiToken, keys: string[]) {
   for (const key of keys) {
     const value = token[key];
@@ -1038,6 +1034,7 @@ function ReservarPageContent({
                       >
                         {/* Image Container with Hover zoom */}
                         <div className="w-24 h-20 sm:w-28 sm:h-22 rounded-lg overflow-hidden shrink-0 border border-[var(--border-strong)] relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- catalog images may be user-uploaded URLs from unconfigured hosts; <img> avoids next/image host allowlist failures */}
                           <img
                             src={serviceImage}
                             alt={s.name}
@@ -1119,6 +1116,7 @@ function ReservarPageContent({
                       }}
                       className={`group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all ${isActive ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border-strong)] bg-[var(--bg-surface)] hover:border-[var(--accent-border)]"}`}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- catalog images may be user-uploaded URLs from unconfigured hosts; <img> avoids next/image host allowlist failures */}
                       <img
                         src={getBarberImage(b.full_name)}
                         alt={b.full_name}

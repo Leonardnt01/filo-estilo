@@ -165,7 +165,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Top Control Bar inside Content Area */}
         <header 
           className="sticky top-0 z-30 border-b flex items-center justify-between px-6 py-4 backdrop-blur-md"
-          style={{ borderColor: "var(--border)", background: "rgba(11, 11, 16, 0.72)" }}
+          style={{ borderColor: "var(--border)", background: "var(--nav-bg-scroll)" }}
         >
           {/* Hamburger toggle button & current view title */}
           <div className="flex items-center gap-4">

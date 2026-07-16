@@ -88,8 +88,6 @@ export async function POST() {
 
         while (addMinutes(cursor, service.duration_minutes) <= end) {
           if (!busySet.has(cursor)) {
-            const endTime = addMinutes(cursor, service.duration_minutes);
-
             const { data: inserted, error: insertError } = await supabase
               .from("appointments")
               .insert({

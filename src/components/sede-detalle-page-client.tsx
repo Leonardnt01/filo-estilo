@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
 import { Footer } from "@/components/footer";
-import { BARBER_FALLBACK_IMAGE, SERVICE_FALLBACK_IMAGE, resolveBarberImage, resolveServiceImage } from "@/lib/catalog-images";
+import { SERVICE_FALLBACK_IMAGE, resolveBarberImage, resolveServiceImage } from "@/lib/catalog-images";
 
 type Branch = {
   id: string;
@@ -33,24 +33,21 @@ export default function SedeDetallePageClient({
   initialBarbers,
   footerBranchContact,
 }: {
-  branch: Branch | null;
+  branch: Branch;
   initialServices: Service[];
   initialBarbers: Barber[];
   footerBranchContact?: FooterBranchContact | null;
 }) {
   const services = initialServices;
   const barbers = initialBarbers;
-  const loading = false;
 
   const googleMapsLink = useMemo(() => {
-    if (!branch) return "#";
     if (branch.maps_url?.trim()) return branch.maps_url;
     const query = encodeURIComponent(branch.address || `${branch.name} Lima Perú`);
     return `https://www.google.com/maps/search/?api=1&query=${query}`;
   }, [branch]);
 
   const whatsappLink = useMemo(() => {
-    if (!branch) return "#";
     const digits = (branch.whatsapp || branch.phone || "51999999999").replace(/\D/g, "");
     const normalized = digits.startsWith("51") ? digits : `51${digits}`;
     const text = encodeURIComponent(`Hola, quiero reservar en ${branch.name}.`);
@@ -61,50 +58,7 @@ export default function SedeDetallePageClient({
     <>
       <main className="pt-28 pb-20">
         <div className="mx-auto max-w-7xl px-6">
-          {loading ? (
-            <>
-              <div className="mb-10 glass-card overflow-hidden">
-                <div className="h-56 w-full animate-pulse bg-[var(--bg-surface-hover)]" />
-                <div className="p-6 md:p-8 space-y-3">
-                  <div className="h-6 w-1/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
-                  <div className="h-4 w-2/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
-                  <div className="h-4 w-1/2 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
-                  <div className="h-10 w-48 animate-pulse rounded-full bg-[var(--bg-surface-hover)] mt-4" />
-                </div>
-              </div>
-
-              <section className="mb-10">
-                <div className="h-7 w-40 animate-pulse rounded bg-[var(--bg-surface-hover)] mb-4" />
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {Array.from({ length: 3 }).map((_, idx) => (
-                    <div key={idx} className="glass-card p-5 space-y-3">
-                      <div className="h-5 w-2/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
-                      <div className="h-4 w-full animate-pulse rounded bg-[var(--bg-surface-hover)]" />
-                      <div className="h-3 w-1/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <div className="h-7 w-40 animate-pulse rounded bg-[var(--bg-surface-hover)] mb-4" />
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {Array.from({ length: 3 }).map((_, idx) => (
-                    <div key={idx} className="glass-card p-5 space-y-3">
-                      <div className="h-5 w-2/3 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
-                      <div className="h-4 w-1/2 animate-pulse rounded bg-[var(--bg-surface-hover)]" />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </>
-          ) : !branch ? (
-            <div className="glass-card p-8 text-center">
-              <h1 className="text-2xl font-bold">Sede no encontrada</h1>
-              <Link href="/sedes" className="mt-4 inline-block text-[var(--accent)] font-semibold">Volver a sedes</Link>
-            </div>
-          ) : (
-            <>
+          <>
               <div className="mb-6">
                 <Link
                   href="/sedes"
@@ -290,8 +244,7 @@ export default function SedeDetallePageClient({
                   })}
                 </div>
               </section>
-            </>
-          )}
+          </>
         </div>
       </main>
       <Footer initialBranchContact={footerBranchContact ?? null} />

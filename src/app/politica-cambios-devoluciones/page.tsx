@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { LegalPageLayout } from "@/components/legal-page-layout";
 import { getPublicHomeData } from "@/lib/public-home";
+
+export const metadata: Metadata = {
+  title: "Política de Cambios y Devoluciones",
+  description: "Conoce cómo gestionamos reprogramaciones, anulaciones y devoluciones de tus reservas.",
+};
 
 export default async function PoliticaCambiosDevolucionesPage() {
   const homeData = await getPublicHomeData();

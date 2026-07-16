@@ -28,7 +28,10 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Filo Estilo | Barbería Premium",
+  title: {
+    default: "Filo Estilo | Barbería Premium",
+    template: "%s | Filo Estilo",
+  },
   description:
     "Tu barbería de confianza. Cortes profesionales, atención personalizada y reservas online.",
 };
@@ -43,7 +46,19 @@ export default function RootLayout({
       lang="es"
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Applies the saved theme to <html> before first paint so the correct
+            colors (light/dark) show immediately with no flash and no hydration
+            mismatch. Kept tiny and dependency-free on purpose. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('fe-theme');document.documentElement.setAttribute('data-theme',(t==='light'||t==='dark')?t:'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();",
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <AuthSessionProvider initialUser={null}>
           <ThemeProvider>

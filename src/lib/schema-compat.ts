@@ -17,60 +17,6 @@ type ModernProfileRow = {
   updated_at?: string | null;
 };
 
-type LegacyAppointmentRow = {
-  id: string;
-  profile_id?: string | null;
-  branch_id?: string | null;
-  barber_id?: string | null;
-  service_id?: string | null;
-  customer_name?: string | null;
-  customer_phone?: string | null;
-  appointment_date?: string | null;
-  appointment_time?: string | null;
-  status?: string | null;
-  attendance_status?: string | null;
-  attendance_confirmed_at?: string | null;
-  last_reminder_at?: string | null;
-  reminder_count?: number | null;
-  release_reason?: string | null;
-  notes?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  people?: number | null;
-  payment_method?: string | null;
-  payment_status?: string | null;
-  total_price?: number | null;
-  barber?: unknown;
-  service?: unknown;
-  branch?: unknown;
-};
-
-type ModernAppointmentRow = {
-  id: string;
-  client_id?: string | null;
-  branch_id?: string | null;
-  barber_id?: string | null;
-  service_id?: string | null;
-  customer_name?: string | null;
-  customer_phone?: string | null;
-  customer_email?: string | null;
-  appointment_date?: string | null;
-  start_time?: string | null;
-  end_time?: string | null;
-  status?: string | null;
-  attendance_status?: string | null;
-  attendance_confirmed_at?: string | null;
-  last_reminder_at?: string | null;
-  reminder_count?: number | null;
-  release_reason?: string | null;
-  notes?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  barber?: unknown;
-  service?: unknown;
-  branch?: unknown;
-};
-
 export function buildFullName(
   profile: LegacyProfileRow | ModernProfileRow | null | undefined,
   fallback = "Usuario sin nombre",

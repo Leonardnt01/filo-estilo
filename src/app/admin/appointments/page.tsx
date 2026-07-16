@@ -26,6 +26,7 @@ import {
   FaXmark,
 } from "react-icons/fa6";
 import { useToast } from "@/components/toast";
+import { useConfirm } from "@/components/confirm-modal";
 import { AdminAppointmentsSkeleton, AdminHeaderSkeleton } from "@/components/admin-skeletons";
 import { fetchCachedJson, invalidateCacheByPrefix } from "@/lib/cache/admin-client-cache";
 
@@ -74,7 +75,6 @@ type AdminAppointmentsPreferences = {
 
 const ADMIN_APPOINTMENTS_PREFERENCES_KEY = "admin.appointments.preferences";
 
-const STATUSES: Appointment["status"][] = ["pending", "confirmed", "in_progress", "completed", "cancelled", "no_show"];
 const STATUS_CONFIG_SIMPLE: Record<Appointment["status"], { label: string }> = {
   pending: { label: "Pendiente" },
   confirmed: { label: "Confirmada" },
@@ -364,6 +364,7 @@ function loadAdminAppointmentsPreferences(): Partial<AdminAppointmentsPreference
 
 export default function AdminAppointmentsPage() {
   const { toast } = useToast();
+  const { confirm } = useConfirm();
   const storedPreferences = useMemo(() => loadAdminAppointmentsPreferences(), []);
   const [items, setItems] = useState<Appointment[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -450,6 +451,7 @@ export default function AdminAppointmentsPage() {
       void loadOptions();
       void load();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: refetch only when the selected branch changes
   }, [branchFilter]);
 
   useEffect(() => {
@@ -529,6 +531,16 @@ export default function AdminAppointmentsPage() {
   }
 
   async function changeStatus(id: string, status: Appointment["status"]) {
+    if (status === "cancelled") {
+      const ok = await confirm({
+        title: "Cancelar cita",
+        message: "¿Seguro que deseas cancelar esta cita? El cliente quedará notificado y el horario volverá a estar disponible. Esta acción no se puede deshacer.",
+        confirmText: "Sí, cancelar cita",
+        cancelText: "Volver",
+        variant: "danger",
+      });
+      if (!ok) return;
+    }
     setSavingId(id);
     const res = await fetch(`/api/admin/appointments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     setSavingId(null);

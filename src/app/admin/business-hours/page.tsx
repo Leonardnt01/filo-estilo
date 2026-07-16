@@ -69,6 +69,10 @@ export default function AdminBusinessHoursPage() {
 
   async function createHour(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (form.end_time <= form.start_time) {
+      toast("La hora de fin debe ser posterior a la hora de inicio", "error");
+      return;
+    }
     const res = await fetch("/api/admin/business-hours", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ branch_id: branchId, barber_id: form.barber_id, day_of_week: Number(form.day_of_week), start_time: form.start_time, end_time: form.end_time }),

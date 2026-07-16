@@ -1,7 +1,27 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import SedeDetallePageClient from "@/components/sede-detalle-page-client";
 import { getPublicCatalogData } from "@/lib/public-catalog";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const catalog = await getPublicCatalogData();
+  const branch = (catalog.branches ?? []).find((item) => item.slug === slug) ?? null;
+
+  if (!branch) {
+    return { title: "Sede no encontrada" };
+  }
+
+  return {
+    title: branch.name,
+    description: `Servicios, barberos y contacto de la sede ${branch.name} de Filo Estilo.`,
+  };
+}
 
 export default async function SedeDetallePage({
   params,

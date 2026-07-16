@@ -18,10 +18,10 @@ export default function HomePageInteractive({
 }: {
   initialData: HomePageData;
 }) {
-  const branches = initialData.branches ?? [];
-  const services = initialData.services ?? [];
-  const featuredServices = initialData.featured_services ?? [];
-  const testimonials = initialData.testimonials ?? [];
+  const branches = useMemo(() => initialData.branches ?? [], [initialData]);
+  const services = useMemo(() => initialData.services ?? [], [initialData]);
+  const featuredServices = useMemo(() => initialData.featured_services ?? [], [initialData]);
+  const testimonials = useMemo(() => initialData.testimonials ?? [], [initialData]);
   const homeSettings = initialData.site_settings?.public_home ?? {};
   const footerSettings = initialData.site_settings?.public_footer ?? {};
 
