@@ -12,6 +12,7 @@ import {
 import { getAuthContext } from "@/lib/auth/session";
 import { normalizeAppointmentForClient } from "@/lib/schema-compat";
 import { createClient } from "@/lib/supabase/server";
+import { offerReleasedSlotToWaitlist, releasedSlotFromAppointment } from "@/lib/waitlist-offers";
 
 const cancelSchema = z.object({
   action: z.literal("cancel"),
@@ -197,6 +198,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // The declined slot is now free: offer it to the waitlist (best-effort).
+    const releasedSlot = releasedSlotFromAppointment(data as unknown as Record<string, unknown>);
+    if (releasedSlot) {
+      await offerReleasedSlotToWaitlist(releasedSlot);
+    }
+
     return NextResponse.json({ ok: true, item: normalizeAppointmentForClient(data as unknown as Record<string, unknown>) });
   }
 
@@ -221,6 +228,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // The cancelled slot is now free: offer it to the waitlist (best-effort).
+    const releasedSlot = releasedSlotFromAppointment(data as unknown as Record<string, unknown>);
+    if (releasedSlot) {
+      await offerReleasedSlotToWaitlist(releasedSlot);
     }
 
     return NextResponse.json({ ok: true, item: normalizeAppointmentForClient(data as unknown as Record<string, unknown>) });
