@@ -1,42 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
-    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="FILO ESTILO - Estres Sostenido (parametrizado)" enabled="true">
-      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="Variables" enabled="true">
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="FILO ESTILO - Estres Sostenido (parametrizado)">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="Variables">
         <collectionProp name="Arguments.arguments">
           <elementProp name="PROTOCOL" elementType="Argument">
             <stringProp name="Argument.name">PROTOCOL</stringProp>
             <stringProp name="Argument.value">${__P(protocol,http)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="HOST" elementType="Argument">
             <stringProp name="Argument.name">HOST</stringProp>
-            <stringProp name="Argument.value">${__P(host,localhost)}</stringProp>
+            <stringProp name="Argument.value">167.99.232.250</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="PORT" elementType="Argument">
             <stringProp name="Argument.name">PORT</stringProp>
-            <stringProp name="Argument.value">${__P(port,3000)}</stringProp>
+            <stringProp name="Argument.value">80</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="BRANCH_ID" elementType="Argument">
             <stringProp name="Argument.name">BRANCH_ID</stringProp>
             <stringProp name="Argument.value">82335cb8-711d-4001-86d0-82d7d88adc03</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="BARBER_ID" elementType="Argument">
             <stringProp name="Argument.name">BARBER_ID</stringProp>
             <stringProp name="Argument.value">29f204f7-7922-4e81-8579-df7d4dc0928c</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="SERVICE_ID" elementType="Argument">
             <stringProp name="Argument.name">SERVICE_ID</stringProp>
             <stringProp name="Argument.value">d8356693-2ea4-486c-bcff-48f16c29f791</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="APPOINTMENT_DATE" elementType="Argument">
             <stringProp name="Argument.name">APPOINTMENT_DATE</stringProp>
             <stringProp name="Argument.value">${__P(date,2026-07-25)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
         </collectionProp>
       </elementProp>
-      <stringProp name="TestPlan.user_define_classpath"></stringProp>
-      <boolProp name="TestPlan.functional_mode">false</boolProp>
-      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
     </TestPlan>
     <hashTree>
       <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="HTTP Cookie Manager">
@@ -58,7 +62,7 @@
         </collectionProp>
       </HeaderManager>
       <hashTree/>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Carga Sostenida" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Carga Sostenida">
         <stringProp name="ThreadGroup.num_threads">${__P(users,50)}</stringProp>
         <stringProp name="ThreadGroup.ramp_time">${__P(ramp,120)}</stringProp>
         <stringProp name="ThreadGroup.duration">${__P(duration,1200)}</stringProp>
@@ -88,7 +92,7 @@
           </elementProp>
         </HTTPSamplerProxy>
         <hashTree/>
-        <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Think Time 1-3s">
+        <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Think Time 1-3s" enabled="true">
           <stringProp name="ConstantTimer.delay">1000</stringProp>
           <stringProp name="RandomTimer.range">2000</stringProp>
         </UniformRandomTimer>
@@ -139,7 +143,7 @@
         </UniformRandomTimer>
         <hashTree/>
       </hashTree>
-      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Resumen">
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Resumen" enabled="true">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
         <objProp>
           <name>saveConfig</name>
